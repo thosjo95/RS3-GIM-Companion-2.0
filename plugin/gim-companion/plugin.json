@@ -1,0 +1,10 @@
+{
+    "name": "GIM Companion",
+    "version": "0.1.0-dev",
+    "contactEmailAddress": "CHANGE-ME@example.com",
+    "requiredDependencies": {},
+    "optionalDependencies": {},
+    "requiredPermissions": [ "httpAccess" ],
+    "optionalPermissions": [],
+    "urls": { "gim": "http://localhost:3001" }
+}

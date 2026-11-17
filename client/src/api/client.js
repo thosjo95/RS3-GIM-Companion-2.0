@@ -94,6 +94,12 @@ export const api = {
   // Boss kills (activity-feed based)
   getBossKills: (groupId) => request(`/boss-kills?group_id=${groupId}`),
 
+  // GIM 2.0 — data pushed by the in-game plugin
+  getPluginState:    (groupId)          => request(`/plugin/state?group_id=${groupId}`),
+  getPluginLedger:   (groupId, limit = 300) => request(`/plugin/ledger?group_id=${groupId}&limit=${limit}`),
+  createPluginToken: (playerId)         => request('/plugin/tokens', { method: 'POST', body: { player_id: playerId } }),
+  revokePluginToken: (playerId)         => request(`/plugin/tokens/${playerId}`, { method: 'DELETE' }),
+
   // "Firsts" leaderboard — manual overrides
   getManualFirsts:   (groupId)        => request(`/firsts?group_id=${groupId}`),
   setManualFirst:    (groupId, key, body) => request(`/firsts/${groupId}/${encodeURIComponent(key)}`, { method: 'PUT', body }),

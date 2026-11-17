@@ -20,3 +20,7 @@ npm-debug.log*
 # OS
 .DS_Store
 Thumbs.db
+
+# Plugin dev
+plugin/gim-companion/config.lua
+plugin/node_modules/

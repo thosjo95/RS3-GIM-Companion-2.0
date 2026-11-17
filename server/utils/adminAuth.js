@@ -11,7 +11,7 @@ const path   = require('path');
 const fs     = require('fs');
 
 // ── JWT secret (persisted to disk so tokens survive server restarts) ──────────
-const SECRET_PATH = path.join(__dirname, '../data/jwt_secret.bin');
+const SECRET_PATH = path.join(process.env.GIM_DATA_DIR || path.join(__dirname, '../data'), 'jwt_secret.bin');
 let JWT_SECRET;
 try {
   JWT_SECRET = fs.readFileSync(SECRET_PATH);

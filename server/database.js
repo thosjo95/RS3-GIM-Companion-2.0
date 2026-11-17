@@ -3,8 +3,9 @@ const { DatabaseSync } = require('node:sqlite');
 const path = require('path');
 const fs = require('fs');
 
-const dataDir = path.join(__dirname, 'data');
-if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir);
+// GIM_DATA_DIR lets tests (and a second dev instance) use an isolated database.
+const dataDir = process.env.GIM_DATA_DIR || path.join(__dirname, 'data');
+if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
 const db = new DatabaseSync(path.join(dataDir, 'gim.db'));
 
@@ -214,6 +215,51 @@ db.exec(`
     FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
   );
   CREATE INDEX IF NOT EXISTS idx_player_skill_milestones_player ON player_skill_milestones(player_id);
+`);
+
+// ── GIM 2.0: data pushed by the in-game RS3 plugin ────────────────────────────
+// plugin_tokens   — per-player ingest tokens (only the SHA-256 hash is stored). A token can
+//                   submit data for ONE player and nothing else, so it is far less powerful than
+//                   the group secret the plugin would otherwise have to hold.
+// player_live_state — latest snapshot per player (each section replaced when the plugin sends it)
+// storage_ledger  — deposits (+) / withdrawals (-) of group storage or the player's own bank
+db.exec(`
+  CREATE TABLE IF NOT EXISTS plugin_tokens (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    player_id    INTEGER NOT NULL,
+    token_hash   TEXT    NOT NULL UNIQUE,
+    created_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
+    last_used_at DATETIME,
+    revoked      INTEGER NOT NULL DEFAULT 0,
+    FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
+  );
+  CREATE INDEX IF NOT EXISTS idx_plugin_tokens_player ON plugin_tokens(player_id);
+
+  CREATE TABLE IF NOT EXISTS player_live_state (
+    player_id      INTEGER PRIMARY KEY,
+    updated_at     DATETIME NOT NULL,
+    world          INTEGER,
+    position_json  TEXT,
+    skills_json    TEXT,
+    inventory_json TEXT,
+    equipment_json TEXT,
+    bank_json      TEXT,
+    FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS storage_ledger (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    player_id   INTEGER NOT NULL,
+    store       TEXT    NOT NULL,
+    item_id     INTEGER NOT NULL,
+    item_name   TEXT,
+    delta       INTEGER NOT NULL,
+    value_each  INTEGER,
+    occurred_at DATETIME NOT NULL,
+    UNIQUE(player_id, store, item_id, occurred_at, delta),
+    FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
+  );
+  CREATE INDEX IF NOT EXISTS idx_storage_ledger_player ON storage_ledger(player_id, occurred_at DESC);
 `);
 
 // ── RS3 reference tables ──────────────────────────────────────────────────────

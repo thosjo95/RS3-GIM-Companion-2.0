@@ -32,6 +32,7 @@ function CustomGroupBanner({ groupId }) {
 import VaultTab from './VaultTab';
 import OverviewTab from './OverviewTab';
 import LeaderboardsTab from './LeaderboardsTab';
+import ItemsTab from './ItemsTab';
 import AchievementsTab from './AchievementsTab';
 import GoalsTab from './GoalsTab';
 import TourOverlay from './TourOverlay';
@@ -141,6 +142,7 @@ export default function Dashboard({ group, goals, pendingRequests, onRefresh, on
     { id: 'vault',         label: '🏆 Group Vault',         tour: 'tab-vault' },
     { id: 'achievements',  label: '📋 Area Tasks', tour: 'tab-achievements' },
     { id: 'leaderboards',  label: '🏅 Leaderboards',        tour: 'tab-leaderboards' },
+    { id: 'items',         label: '🎒 Items' },
   ];
 
   // Auto-trigger per-tab tour on first visit
@@ -247,6 +249,11 @@ export default function Dashboard({ group, goals, pendingRequests, onRefresh, on
           canWrite={canWrite}
           onToast={onToast}
         />
+      )}
+
+      {/* ITEMS TAB (GIM 2.0 — fed by the in-game plugin) */}
+      {activeTab === 'items' && (
+        <ItemsTab players={players} groupId={groupId} canWrite={canWrite} onToast={onToast} />
       )}
 
       {/* LEADERBOARDS TAB */}

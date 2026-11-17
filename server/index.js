@@ -29,10 +29,10 @@ app.use((req, res, next) => {
   next();
 });
 
-// Small body limit everywhere except the snapshot upload (base64 PNG), which
-// installs its own larger parser on that one route.
+// Small body limit everywhere except the snapshot upload (base64 PNG) and the plugin
+// ingest (a full bank can be large), which install their own larger parsers.
 const smallJson = express.json({ limit: '100kb' });
-app.use((req, res, next) => (req.path.endsWith('/share-snapshot') ? next() : smallJson(req, res, next)));
+app.use((req, res, next) => (/\/(share-snapshot|plugin\/ingest)$/.test(req.path) ? next() : smallJson(req, res, next)));
 
 const { createRateLimiter } = require('./utils/rateLimit');
 
@@ -50,6 +50,7 @@ app.use('/api/group-notes',  require('./routes/groupNotes'));
 app.use('/api/equipment',    require('./routes/equipment'));
 app.use('/api/firsts',            require('./routes/firsts'));
 app.use('/api/skill-milestones',  require('./routes/skillMilestones'));
+app.use('/api/plugin',            require('./routes/plugin'));
 app.use('/api/rs3',          require('./routes/rs3data'));
 app.use('/api/admin',        require('./routes/admin'));
 

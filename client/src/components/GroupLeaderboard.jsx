@@ -150,7 +150,7 @@ export default function GroupLeaderboard({ players, groupId, canWrite, onToast }
   const [comps, setComps] = useState([]);
   const [bosses, setBosses] = useState([]);
   const [modal, setModal] = useState(null);                 // null | {} (new) | competition (edit)
-  const [collapsed, setCollapsed] = useState(() => { try { return localStorage.getItem('gim_leaderboard_collapsed') === '1'; } catch { return false; } });
+  const [collapsed, setCollapsed] = useState(() => { try { return localStorage.getItem('gim_leaderboard_collapsed') !== '0'; } catch { return true; } });
   const toggleCollapsed = () => setCollapsed(v => { try { localStorage.setItem('gim_leaderboard_collapsed', v ? '0' : '1'); } catch { /* not saved */ } return !v; });
   const colorOf = id => MEMBER_COLORS[Math.max(0, players.findIndex(p => p.id === id)) % MEMBER_COLORS.length];
 

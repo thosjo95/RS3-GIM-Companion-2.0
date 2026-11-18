@@ -27,7 +27,7 @@ if not okSettings or type(settings) ~= "table" or type(settings.token) ~= "strin
     return
 end
 
-if not Plugin.HasPermission(PluginPermissions.httpAccess) then
+if settings.dryRun ~= true and not Plugin.HasPermission(PluginPermissions.httpAccess) then
     log("[GIM] httpAccess permission not granted - the plugin cannot send data. Plugin idle.")
     log("[GIM] Fix: run   ppe gim-companion httpAccess   then   prl gim-companion")
     return

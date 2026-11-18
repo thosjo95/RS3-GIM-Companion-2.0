@@ -65,10 +65,33 @@ Copy the backups off the server now and then (for example `scp`), so a lost serv
 
 `sudo -u gim bash /opt/gim2/deploy/deploy-gim2.sh` (pulls `main`, backs up the database, rebuilds the dashboard, reloads the process).
 
+## Server switches (beta and launch)
+
+Per-server switches live in `/var/lib/gim2/extra-env.json` (read by `ecosystem.gim2.config.js`, so a deploy never overwrites them):
+
+```json
+{"GIM_PREVIEW":"1","GIM_PREVIEW_COPIED":"18 November 2026","GIM_DEMO":"1"}
+```
+
+| Key | Effect |
+|---|---|
+| `GIM_PREVIEW` / `GIM_PREVIEW_COPIED` | Beta only: shows the "Preview" banner and a trial note in the claim window. |
+| `GIM_DEMO` | Builds and feeds the demo group "Misthalin Five (Demo)" (read-only, made up). Remove at launch to take it away. |
+| `GIM_PLUGIN_LIVE` | Launch day: removes the "waiting for Jagex's approval" note. |
+
+After editing the file restart with the new environment: `sudo -u gim pm2 delete gim2 && sudo -u gim pm2 start /opt/gim2/deploy/ecosystem.gim2.config.js && sudo -u gim pm2 save`.
+
+## Putting a copy of the 1.x database on beta (preview)
+
+On your PC (full paths, any folder): copy the 1.x database to a scratch folder as `gim.db`, then
+`GIM_DATA_DIR=<folder> node server/scripts/migrate1x.js --assume-1x --drop-loadouts --apply` (it removes orphan rows, cleans names, flags every group
+that has a 1.x secret; run it without `--apply` first for a report). `scp` the file to the server, stop the app, take a backup
+(`backup.js`), put the file at `/var/lib/gim2/gim.db` (owner `gim`, mode 600), start the deploy script and restart as above. Delete every loose copy afterwards
+(it is player data): `shred -u` on the server, delete the scratch folder on your PC.
+
 ## The move from 1.x (after approval, not earlier)
 
-1. Copy the 1.x database to the new server (`scp`) and rehearse on a copy: start the server against it with a separate
-   `GIM_DATA_DIR`, check the migrations, clean names with non-breaking spaces and duplicate members.
+1. Rehearsed on 2026-11-18 (see the section above and `server/scripts/migrate1x.js`). For the real thing repeat it on a fresh copy.
 2. At the cut-over: stop 1.x, take a final copy of its database, put it into `/var/lib/gim2`, start 2.0.
 3. Point `groupiron.com` and `www` at the new server (add them to the nginx file and run certbot for them).
    Keep `api.groupiron.com` exactly as it is. Remove `beta.groupiron.com`.

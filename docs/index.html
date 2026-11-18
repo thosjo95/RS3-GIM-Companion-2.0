@@ -359,10 +359,26 @@
       See <a href="#tab-overview">Overview</a>.
     </p>
 
-    <h3>Manage group</h3>
+    <h3>Members, group settings and Discord in the Plugin window</h3>
     <p>
-      Adding a character by hand, correcting a name and removing a member moved off the player cards into one
-      <strong>Manage group</strong> window (the <strong>+</strong> button in the top bar). See <a href="#topbar">Top bar</a>.
+      The <strong>Plugin</strong> window is the group's control room. <strong>Members</strong> lets you add a character by hand, correct a name and
+      remove a member (this replaces the old <strong>+</strong> button). <strong>Group settings</strong> lets the group decide what shows: the smallest
+      drop, the smallest Live XP drop, the smallest Bank Journal entry, how many kills before a boss appears in the boss log, which clue tiers
+      appear, how long someone counts as online, and whether the group is hidden from Find groups. The <strong>Discord notifications</strong> form
+      is in there too. The two notes at the top can be folded away.
+    </p>
+
+    <h3>A live demo group</h3>
+    <p>
+      <strong>Misthalin Five (Demo)</strong> is a made-up group, in everyone's list while 2.0 is in preview. It is read-only and moves by itself:
+      XP drops, a changing backpack, bosses and clues, players coming and going. Use it to see what a group looks like with the plugin connected.
+    </p>
+
+    <h3>Moving from groupiron.com</h3>
+    <p>
+      Groups from the old site come over with their history. Each group claims itself once on the new version: enter the <strong>old secret</strong>
+      in the Plugin window and you get a <strong>new secret</strong> for the website and the plugin; the old one stops working. Groups without a
+      secret are claimed as before. Until the plugin is approved, claim and save the secret now and type it into the plugin on launch day.
     </p>
 
     <h3>Group Vault, Bank Journal and the group storage</h3>
@@ -455,11 +471,9 @@ node server/scripts/devDemo.js     # a smaller demo group with fake players and 
     <ul>
       <li><strong>Group name</strong> with the group type badge, member count, total XP and the group's rank on the official
         Group Ironman hiscores (the rank links to the group there). This used to be a heading on every page.</li>
-      <li><strong>+</strong> (unlocked groups) opens <strong>Manage group</strong>: add a character by hand (this is how you build a
-        custom group), correct a character name, or remove a member. Removing asks for confirmation and deletes that player's data.</li>
       <li><strong>Plugin</strong> is the one place for the group secret. For a group nobody has claimed, it claims the group and creates the
         secret (also reached through <strong>Claim group</strong>); the claimer must save it and share it with the group. For a claimed group it
-        shows how to connect, the secret (hidden until you press Show, with Copy), every member's connection status and <strong>Disconnect</strong>.</li>
+        shows how to connect, the secret (hidden until you press Show, with Copy), every member's connection status and <strong>Disconnect</strong>, then the <strong>Members</strong> (add a character by hand, correct a name, remove a member), the <strong>Group settings</strong> and the <strong>Discord notifications</strong> form. A group that came over from groupiron.com first asks for its old secret once.</li>
       <li><strong>?</strong> starts the tour. It opens by itself the first time a browser opens a group and begins with
         <em>New group</em> or <em>Existing group</em>; its setup steps have buttons that open the claim, unlock and Plugin windows.</li>
       <li><strong>Group notes</strong>, <strong>Discord notifications</strong>, <strong>?</strong> tour, <strong>Docs</strong>, <strong>Discord</strong>, <strong>Sync All</strong> as in 1.x.</li>
@@ -707,11 +721,20 @@ pon gim-companion                     # enable it</code></pre></li>
       <tr><td><code>POST /tokens</code></td><td>group</td><td>Create a key for a player by hand (tests and developers; disables the previous ones).</td></tr>
       <tr><td><code>DELETE /tokens/:playerId</code></td><td>group</td><td>Disconnect a player's plugin (all of its keys).</td></tr>
       <tr><td><code>POST /ingest</code></td><td>Bearer</td><td>The plugin's data (below). 1 MB, 60 requests/min.</td></tr>
-      <tr><td><code>GET /config</code></td><td>Bearer</td><td>Drop rules for the plugin.</td></tr>
+      <tr><td><code>GET /config</code></td><td>Bearer</td><td>Drop rules for the plugin (the group's own minimum drop value).</td></tr>
       <tr><td><code>GET /state</code></td><td>group</td><td>Live state per player (skills, items, bank, group storage, position).</td></tr>
       <tr><td><code>GET /ledger</code></td><td>group</td><td>The Bank Journal.</td></tr>
       <tr><td><code>GET /quests</code> · <code>/achievements</code> · <code>/boss-kills</code> · <code>/kills</code> · <code>/kill-vars</code></td><td>group</td><td>Stored plugin data.</td></tr>
     </table>
+    <h4>Group endpoints used by the dashboard</h4>
+    <table>
+      <tr><th>Endpoint</th><th>Auth</th><th>Purpose</th></tr>
+      <tr><td><code>GET /api/config</code></td><td>none</td><td>Preview and plugin-live switches for the dashboard.</td></tr>
+      <tr><td><code>POST /api/groups/:id/claim-v2</code></td><td>old secret in the body</td><td>A group from 1.x claims itself once and gets a new secret. 10 attempts/min.</td></tr>
+      <tr><td><code>PUT /api/groups/:id/settings</code></td><td>group</td><td>The group's settings (Live XP minimum, Bank Journal minimum, boss minimum kills, clue tiers, online minutes, unlisted).</td></tr>
+      <tr><td><code>PUT /api/groups/:id/drop-min</code></td><td>group</td><td>The smallest drop (total gp) the group shows.</td></tr>
+    </table>
+    <p>The demo group answers every read without a secret and refuses every write with <code>403</code> (<code>demo: true</code>).</p>
     <h4>The ingest payload</h4>
     <p>Every section is optional and independently validated; a bad section rejects the request with a message the plugin author can act on.</p>
 <pre><code>{ "v": 1, "rsn": "Your Name",
@@ -741,6 +764,7 @@ pon gim-companion                     # enable it</code></pre></li>
       <tr><td><code>drops</code> (extended)</td><td>Plugin drops carry a unique <code>sig</code> and source.</td></tr>
       <tr><td><code>xp_drops</code></td><td>XP gained per skill between two plugin updates (live XP), kept 7 days.</td></tr>
       <tr><td><code>progress_log</code></td><td>The boss log and the clue log: one row per rise of a count.</td></tr>
+      <tr><td><code>groups</code> (extended)</td><td><code>claimed_v2_at</code> and <code>needs_rekey</code> (adoption of 2.0), <code>is_demo</code>, <code>drop_min_value</code> and <code>settings_json</code> (the group's own settings).</td></tr>
       <tr><td><code>achievements</code> (1.x)</td><td>The area task grid; filled from the plugin as well as the Adventurer's Log and by hand.</td></tr>
     </table>
     <p>The 1.x tables (players, goals, skills, snapshots, gear, firsts, …) are unchanged.</p>
@@ -789,6 +813,10 @@ npm run build --prefix client</code></pre>
     <h3>2.0.0-dev · November 2026</h3>
     <h4>Latest</h4>
     <ul>
+      <li>Plugin window: Members (add, rename, remove), Group settings (drop, Live XP, Bank Journal, boss log, clue tiers, online time, hide from Find groups) and the Discord webhook form. The top-bar <strong>+</strong> is gone.</li>
+      <li>Groups from groupiron.com claim themselves once with the old secret and get a new one; the admin list shows who has come over.</li>
+      <li>A live, read-only demo group, and a Preview banner on the beta site.</li>
+      <li>Admin portal cleaned up for the new server (the old review queue, audit log and wiki scan are gone).</li>
       <li>Live XP drops on the player cards and a Live XP tile.</li>
       <li>Boss log with drops, clue log, clues completed as a leaderboard board and competition metric.</li>
       <li>Backpack slot by slot as in the game, noted items, money pouch with K/M/B amounts.</li>
@@ -826,7 +854,7 @@ npm run build --prefix client</code></pre>
       <li>Leaderboards: a Slayer Kills tab (creatures matched to the game's counters so far).</li>
       <li>Select several player cards to compare just those players.</li>
       <li>Drops, Goals and Leaderboard tiles open as floating panels; the Leaderboard tile counts running competitions.</li>
-      <li>Manage group window (+ in the top bar) for adding, renaming and removing members; the roster updates itself nightly.</li>
+      <li>Members in the Plugin window (add, rename, remove); the roster updates itself nightly.</li>
       <li>Player cards show who is online, and the magnifying glass opens backpack, worn equipment and skills.</li>
       <li>Connect the plugin with the group secret in a window in the game; no tokens to copy.</li>
       <li>Items refresh by themselves every few seconds.</li>

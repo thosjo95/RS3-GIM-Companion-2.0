@@ -29,7 +29,7 @@ Co-Authored-By line the harness asks for.
 ```bash
 npm run install:all            # once
 npm run dev                    # API :3001 + UI :5173
-npm test --prefix server       # server tests (node:test), currently 32
+npm test --prefix server       # server tests (node:test), currently 62
 npm test --prefix plugin       # plugin against the mocked game API
 cd client && npx vite build    # must build cleanly before every commit
 node server/scripts/devDemo.js # demo group with fake data (dev database only)
@@ -72,58 +72,46 @@ device, not per character (keys include the character name).
 **Done and pushed:** server API with plugin ingest and keys; joining with the group secret; listing image; docs updated; live XP drops (`xp_drops`, Live XP tile, drops floating over the cards); boss log with drops and clue log (`progress_log`, services/progressLog.js); clues as a leaderboard/competition metric; backpack slot by slot, noted items (`note_of`), money pouch (`money_pouch`, K/M/B display); claiming moved into the Plugin window (ClaimModal removed; "Claim group" opens PluginSetupModal); tour opens once per group and per browser and starts with New/Existing group; gallery screenshots in `plugin/submission/gallery/` made from the fictional group of `node server/scripts/devShowcase.js` (secret SHOW-CASE-2026); dashboard (player cards with inspect panel for
 backpack/equipment/skills, online indicator, Drops chest, Leaderboard and Goals tiles as floating panels, Group Stats grid,
 Group Vault with banks and group storage and Bank Journal, Goals with auto-tracking and recommendations, Quests and Tasks with
-the Journey, Leaderboards incl. Slayer Kills, group leaderboard and competitions, Manage group, top bar rearrangement, new
+the Journey, Leaderboards incl. Slayer Kills, group leaderboard and competitions, members in the Plugin window, top bar rearrangement, new
 activity feed, tour rewritten, Discord notifications with honest test); scale work (hourly hiscores sync for active groups
 with back-off, slim `/plugin/state`, gzip, partial heartbeat writes, cached leaderboards, snapshot thinning); plugin cleaned
 for release (probes removed, debug off, manifest 1.0.0, `https://api.groupiron.com`, contact rs3groupiron@pm.me); privacy
 notice (`docs/privacy.html`); mod.io listing text; deploy files for a fresh server.
 
-**Where things stand (handover, 2026-11-18 evening):**
-- GitHub `main` has everything. The release zip `plugin/dist/gim-companion-100.zip` (git-ignored, uploaded to mod.io by hand)
-  matches `plugin/gim-companion/` exactly; rebuild it (`plugin\build-release.ps1`) after ANY plugin change. The beta client's
-  dev copy is installed (`plugin\install-dev.ps1`, points at localhost:3001).
-- Live server (Hetzner, 2.29.193.18, beta.groupiron.com / api.groupiron.com): running, but one deploy behind `main` (it lacks the
-  admin "New Group Secret" and the Unlock window help). The owner deploys: `sudo -u gim bash /opt/gim2/deploy/deploy-gim2.sh`.
-  No admin login exists there yet: `cd /opt/gim2/server && sudo -u gim env GIM_DATA_DIR=/var/lib/gim2 node scripts/setAdminPassword.js`.
-- Real game test (2026-11-18, character Degree C, local dev server): joining with the group secret, sending, kills, drops,
-  money pouch (inventory 623), backpack slots and noted items all work. Dev plugins lose their permissions on a client
-  restart and the Plugin Hub cannot tick HTTP Access for them ("That permission could not be changed"): use `pon`, `ppr`,
-  `ppe gim-companion httpAccess` in the console. For mod.io installs the Hub shows a permissions screen with an HTTP Access
-  checkbox (optional, unticked by default); the plugin now waits and starts by itself once it is allowed (untested for a
-  real mod.io install until approval).
-- Owner decisions today: ONE group secret (OSRS style) used for the website and typed into the plugin; claiming happens in the
-  Plugin window; the tour asks New/Existing group; demo data must be clearly labelled "Demo"; existing 1.x groups must keep
-  their history and secret when they open the new site.
+**Where things stand (end of session, 2026-11-18 night):**
+- GitHub `main` has everything (last commit of the session: the demo backpack fix). The release zip `plugin/dist/gim-companion-100.zip`
+  (git-ignored, uploaded to mod.io by hand) matches `plugin/gim-companion/`; NO plugin file changed this session. Rebuild it
+  (`plugin\build-release.ps1`) after ANY plugin change.
+- Beta (Hetzner, 2.29.193.18, beta.groupiron.com / api.groupiron.com) runs the migrated COPY of the 1.x database (299 groups,
+  copied 18 Nov 2026) with the Preview banner and the live demo group. Server switches are in `/var/lib/gim2/extra-env.json`
+  (`GIM_PREVIEW`, `GIM_PREVIEW_COPIED`, `GIM_DEMO`; later `GIM_PLUGIN_LIVE`). The owner deploys:
+  `sudo -u gim bash /opt/gim2/deploy/deploy-gim2.sh` (a restart after changing extra-env.json: `pm2 delete gim2` then `pm2 start deploy/ecosystem.gim2.config.js`).
+  The owner's 1.x announcement popup (old repo, `main`, 577a25f) is pushed; deploying it to groupiron.com is the owner's step.
+- Real game test (2026-11-18, character Degree C, local dev server): join with the group secret, sending, kills, drops, money pouch,
+  backpack slots and noted items all work. Dev plugins lose their permissions on a client restart: use `pon`, `ppr`,
+  `ppe gim-companion httpAccess` in the console. The mod.io permission screen is untested until approval.
+- Owner decisions: ONE group secret (OSRS style) for website and plugin; claiming happens in the Plugin window; every 1.x group gets a NEW
+  secret on 2.0 (old secret once, `claimed_v2_at` tracks adoption); demo data clearly labelled "Demo"; the Plugin window holds the members
+  (add, rename, remove), the group settings and the Discord webhook.
+- Not verified by a human on beta yet: the claim-v2 window with a REAL old secret (only simulated hashes were tested), the group settings
+  window, Members section, and the demo group after the last rebuild.
 
 **Open, in this order:**
-1. **Migration rehearsal.** The owner made a consistent snapshot of the 1.x production database on the old server
-   (root@178.104.126.158, Hetzner nbg1; app in /var/www/RS3-GIM-Companion, database server/data/gim.db) at /root/gim-1x-copy.db.
-   DOWNLOADED 2026-11-18 to server/data/gim-1x-copy.db (385 MB, git-ignored). The owner should still delete /root/gim-1x-copy.db on the old server. Then rehearse on a COPY with `GIM_DATA_DIR` (never the dev database):
-   2.0 must start on it and upgrade it; every group opens; old secrets unlock (legacy SHA-256 rows are upgraded on first
-   unlock); history shows; clean names with non-breaking spaces and duplicate members. Delete the copy afterwards (player data).
-2. **Beta as a labelled preview** (agreed in principle, not built): copy of the 1.x database as beta's database, a banner
-   "Preview: a copy of your groupiron.com data from <date>; keep using groupiron.com until launch; changes here are not kept",
-   new groups claim on groupiron.com (the secret carries over). At launch a fresh copy replaces beta's data.
-3. **Live demo group on beta** (agreed, not built): "Misthalin Five" labelled Demo (name and banner), readable by everyone
-   without the secret but read-only (needs a demo flag: reads without auth, all writes and plugin joins refused), left out of
-   the hiscores sync and the 30-day cleanup, and a feeder in the server (switched on by a setting) that every ~30 s brings
-   members online, XP drops, backpack changes, and now and then a boss kill, drop, clue or activity line.
-   `server/scripts/devShowcase.js` already creates the group (refuses NODE_ENV=production: the demo variant must be allowed there).
-4. **Pre-launch note** in the Plugin window (not built): "The GIM Companion plugin is waiting for Jagex's approval. Claim your
-   group and save the secret now; you'll type it into the plugin on launch day."
-5. The owner must read through `main.lua` before submitting (AI policy); offer a section-by-section walkthrough. It changed
-   today (join window, permission wait, money pouch, slots, notes).
-6. Submit on mod.io (steps and picture list in `plugin/submission/listing.md`); do not change files while Jagex has a freeze on.
-7. The 1.x announcement popup change (old repo, local `main`, commit `275b135`, worktree `../GIM-1x-announce`) promotes
-   https://beta.groupiron.com. Not pushed, not deployed: the owner decides when.
-8. Optional: more slayer creature counters, a cross-group "RuneScape 3 GIM" hiscore page, casket rewards in the clue log
-   (needs a plugin change, so a later version).
+1. **Retention decision.** The 30-day cleanup cron fails on a foreign key (players.group_id has no cascade), so stale groups are never
+   deleted although the privacy notice and listing say 30 days. Fix the cron (delete players first, like the admin tool) or change the wording.
+2. The owner must read through `main.lua` before submitting (AI policy); offer a section-by-section walkthrough.
+3. Submit on mod.io (steps and picture list in `plugin/submission/listing.md`); do not change files while Jagex has a freeze on.
+4. After approval: final migration (`migrate1x.js --assume-1x --drop-loadouts --apply` on a fresh copy), point groupiron.com at the new server
+   (api.groupiron.com NEVER changes), set `GIM_PLUGIN_LIVE=1`, drop `GIM_PREVIEW`, check the real mod.io permission screen, change the listing
+   link from beta.groupiron.com to groupiron.com. The 1.x announcement text already says groupiron.com will switch by itself.
+5. Optional: more slayer creature counters, a cross-group "RuneScape 3 GIM" hiscore page, casket rewards in the clue log (needs a plugin change),
+   delete the loose 1.x copies (`/root/gim-1x-copy.db` on the old server, `server/data/gim-1x-copy.db`, `C:\gim-beta`) when no longer needed.
 
 **Done 2026-11-18 (after the handover):** admin portal cleaned for the new server (review queue, audit log and wiki scan removed: 0 submissions ever; reseed and table browser kept because goals/recommendations read the rs3_* tables; `server/test/admin.test.js`). Preview mode: server env `GIM_PREVIEW=1` + `GIM_PREVIEW_COPIED` show a floating "Preview" banner and a trial note in the claim window; `GIM_PLUGIN_LIVE=1` (launch day) removes the "waiting for Jagex's approval" note (step 4 of Open). Env lines are in `deploy/ecosystem.gim2.config.js` (commented out). NOT yet done: loading the 1.x copy on beta (owner step, below) and the Demo group.
 
 **Demo group (built 2026-11-18, step 4):** "Misthalin Five (Demo)", `groups.is_demo = 1`. `services/demoGroup.js` builds it from `services/demoTemplate.json` (game definitions exported from a real character with `scripts/exportDemoTemplate.js`) and a feeder changes something every 30 s (XP drops, backpack, boss kills, drops, clues, activity lines; 3 members always online). Server switch: `"GIM_DEMO":"1"` in `/var/lib/gim2/extra-env.json`; the server then builds the group itself if missing. Read-only for everyone: `checkGroupAuth` lets GETs through and refuses everything else with 403 `demo:true`; no claim, no plugin join, skipped by the hiscores sync, the 2-hour cron, the three public sync endpoints and the cleanup. `scripts/devShowcase.js` now only builds it in the dev database (no secret any more). Tests: `server/test/demo.test.js`. Client: demo banner, no Unlock/Plugin/Sync buttons. Also: the global 401 handler no longer opens the Unlock window for plain reads (guests browsing someone else's group), only for write attempts.
 
-**Group settings (2026-11-18):** Plugin window > Group settings (shown once the group is claimed, unlocked and a member is connected). `groups.drop_min_value` (smallest drop, utils/dropRules.js) and `groups.settings_json` (utils/groupSettings.js: Live XP minimum, Bank Journal minimum, boss minimum kills, clue tiers, online minutes, unlisted) via `PUT /api/groups/:id/settings` (secret needed). Applied on the server when reading (plugin.js xp-drops, ledger, progress-log, presence; groups.js search and list). `GET /api/groups?ids=` keeps unlisted groups visible to browsers that saved them. Tests: dropmin.test.js, settings.test.js. No plugin change.
+**Group settings (2026-11-18):** Plugin window > Group settings (shown for every claimed, unlocked group; the Members section with add player / edit name / remove sits above it, and the Discord webhook form is inside it; the old "+" button and Manage group window are gone). `groups.drop_min_value` (smallest drop, utils/dropRules.js) and `groups.settings_json` (utils/groupSettings.js: Live XP minimum, Bank Journal minimum, boss minimum kills, clue tiers, online minutes, unlisted) via `PUT /api/groups/:id/settings` (secret needed). Applied on the server when reading (plugin.js xp-drops, ledger, progress-log, presence; groups.js search and list). `GET /api/groups?ids=` keeps unlisted groups visible to browsers that saved them. Tests: dropmin.test.js, settings.test.js. No plugin change.
 
 **Putting the 1.x copy on beta (owner runs this on the new server):** copy the 1.x database to a scratch folder, `GIM_DATA_DIR=<scratch> node server/scripts/migrate1x.js --assume-1x --drop-loadouts --apply`, stop PM2, replace `/var/lib/gim2/gim.db` (keep a backup, and keep `jwt_secret.bin` and the admin user: re-run setAdminPassword.js), create /var/lib/gim2/extra-env.json with the GIM_PREVIEW settings (see ecosystem.gim2.config.js), `pm2 restart gim2 --update-env`. Note beta's current database (plugin tests, Degree C) is then replaced.
 
@@ -147,8 +135,7 @@ manifest). 2.0 has never been run against a real 1.x database.
   tool "New Group Secret" (that also sets `claimed_v2_at`).
 - Claim window text for migrated groups: "Your group came over from groupiron.com with all its history. Enter your old
   secret once; you get a new one for the new version and the plugin."
-- Until the group is claimed on 2.0, the old secret should still unlock the website for viewing? Owner to decide; default:
-  no, the old secret is only accepted by the one-time claim step.
+- Until the group is claimed on 2.0 the old secret unlocks nothing: it is only accepted by the one-time claim step (built, tested).
 
 ## Working with the owner
 

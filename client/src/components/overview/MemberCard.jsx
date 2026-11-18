@@ -20,7 +20,7 @@ export default function MemberCard({ player, active, color, onClick, isMe, onEdi
   return (
     <div onClick={onClick} style={{
       cursor: 'pointer', width: 140, position: 'relative',
-      padding: '14px 16px',
+      padding: active && onRemove ? '14px 16px 24px' : '14px 16px',
       background: active ? 'var(--bg-panel)' : 'var(--bg-panel-alt)',
       border: `2px solid ${borderColor}`,
       borderRadius: 'var(--radius-lg)',
@@ -59,8 +59,15 @@ export default function MemberCard({ player, active, color, onClick, isMe, onEdi
           </span>
         )}
       </div>
-      <div style={{ fontWeight: 700, fontSize: 13, color: active ? color : 'var(--text-bright)', marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>
-        {player.rsn}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, marginBottom: 3, maxWidth: '100%' }}>
+        <span style={{ fontWeight: 700, fontSize: 13, color: active ? color : 'var(--text-bright)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
+          {player.rsn}
+        </span>
+        {/* edit: next to the name, shown when the card is selected (or has a sync error); needs an unlocked group. Hiscores sync by themselves. */}
+        {(hasSyncError || active) && canWrite && onEditRsn && (
+          <button title="Edit RSN" onClick={e => { e.stopPropagation(); onEditRsn(player); }}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: hasSyncError ? 'var(--red-bright)' : 'var(--text-dim)', padding: '0 2px', lineHeight: 1, flexShrink: 0 }}>✎</button>
+        )}
       </div>
       {overall
         ? <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, marginTop: 1, flexWrap: 'wrap' }}>
@@ -114,44 +121,10 @@ export default function MemberCard({ player, active, color, onClick, isMe, onEdi
         }}><RsIcon name="search" fallback="🔍" size={18} /></button>
       )}
 
-      {/* Sync + Edit RSN buttons — visible when active or on sync error */}
-      {(hasSyncError || active) && (
-        <div style={{ position: 'absolute', bottom: 6, right: 6, display: 'flex', gap: 2 }}>
-          {onSync && (
-            <button
-              title="Sync hiscores"
-              onClick={handleSync}
-              disabled={syncing}
-              style={{
-                background: 'none', border: 'none', cursor: syncing ? 'default' : 'pointer',
-                fontSize: 13, color: hasSyncError ? 'var(--red-bright)' : 'var(--text-dim)',
-                padding: '2px 4px', borderRadius: 4, lineHeight: 1,
-                opacity: syncing ? 0.5 : 1,
-              }}>
-              {syncing ? <span className="spinner" style={{ width: 11, height: 11, display: 'inline-block' }} /> : '↻'}
-            </button>
-          )}
-          {canWrite && onEditRsn && (
-            <button
-              title="Edit RSN"
-              onClick={e => { e.stopPropagation(); onEditRsn(player); }}
-              style={{
-                background: 'none', border: 'none', cursor: 'pointer',
-                fontSize: 13, color: hasSyncError ? 'var(--red-bright)' : 'var(--text-dim)',
-                padding: '2px 4px', borderRadius: 4, lineHeight: 1,
-              }}>✎</button>
-          )}
-          {onRemove && (
-            <button
-              title={`Remove ${player.rsn} from group`}
-              onClick={e => { e.stopPropagation(); onRemove(player); }}
-              style={{
-                background: 'none', border: 'none', cursor: 'pointer',
-                fontSize: 13, color: 'var(--red-bright)',
-                padding: '2px 4px', borderRadius: 4, lineHeight: 1,
-              }}>✕</button>
-          )}
-        </div>
+      {/* Remove: bottom right, only on the selected card and only for an unlocked group */}
+      {active && onRemove && (
+        <button title={`Remove ${player.rsn} from group`} onClick={e => { e.stopPropagation(); onRemove(player); }}
+          style={{ position: 'absolute', bottom: 5, right: 7, background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--red-bright)', padding: '2px 4px', borderRadius: 4, lineHeight: 1 }}>✕</button>
       )}
     </div>
   );

@@ -52,6 +52,13 @@ function cleanPayload(b) {
   if (b.v !== 1) throw new Error('Unsupported payload version (expected "v": 1)');
   const out = {};
 
+  // The character the plugin is running on. Checked against the token's player in /ingest so a token can
+  // never be used to store another character's data (e.g. when a member logs into an alt).
+  if (b.rsn !== undefined) {
+    if (typeof b.rsn !== 'string' || b.rsn.length < 1 || b.rsn.length > 40) throw new Error('rsn must be a string of 1-40 characters');
+    out.rsn = b.rsn;
+  }
+
   if (b.world !== undefined) {
     if (!isInt(b.world, 1, 5000)) throw new Error('world must be an integer');
     out.world = b.world;
@@ -135,6 +142,14 @@ router.post('/ingest', ingestLimiter, express.json({ limit: '1mb' }), (req, res)
   catch (err) { return res.status(400).json({ error: err.message }); }
 
   const playerId = row.player_id;
+  if (data.rsn !== undefined) {
+    // RuneScape treats spaces, underscores and non-breaking spaces as the same character in a name.
+    const norm = (s) => String(s).toLowerCase().replace(/[\s_ -]+/g, ' ').trim();
+    const owner = db.prepare('SELECT rsn FROM players WHERE id = ?').get(playerId);
+    if (!owner || norm(owner.rsn) !== norm(data.rsn)) {
+      return res.status(409).json({ error: 'character_mismatch', message: 'This token belongs to a different character.' });
+    }
+  }
   const now = new Date().toISOString();
   const prev = db.prepare('SELECT * FROM player_live_state WHERE player_id = ?').get(playerId) || {};
   const j = (fresh, old) => (fresh !== undefined ? JSON.stringify(fresh) : (old ?? null));

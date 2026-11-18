@@ -1,198 +1,282 @@
--- GIM Companion — sends YOUR OWN character's skills, backpack, bank and position to your group's
--- dashboard (the "GIM 2.0" web app). It never sends anything about other players and never sends
--- actions back into the game.
+-- GIM Companion — sends YOUR OWN character's skills, backpack, worn items, bank, group storage and position
+-- to your group's dashboard (the "GIM 2.0" web app).
 --
--- STATUS: first draft written from the public API docs, NOT yet run in the game. Everything that the
--- documentation does not spell out is wrapped in pcall and reported with log() so the first test in the
--- beta client tells us exactly what to fix. Search for "TODO(beta)" for those spots.
+-- What it does NOT do: it never reads or sends anything about other players, and it never sends actions
+-- back into the game. It only reads. Data goes only to the address in plugin.json "urls".
+--
+-- How it works (one idea per section below):
+--   1. Settings   - read the personal token from config.lua
+--   2. Reading    - skills, inventories, position (API names taken from working plugins + the public docs)
+--   3. Changes    - work out what moved in/out of the bank and group storage
+--   4. Sending    - one JSON POST, retried until the server confirms (nothing is lost on a failed request)
+--   5. Scheduling - events mark data "dirty"; a slow tick sends it, a heartbeat keeps the dashboard live
 
 local json = require("json")
 
--- NB: `config` is the game API's global (config.Inv, config.Obj...), so our own settings use another name.
+-- ── 1. Settings ───────────────────────────────────────────────────────────────
+-- NB: `config` is the game API's own global (config.Obj ...), so our settings use another name.
 local okSettings, settings = pcall(require, "config")
 if not okSettings or type(settings) ~= "table" or type(settings.token) ~= "string" or not settings.token:find("^gimp_") then
-    log("[GIM] config.lua missing or invalid — copy config.example.lua to config.lua and paste your token. Plugin idle.")
+    log("[GIM] config.lua missing or invalid - copy config.example.lua to config.lua and paste your token. Plugin idle.")
     return
 end
 
 if not Plugin.HasPermission(PluginPermissions.httpAccess) then
-    log("[GIM] httpAccess permission not granted — the plugin cannot send data. Plugin idle.")
+    log("[GIM] httpAccess permission not granted - the plugin cannot send data. Plugin idle.")
     return
 end
 
-local PAYLOAD_VERSION     = 1
-local TICKS_PER_CHECK     = 50      -- ServerLogic fires about every 0.6 s, so ~30 s
-local dirty               = { skills = true, inventory = true }
-local ticks               = 0
-local inFlight            = false
-local bankCounts          = nil     -- last known bank contents (id -> count), used to detect deposits/withdrawals
-local pendingChanges      = {}      -- storage_changes waiting to be sent
+local PAYLOAD_VERSION  = 1
+local HEARTBEAT_TICKS  = 50   -- ServerLogic fires about every 0.6 s, so about 30 s
+local SETTLE_TICKS     = 3    -- wait this long after an inventory event so one bank action = one message
+local MIN_GAP_TICKS    = 5    -- never send more often than this (the server allows 60 per minute)
+local MAX_BANK_ITEMS   = 6000 -- the server's limit; larger banks are cut rather than rejected
 
--- ── Skills ────────────────────────────────────────────────────────────────────
--- Server skill name -> possible SkillType member names. The docs say SkillType runs ATTACK(0)..NECROMANCY(28)
--- but do not list the member names, so a few spellings are tried. Missing ones are logged once.
-local SKILL_NAMES = {
-    Attack        = { "ATTACK" },        Defence       = { "DEFENCE" },       Strength      = { "STRENGTH" },
-    Constitution  = { "CONSTITUTION", "HITPOINTS" },                            Ranged        = { "RANGED" },
-    Prayer        = { "PRAYER" },        Magic         = { "MAGIC" },         Cooking       = { "COOKING" },
-    Woodcutting   = { "WOODCUTTING" },   Fletching     = { "FLETCHING" },     Fishing       = { "FISHING" },
-    Firemaking    = { "FIREMAKING" },    Crafting      = { "CRAFTING" },      Smithing      = { "SMITHING" },
-    Mining        = { "MINING" },        Herblore      = { "HERBLORE" },      Agility       = { "AGILITY" },
-    Thieving      = { "THIEVING" },      Slayer        = { "SLAYER" },        Farming       = { "FARMING" },
-    Runecrafting  = { "RUNECRAFTING", "RUNECRAFT" },                            Hunter        = { "HUNTER" },
-    Construction  = { "CONSTRUCTION" },  Summoning     = { "SUMMONING" },     Dungeoneering = { "DUNGEONEERING" },
-    Divination    = { "DIVINATION" },    Invention     = { "INVENTION" },     Archaeology   = { "ARCHAEOLOGY" },
-    Necromancy    = { "NECROMANCY" },
+-- ── 2. Reading the game ───────────────────────────────────────────────────────
+-- Dashboard skill name -> SkillType member.
+local SKILLS = {
+    Attack = SkillType.ATTACK,             Defence = SkillType.DEFENCE,         Strength = SkillType.STRENGTH,
+    Constitution = SkillType.HITPOINTS,    Ranged = SkillType.RANGED,           Prayer = SkillType.PRAYER,
+    Magic = SkillType.MAGIC,               Cooking = SkillType.COOKING,         Woodcutting = SkillType.WOODCUTTING,
+    Fletching = SkillType.FLETCHING,       Fishing = SkillType.FISHING,         Firemaking = SkillType.FIREMAKING,
+    Crafting = SkillType.CRAFTING,         Smithing = SkillType.SMITHING,       Mining = SkillType.MINING,
+    Herblore = SkillType.HERBLORE,         Agility = SkillType.AGILITY,         Thieving = SkillType.THIEVING,
+    Slayer = SkillType.SLAYER,             Farming = SkillType.FARMING,         Runecrafting = SkillType.RUNECRAFTING,
+    Hunter = SkillType.HUNTER,             Construction = SkillType.CONSTRUCTION, Summoning = SkillType.SUMMONING,
+    Dungeoneering = SkillType.DUNGEONEERING, Divination = SkillType.DIVINATION, Invention = SkillType.INVENTION,
+    Archaeology = SkillType.ARCHAEOLOGY,   Necromancy = SkillType.NECROMANCY,
 }
-local skillTypes, warnedSkills = {}, {}
-for name, candidates in pairs(SKILL_NAMES) do
-    for _, c in ipairs(candidates) do
-        local okT, member = pcall(function() return SkillType[c] end)
-        if okT and member ~= nil then skillTypes[name] = member; break end
-    end
-    if skillTypes[name] == nil then log("[GIM] TODO(beta): no SkillType member found for", name, "— tried", table.concat(candidates, ", ")) end
-end
 
 local function readSkills()
     local out, any = {}, false
-    for name, st in pairs(skillTypes) do
-        local okX, xp = pcall(Player.GetXPUncapped, st)
-        local okL, level = pcall(Player.GetLevelUncapped, st)
-        if okX and okL and xp and level then
-            out[name] = { xp = math.floor(xp), level = math.floor(level) }
+    for name, skill in pairs(SKILLS) do
+        local okX, xp = pcall(Player.GetXPUncapped, skill)
+        local okL, level = pcall(Player.GetLevelGameplay, skill)
+        if okX and okL and type(xp) == "number" and type(level) == "number" then
+            out[name] = { xp = math.max(0, math.floor(xp)), level = math.max(1, math.floor(level)) }
             any = true
-        elseif not warnedSkills[name] then
-            warnedSkills[name] = true
-            log("[GIM] TODO(beta): could not read", name, "-", tostring(xp), tostring(level))
         end
     end
     return any and out or nil
 end
 
--- ── Inventories ───────────────────────────────────────────────────────────────
--- Returns a list of { id, name, count, value } merged per item id, or nil if the inventory isn't available
--- (e.g. the bank while its interface is closed — the docs say inventories can disappear).
-local function readInv(invType)
-    if invType == nil then return nil end
-    local okFind, inv = pcall(Inventory.Find, invType)
-    if not okFind or inv == nil or not inv.isValid then return nil end
-    local okSlots, slots = pcall(inv.GetSlots, inv)
-    if not okSlots or slots == nil then return nil end
-
-    local byId, order = {}, {}
-    for _, slot in pairs(slots) do
-        local obj = slot.obj
-        if obj ~= nil and slot.count ~= nil and slot.count > 0 then
-            local entry = byId[obj.id]
-            if entry == nil then
-                entry = { id = obj.id, name = obj.name, count = 0, value = obj.cost }
-                byId[obj.id] = entry
-                order[#order + 1] = entry
-            end
-            entry.count = entry.count + slot.count
-        end
+-- Item names and values come from the game's item definitions, cached because they never change.
+local objInfo = {}
+local function describeObj(objId)
+    local cached = objInfo[objId]
+    if cached then return cached end
+    local info = { name = "Item " .. tostring(objId), value = 0 }
+    local okObj, proxy = pcall(function() return config.Obj.FromID(objId) end)
+    if okObj and proxy ~= nil then
+        local okName, name = pcall(function() return proxy.name end)
+        local okCost, cost = pcall(function() return proxy.cost end)
+        if okName and type(name) == "string" and name ~= "" then info.name = name end
+        if okCost and type(cost) == "number" then info.value = math.max(0, math.floor(cost)) end
     end
-    return order
+    objInfo[objId] = info
+    return info
 end
 
--- InvType names are only partly documented (BANK is, via config.Inv["BANK"]). Equipment and group storage
--- names are not, so we probe candidates once and log which exist.
-local function probeInvType(label, candidates)
-    for _, name in ipairs(candidates) do
-        local okC, t = pcall(function() return config.Inv[name] end)
-        if okC and t ~= nil then
-            log("[GIM] found InvType for", label, "=", name)
-            return t
+-- Is a game window (bank, group storage ...) currently open? A closed window means its inventory is
+-- not reliable, so we never treat "empty" as "everything was withdrawn".
+local function isOpen(interfaceId)
+    local ok, panel = pcall(function() return ui.Interfaces:GetInterface(interfaceId) end)
+    return ok and panel ~= nil
+end
+
+-- One inventory as a list of { id, name, count, value }, merged per item id. nil = not available right now.
+local function readInv(invId, maxItems)
+    local okFind, inv = pcall(Inventory.Find, invId)
+    if not okFind or inv == nil then return nil end
+    local okValid, valid = pcall(function() return inv.isValid end)
+    if not okValid or valid ~= true then return nil end
+    local okSlots, slots = pcall(function() return inv:GetSlots() end)
+    if not okSlots or slots == nil then return nil end
+
+    local byId, list = {}, {}
+    for _, slot in ipairs(slots) do
+        local okObj, obj = pcall(function() return slot.obj end)
+        local objId = okObj and obj ~= nil and obj.id or 0
+        local count = slot.count
+        if type(objId) == "number" and objId > 0 and type(count) == "number" and count > 0 then
+            local entry = byId[objId]
+            if entry == nil then
+                local info = describeObj(objId)
+                entry = { id = objId, name = info.name, count = 0, value = info.value }
+                byId[objId] = entry
+                list[#list + 1] = entry
+            end
+            entry.count = entry.count + math.floor(count)
         end
     end
-    log("[GIM] TODO(beta):", label, "InvType not found — tried", table.concat(candidates, ", "))
+    if maxItems and #list > maxItems then
+        for i = #list, maxItems + 1, -1 do list[i] = nil end
+    end
+    return list
+end
+
+-- Where the character stands: world coordinates x/y plus the plane (floor) as z.
+local function readPosition()
+    local okE, entity = pcall(Player.GetEntity)
+    if not okE or entity == nil then return nil end
+    local okG, grid = pcall(function() return entity.coordGrid end)
+    if not okG or grid == nil then return nil end
+    local ok, pos = pcall(function()
+        return {
+            x = grid.mapSquareX * 64 + grid.localX,
+            y = grid.mapSquareZ * 64 + grid.localZ,
+            z = grid.level,
+        }
+    end)
+    return ok and pos or nil
+end
+
+local function characterName()
+    local okE, entity = pcall(Player.GetEntity)
+    if not okE or entity == nil then return nil end
+    local okN, name = pcall(function() return entity.displayName end)
+    if okN and type(name) == "string" and name ~= "" then return name end
     return nil
 end
 
-local INV_BACKPACK  = probeInvType("backpack",  { "INV" })
-local INV_BANK      = probeInvType("bank",      { "BANK" })
-local INV_EQUIPMENT = probeInvType("equipment", { "WORN", "WORN_ITEMS", "EQUIPMENT" })
--- TODO(beta): group ironman storage — name unknown. Once found, treat it like the bank below with store = "group".
+-- ── 3. Changes in the bank and group storage ──────────────────────────────────
+-- The dashboard ledger records deposits/withdrawals. For each store we remember the totals the server has
+-- ALREADY ACCEPTED ("held"); a change is only counted as delivered once a send succeeds, so a failed
+-- request simply tries again with nothing lost.
+local STORES = {
+    { key = "bank",  field = "bank", window = id.Interface.BANK,                    inv = id.Inv.BANK,                          held = nil },
+    { key = "group", field = nil,    window = id.Interface.GROUP_IRONMAN_STORAGE,   inv = id.Inv.GROUP_IRONMAN_STORAGE_CLAN_TEMP, held = nil },
+}
 
--- ── Position ──────────────────────────────────────────────────────────────────
-local function readPosition()
-    local okE, entity = pcall(Player.GetEntity)
-    if not okE or entity == nil or not entity.isValid then return nil end
-    local cg = entity.coordGrid
-    -- TODO(beta): CoordGrid fields are undocumented on the pages I read; try the likely ones.
-    local x, y, z
-    pcall(function() x, y, z = cg.x, cg.y, cg.z end)
-    if x == nil then pcall(function() x, y, z = cg.x, cg.level or 0, cg.z end) end
-    if x == nil then return nil end
-    return { x = math.floor(x), y = math.floor(y or 0), z = math.floor(z or 0) }
+local function totals(list)
+    local t = {}
+    for _, it in ipairs(list) do t[it.id] = it end
+    return t
 end
 
--- ── Deposits / withdrawals (own bank) ─────────────────────────────────────────
-local function diffBank(items)
-    local counts = {}
-    for _, it in ipairs(items) do counts[it.id] = it end
-    if bankCounts ~= nil then
-        for id, it in pairs(counts) do
-            local before = bankCounts[id] and bankCounts[id].count or 0
-            if it.count ~= before then
-                pendingChanges[#pendingChanges + 1] = { store = "bank", id = id, name = it.name, delta = it.count - before, value = it.value }
-            end
-        end
-        for id, old in pairs(bankCounts) do
-            if counts[id] == nil then
-                pendingChanges[#pendingChanges + 1] = { store = "bank", id = id, name = old.name, delta = -old.count, value = old.value }
-            end
+local function nowIso()
+    -- Only a well-formed UTC stamp is used; otherwise nil and the server stamps the change on arrival.
+    local ok, stamp = pcall(os.date, "!%Y-%m-%dT%H:%M:%SZ")
+    if ok and type(stamp) == "string" and stamp:find("^%d%d%d%d%-%d%d%-%d%dT%d%d:%d%d:%d%dZ$") then return stamp end
+    return nil
+end
+
+-- Changes between what the server holds and what we see now.
+local function diff(store, now)
+    local before, changes = store.held, {}
+    if before == nil then return changes end   -- first look = baseline, not a deposit of everything
+    local ts = nowIso()
+    for itemId, it in pairs(now) do
+        local was = before[itemId] and before[itemId].count or 0
+        if it.count ~= was then
+            changes[#changes + 1] = { store = store.key, id = itemId, name = it.name, delta = it.count - was, value = it.value, ts = ts }
         end
     end
-    bankCounts = counts
-end
-
--- ── Sending ───────────────────────────────────────────────────────────────────
-local function onResponse(request)
-    inFlight = false
-    if request.successful and request.responseCode == 200 then
-        return
+    for itemId, old in pairs(before) do
+        if now[itemId] == nil then
+            changes[#changes + 1] = { store = store.key, id = itemId, name = old.name, delta = -old.count, value = old.value, ts = ts }
+        end
     end
-    log("[GIM] send failed — HTTP", tostring(request.responseCode), request.data or request.errorInfo or "")
-    -- Changes are re-queued by the next snapshot only if they were not delivered.
+    return changes
 end
 
-local function sendSnapshot()
-    if inFlight then return end
-    local payload = { v = PAYLOAD_VERSION }
+-- ── 4. Sending ────────────────────────────────────────────────────────────────
+local inFlight, stopped = false, false
+local lastSendTick = -MIN_GAP_TICKS
+local ticks = 0
+local dirty = { skills = true, items = true }
+local settle = 0
 
+local function send()
+    if inFlight or stopped then return end
+    local rsn = characterName()
+    if rsn == nil or not Player.IsAvailable() then return end   -- not in a world yet
+
+    local payload = { v = PAYLOAD_VERSION, rsn = rsn }
     if dirty.skills then payload.skills = readSkills() end
-    local backpack = readInv(INV_BACKPACK)
+
+    local backpack = readInv(id.Inv.INV, 100)
     if backpack then payload.inventory = backpack end
-    local equipment = readInv(INV_EQUIPMENT)
-    if equipment then payload.equipment = equipment end
-    local bank = readInv(INV_BANK)
-    if bank then payload.bank = bank; diffBank(bank) end
+    local worn = readInv(id.Inv.WORN, 30)
+    if worn then payload.equipment = worn end
+
     local pos = readPosition()
     if pos then payload.position = pos end
-    if #pendingChanges > 0 then payload.storage_changes = pendingChanges end
+
+    -- Bank and group storage: only look while their window is open (see isOpen).
+    local seen, changes = {}, {}
+    for _, store in ipairs(STORES) do
+        if isOpen(store.window) then
+            local list = readInv(store.inv, MAX_BANK_ITEMS)
+            if list then
+                local now = totals(list)
+                seen[store] = now
+                for _, c in ipairs(diff(store, now)) do changes[#changes + 1] = c end
+                if store.field then payload[store.field] = list end
+            end
+        end
+    end
+    if #changes > 0 then payload.storage_changes = changes end
 
     local okEnc, body = pcall(json.encode, payload)
-    if not okEnc then log("[GIM] could not encode payload:", tostring(body)); return end
+    if not okEnc then log("[GIM] could not encode payload: " .. tostring(body)); return end
 
-    local request = HTTPRequest.new(Plugin.urls.gim, "/api/plugin/ingest")
+    local okReq, request = pcall(HTTPRequest.new, Plugin.urls.gim, "/api/plugin/ingest")
+    if not okReq or request == nil then log("[GIM] could not create request: " .. tostring(request)); return end
     request:AddHeader("Authorization", "Bearer " .. settings.token)
     request:AddHeader("Content-Type", "application/json")
+
+    local sentSkills = payload.skills ~= nil
     inFlight = true
-    pendingChanges = {}   -- optimistic; a failed send loses at most one batch of ledger lines
-    dirty.skills, dirty.inventory = false, false
-    request:Post(body, onResponse)
+    lastSendTick = ticks
+
+    local function done()
+        inFlight = false
+        if request.successful and request.responseCode == 200 then
+            -- Delivered: the server now holds these totals, so they become the new baseline.
+            for store, now in pairs(seen) do store.held = now end
+            if sentSkills then dirty.skills = false end
+            dirty.items = false
+            return
+        end
+        local status = request.responseCode
+        if status == 401 or status == 409 then
+            -- Revoked token, or the token belongs to a different character. Retrying cannot help.
+            stopped = true
+            log("[GIM] the server rejected this token (HTTP " .. tostring(status) .. "). Check config.lua and that you are logged in as the right character. Sending stopped.")
+        else
+            log("[GIM] send failed (HTTP " .. tostring(status) .. ") " .. tostring(request.errorInfo or "") .. " - will retry")
+        end
+    end
+
+    request:Post(body, done, done)
 end
 
--- ── Wiring ────────────────────────────────────────────────────────────────────
+-- ── 5. Scheduling ─────────────────────────────────────────────────────────────
+local function markItemsDirty() dirty.items = true; settle = 0 end
+
 Event.SkillTransmit.Subscribe("gim_skill", function() dirty.skills = true end)
-Event.InventoryUpdated.Subscribe("gim_inv", function() dirty.inventory = true end)
+Event.InventoryUpdated.Subscribe("gim_inv_updated", markItemsDirty)
+Event.InventoryAdded.Subscribe("gim_inv_added", markItemsDirty)
+Event.InventoryRemoved.Subscribe("gim_inv_removed", markItemsDirty)
+
+-- A new login (or world hop) means the old baselines may be stale: forget them so the first bank view
+-- after logging in is treated as a fresh baseline and not as thousands of deposits.
+Event.GameStateChanged.Subscribe("gim_state", function(event)
+    if event.newState ~= GameState.GAME then
+        for _, store in ipairs(STORES) do store.held = nil end
+        dirty.skills, dirty.items = true, true
+    end
+end)
 
 Event.ServerLogic.Subscribe("gim_tick", function()
     ticks = ticks + 1
-    if ticks % TICKS_PER_CHECK ~= 0 then return end
-    if not Player.IsAvailable() then return end   -- not logged in to a world yet
-    sendSnapshot()
+    if dirty.items then settle = settle + 1 end
+    local sinceLast = ticks - lastSendTick
+    local itemsReady = dirty.items and settle >= SETTLE_TICKS
+    if (itemsReady and sinceLast >= MIN_GAP_TICKS) or sinceLast >= HEARTBEAT_TICKS then
+        send()
+    end
 end)
 
-log("[GIM] GIM Companion started. Sending to", Plugin.urls.gim, "about every 30 seconds.")
+log("[GIM] GIM Companion started. Sending to " .. tostring(Plugin.urls.gim) .. " - your own character only.")

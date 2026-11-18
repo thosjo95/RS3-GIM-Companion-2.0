@@ -4,9 +4,9 @@ A Lua plugin for the RuneScape 3 client that sends **your own character's** skil
 position to your group's dashboard. It never sends anything about other players and never sends actions
 back into the game.
 
-> **Status: first draft, not yet run in the game.** It is written only from the public API docs
-> (<https://developer.runescape.com/rs/>). Everything the docs don't spell out is wrapped in `pcall` and
-> logged, and marked `TODO(beta)` in `main.lua`. The first run in the beta client will tell us what to fix.
+> **Status: second draft, not yet run in the game.** The API names (skills, inventories, worn items, bank, group
+> storage, position, events, HTTP) now follow what working RS3 plugins use, so the first beta run should mostly
+> work. It reads only; every read is wrapped in `pcall` so one wrong name cannot crash the plugin.
 
 ## How the pieces fit
 
@@ -49,16 +49,14 @@ Official guide: <https://developer.runescape.com/rs/tutorial/1helloworld.html>
 The plugin talks to `http://localhost:3001` (see `urls` in `plugin.json`). Whether the client allows plain
 `http://localhost` is one of the open questions — if requests fail, the console says why.
 
-## Open questions the beta test must answer
+## Still to confirm in the beta client
 
 | Question | Where |
 |---|---|
-| Real `SkillType` member names (CONSTITUTION vs HITPOINTS, RUNECRAFTING vs RUNECRAFT…) | `SKILL_NAMES` |
-| `InvType` names for equipment and **group storage** (not in the docs I read) | `probeInvType` |
-| `CoordGrid` field names | `readPosition` |
-| Does the bank inventory exist only while the bank is open? (docs imply yes) | `readInv`, `diffBank` |
-| Is plain HTTP to localhost allowed? HTTPS required for production? | `plugin.json` `urls` |
-| Kill counts / drops: no event exists — needs `chatAccess` + chat parsing | not built yet |
+| Is plain HTTP to localhost allowed? (HTTPS is needed for the real site) | `plugin.json` urls |
+| Do the group-storage inventory and window names behave as expected? | `STORES` in `main.lua` |
+| `GetLevelGameplay` vs boosted level for the dashboard skill level | `readSkills` |
+| Not built yet: quests (`config.Quest`), kills (`Event.NPCEntityRemoved`), drops, HP/prayer | later, after approval |
 
 ## Submitting to mod.io later (checklist from the official guide)
 

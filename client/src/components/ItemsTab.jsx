@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '../api/client';
 import { MEMBER_COLORS, fmtNum } from '../lib/rs3';
-import { IconLabel } from './RsIcon';
+import RsIcon, { IconLabel } from './RsIcon';
 import { ItemIcon } from './GameIcon';
 
 // GIM 2.0 — live group items, the Bank Journal (group storage in/out) and plugin setup.
@@ -103,7 +103,7 @@ function ItemsView({ state, colorOf, selectedPlayerId }) {
   if (withData === 0) {
     return (
       <div className="empty-state">
-        <div className="icon">🎒</div>
+        <div className="icon"><RsIcon name="setup" fallback="🔌" size={56} /></div>
         <p>No plugin data yet.</p>
         <p style={{ fontSize: 12, color: 'var(--text-dim)' }}>Open <strong>Plugin setup</strong> to connect each member's in-game plugin.</p>
       </div>
@@ -241,7 +241,7 @@ function LedgerView({ ledger, colorOf, selectedPlayerId }) {
   if (ledger.length === 0) {
     return (
       <div className="empty-state">
-        <div className="icon">📒</div>
+        <div className="icon"><RsIcon name="journal" fallback="📒" size={56} /></div>
         <p>Nothing recorded in the Bank Journal yet.</p>
         <p style={{ fontSize: 12, color: 'var(--text-dim)' }}>Everything a member puts into or takes out of the group storage appears here, as long as their plugin is running.</p>
       </div>

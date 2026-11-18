@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { IconLabel } from '../RsIcon';
 import { api } from '../../api/client';
 import { normRsn } from '../../lib/rs3';
 import GoalModal from '../GoalModal';
@@ -44,15 +45,15 @@ export default function RightPanel({ goals, players, filteredPlayerId, groupId, 
   }
 
   async function vaultGoal(id) {
-    try { await api.updateGoal(id, { status: 'vaulted' }); onRefresh(); onToast('Moved to Vault! 🏆', 'success'); }
+    try { await api.updateGoal(id, { status: 'vaulted' }); onRefresh(); onToast('Moved to the Vault', 'success'); }
     catch (err) { onToast(err.message, 'error'); }
   }
 
   const hasActivity = players.some(p => p.activities_json);
 
   const viewBtns = [
-    { id: 'goals',    label: '🎯 Goals' },
-    ...(hasActivity ? [{ id: 'activity', label: '📋 Activity' }, { id: 'both', label: 'Both' }] : []),
+    { id: 'goals',    label: 'Goals', icon: 'goals', fallback: '🎯' },
+    ...(hasActivity ? [{ id: 'activity', label: 'Activity', icon: 'activeGoals', fallback: '📋' }, { id: 'both', label: 'Both' }] : []),
   ];
 
   function pillStyle(active) {
@@ -70,7 +71,7 @@ export default function RightPanel({ goals, players, filteredPlayerId, groupId, 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', gap: 2, background: 'var(--bg-panel-alt)', borderRadius: 'var(--radius)', padding: 3 }}>
           {viewBtns.map(v => (
-            <button key={v.id} onClick={() => setView(v.id)} style={pillStyle(view === v.id)}>{v.label}</button>
+            <button key={v.id} onClick={() => setView(v.id)} style={pillStyle(view === v.id)}>{v.icon ? <IconLabel name={v.icon} fallback={v.fallback} size={14} gap={5}>{v.label}</IconLabel> : v.label}</button>
           ))}
         </div>
         <div style={{ flex: 1 }} />

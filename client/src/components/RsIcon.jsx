@@ -20,6 +20,18 @@ export const RS_ICON = {
   achievements: 'RuneScore.png',
   // quests & area tasks page: the Group Ironman Journey panel
   journey:      'Group_Ironman_helm.png',
+  // goals and general markers
+  skills:       'Skills.png',
+  backpack:     'Backpack_icon.png',
+  wiki:         'Wiki.png',
+  player:       'Friends_List_icon.png',
+  group:        'Group_Ironman_helm.png',
+  fire:         'Fire_rune.png',
+  rawMaterial:  'Coal.png',
+  crafted:      'Hammer.png',
+  combat:       'Multicombat.png',
+  search:       'Magnifying_glass.png',
+  lamp:         'Lamp.png',
   // goals page
   browser:      'Compass.png',
   activeGoals:  'Task_icon.png',

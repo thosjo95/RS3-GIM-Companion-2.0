@@ -13,12 +13,12 @@
 GIM Companion 1.x tracks a RuneScape 3 Group Ironman team from the public hiscores and Adventurer's Log. **GIM 2.0 adds a
 plugin for the official RuneScape 3 client** that sends what the web APIs can't give you, from your own character:
 
-- 🎒 backpack, worn items, every member's bank and the **shared group storage**
-- 📒 a **Bank Journal** of everything put into or taken out of the group storage
-- 📜 live **quests**, **area tasks** and **achievements**, and the 🛡️ **Group Ironman Journey** tier by tier
-- ⚔️ **exact lifetime boss kills** straight from the game's own kill tracker
-- 🎁 valuable **drops**, logged once each
-- 👥 one **player filter**: pick a player card and every page follows
+- backpack, worn items, every member's bank and the **shared group storage**
+- a **Bank Journal** of everything put into or taken out of the group storage
+- live **quests**, **area tasks** and **achievements**, and the **Group Ironman Journey** tier by tier
+- **exact lifetime boss kills** straight from the game's own kill tracker
+- valuable **drops**, logged once each
+- one **player filter**: pick a player card and every page follows
 
 > **Status:** under development, not released. The live site (groupiron.com) still runs the 1.x line. The plugin runs in the
 > RuneScape **beta client** as a developer plugin and has not been submitted to mod.io yet.

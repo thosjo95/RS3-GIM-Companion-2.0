@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { api } from '../api/client';
 import GimTypeLabel from './common/GimTypeLabel';
 
 // The group's name, type, member count and rank, shown in the top bar (left side) instead of as a big heading on
@@ -6,6 +7,14 @@ import GimTypeLabel from './common/GimTypeLabel';
 export default function GroupHeaderInfo({ group }) {
   if (!group) return null;
   const type = group.gim_type ?? 'regular';
+  const [rank, setRank] = useState(null);   // position on Jagex's Group Ironman hiscores
+  useEffect(() => {
+    setRank(null);
+    if (!group.id || !['regular', 'competitive'].includes(type)) return;
+    let alive = true;
+    api.getGroupRank(group.id).then(r => { if (alive) setRank(r); }).catch(() => {});
+    return () => { alive = false; };
+  }, [group.id, type]);
   const members = group.players?.length || 0;
 
   let badge;
@@ -31,7 +40,8 @@ export default function GroupHeaderInfo({ group }) {
         </span>
         {group.group_rsn && group.group_rsn.toLowerCase() !== group.name.toLowerCase() && <span>{group.group_rsn}</span>}
         <span>{members} member{members === 1 ? '' : 's'}</span>
-        {group.group_total_xp > 0 && <span>· Rank: {group.group_total_xp.toLocaleString()} total XP</span>}
+        {rank?.rank && <span title={`Group Ironman hiscores · ${rank.total.toLocaleString()} groups`}>· Rank #{rank.rank.toLocaleString()}</span>}
+        {group.group_total_xp > 0 && <span>· {group.group_total_xp.toLocaleString()} total XP</span>}
       </div>
     </div>
   );

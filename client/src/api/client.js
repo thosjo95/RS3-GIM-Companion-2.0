@@ -41,6 +41,7 @@ async function request(path, options = {}) {
 export const api = {
   // Groups
   getGroups: () => request('/groups'),
+  getGroupRank: (id) => request(`/groups/${id}/rank`),
   getGroup: (id) => request(`/groups/${id}`),
   searchGroups:  (name)          => request(`/groups/search?name=${encodeURIComponent(name)}`),
   browseGroups:  (limit = 25)    => request(`/groups/search?limit=${limit}`),

@@ -19,6 +19,13 @@ local json = require("json")
 -- The game's console prints with the standard `print`; this wrapper keeps every message recognisable.
 local function log(...) print(...) end
 
+-- IMPORTANT: HTTPRequest.new must be called from inside a Lua function, never handed straight to pcall
+-- (the form pcall(HTTPRequest.new, base, path) crashed the client in the beta; the game probably looks at
+-- the calling Lua code to find out which plugin is asking). This wrapper keeps the error protection.
+local function newRequest(base, path)
+    return pcall(function() return HTTPRequest.new(base, path) end)
+end
+
 -- ── 1. Settings ───────────────────────────────────────────────────────────────
 -- NB: `config` is the game API's own global (config.Obj ...), so our settings use another name.
 local okSettings, settings = pcall(require, "config")
@@ -412,7 +419,7 @@ end
 
 local function fetchRules()
     rulesAskedAt = ticks
-    local okReq, request = pcall(HTTPRequest.new, Plugin.urls.gim, "/api/plugin/config")
+    local okReq, request = newRequest(Plugin.urls.gim, "/api/plugin/config")
     if not okReq or request == nil then return end
     request:AddHeader("Authorization", "Bearer " .. settings.token)
     local function done()
@@ -503,7 +510,7 @@ local function send()
     end
     trace("send: creating request")
 
-    local okReq, request = pcall(HTTPRequest.new, Plugin.urls.gim, "/api/plugin/ingest")
+    local okReq, request = newRequest(Plugin.urls.gim, "/api/plugin/ingest")
     if not okReq or request == nil then log("[GIM] could not create request: " .. tostring(request)); return end
     request:AddHeader("Authorization", "Bearer " .. settings.token)
     request:AddHeader("Content-Type", "application/json")
@@ -563,7 +570,7 @@ local function runProbe()
     trace("probe 1/4: about to check httpAccess")
     log("[GIM] probe 1/4: has httpAccess = " .. tostring(Plugin.HasPermission(PluginPermissions.httpAccess)))
     trace("probe 2/4: about to create request " .. tostring(kind) .. " " .. path)
-    local okReq, request = pcall(HTTPRequest.new, base, path)
+    local okReq, request = newRequest(base, path)
     if not okReq or request == nil then log("[GIM] probe: could not create request: " .. tostring(request)); return end
     trace("probe 3/4: request created, about to call Get")
     request:Get(function()

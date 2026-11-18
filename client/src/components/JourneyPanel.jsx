@@ -37,11 +37,14 @@ export default function JourneyPanel({ rows, players, colorMap }) {
   const tiers = useMemo(() => buildJourney(rows, ids), [rows, ids.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // "Where the group is": the first tier somebody still has to finish.
-  const current = tiers.find(t => ids.some(id => !tierComplete(t, id)))?.n ?? null;
-  const finished = tiers.length > 0 && current === null;
+  // Members whose plugin has reported journey data. Everyone else is left out of the group figures: "no data" must
+  // never count as "not done", or it would drag the whole group back to tier 0.
+  const withData = players.filter(p => tiers.some(t => t.tierDone.has(p.id) || [...t.steps.values()].some(s => s.who.has(p.id))));
+  const act = withData.map(p => p.id);
+  const current = tiers.find(t => act.some(id => !tierComplete(t, id)))?.n ?? null;
+  const finished = tiers.length > 0 && act.length > 0 && current === null;
   const [open, setOpen] = useState(null);       // null = follow the current tier, -1 = everything closed
   const expanded = open ?? current;
-  const withData = players.filter(p => tiers.some(t => t.tierDone.has(p.id) || [...t.steps.values()].some(s => s.who.has(p.id))));
 
   return (
     <div style={{ background: 'var(--bg-panel)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '14px 14px 12px' }}>
@@ -58,11 +61,11 @@ export default function JourneyPanel({ rows, players, colorMap }) {
         <>
           {/* Where the group is */}
           <div style={{ margin: '10px 0 12px', padding: '10px 12px', background: 'var(--bg-panel-alt)', border: '1px solid var(--gold-dark)', borderRadius: 'var(--radius)' }}>
-            <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-dim)' }}>{finished ? 'Journey' : 'The group is on'}</div>
+            <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-dim)' }}>{finished ? 'Journey' : act.length === 1 ? `${withData[0].rsn} is on` : act.length > 1 ? 'The group is on' : 'Journey'}</div>
             <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--gold)' }}>{finished ? 'Complete 🎉' : `Tier ${current}`}</div>
             {!finished && (() => {
               const t = tiers.find(x => x.n === current);
-              const left = ids.map(id => t.steps.size - stepsDone(t, id)).filter(n => n > 0);
+              const left = act.map(id => t.steps.size - stepsDone(t, id)).filter(n => n > 0);
               return <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>{t.steps.size} steps · {left.length ? `${Math.max(...left)} left for the furthest behind` : 'only the tier reward is missing'}</div>;
             })()}
           </div>
@@ -92,9 +95,9 @@ export default function JourneyPanel({ rows, players, colorMap }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
             {tiers.map(t => {
               const total = t.steps.size;
-              const everyoneDone = ids.length > 0 && ids.every(id => tierComplete(t, id));
-              const sum = ids.reduce((n, id) => n + (tierComplete(t, id) ? total : stepsDone(t, id)), 0);
-              const pct = total && ids.length ? Math.round((sum / (total * ids.length)) * 100) : 0;
+              const everyoneDone = act.length > 0 && act.every(id => tierComplete(t, id));
+              const sum = act.reduce((n, id) => n + (tierComplete(t, id) ? total : stepsDone(t, id)), 0);
+              const pct = total && act.length ? Math.round((sum / (total * act.length)) * 100) : 0;
               const isOpen = expanded === t.n;
               const isCurrent = current === t.n;
               return (
@@ -117,7 +120,7 @@ export default function JourneyPanel({ rows, players, colorMap }) {
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
                             <span style={{ flex: 1, color: 'var(--text-bright)', fontWeight: 600 }}>{step.name}</span>
                             <span style={{ display: 'inline-flex', gap: 3 }}>
-                              {players.map(p => {
+                              {withData.map(p => {
                                 const done = stepDone(step, p.id);
                                 return <span key={p.id} title={`${p.rsn}: ${done ? 'done' : 'not yet'}`}
                                   style={{ width: 10, height: 10, borderRadius: '50%', background: done ? colorMap[p.id] : 'transparent', border: `1.5px solid ${colorMap[p.id]}`, opacity: done ? 1 : 0.45 }} />;
@@ -128,9 +131,9 @@ export default function JourneyPanel({ rows, players, colorMap }) {
                           {step.reward && <div style={{ fontSize: 11, color: 'var(--gold)', marginTop: 2 }}>Reward: {step.reward}</div>}
 
                           {/* Progress counter, for each player who is not done yet */}
-                          {step.target > 0 && players.some(p => step.who.has(p.id) && !stepDone(step, p.id)) && (
+                          {step.target > 0 && withData.some(p => step.who.has(p.id) && !stepDone(step, p.id)) && (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6 }}>
-                              {players.filter(p => step.who.has(p.id) && !stepDone(step, p.id)).map(p => {
+                              {withData.filter(p => step.who.has(p.id) && !stepDone(step, p.id)).map(p => {
                                 const prog = step.who.get(p.id).progress ?? 0;
                                 const pc = Math.min(100, Math.round((prog / step.target) * 100));
                                 return (
@@ -148,7 +151,7 @@ export default function JourneyPanel({ rows, players, colorMap }) {
                         </div>
                       ))}
                       <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>
-                        {players.map((p, i) => <span key={p.id}>{i > 0 && ' · '}<span style={{ color: colorMap[p.id] }}>{p.rsn}</span> {tierComplete(t, p.id) ? 'tier done' : `${stepsDone(t, p.id)}/${total} steps`}</span>)}
+                        {withData.map((p, i) => <span key={p.id}>{i > 0 && ' · '}<span style={{ color: colorMap[p.id] }}>{p.rsn}</span> {tierComplete(t, p.id) ? 'tier done' : `${stepsDone(t, p.id)}/${total} steps`}</span>)}
                       </div>
                     </div>
                   )}
@@ -157,7 +160,7 @@ export default function JourneyPanel({ rows, players, colorMap }) {
             })}
           </div>
           <div style={{ marginTop: 10, fontSize: 10, color: 'var(--text-dim)', lineHeight: 1.5 }}>
-            Read live from each character by the plugin (re-checked every few minutes). Members without the plugin show no progress.
+            Read live from each character by the plugin (re-checked every few minutes). Members without the plugin are left out of the group figures.
           </div>
         </>
       )}

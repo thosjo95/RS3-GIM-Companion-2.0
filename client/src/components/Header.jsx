@@ -71,10 +71,31 @@ export default function Header({ group, onSynced, onToast, isUnlocked, isClaimed
       </div>
       {group && <GroupHeaderInfo group={group} />}
       {group && <HeaderStats group={group} />}
-      {/* everything on the right: group actions first, then the quiet site links */}
+      {/* right side, left to right: Docs and Community, the small buttons, then Plugin and Sync All at the far right */}
       <div className="header-right">
-        {lastSync && <span className="last-sync">Sync: {syncAgo}</span>}
-
+        {/* ── Quiet links: documentation and community. Deliberately plainer than the buttons that act on the group. ── */}
+        <a
+          href="https://thosjo95.github.io/RS3-GIM-Companion-2.0/"
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Documentation: how everything works"
+          className="header-quiet"
+          style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '0 8px', height: 32, borderRadius: 'var(--radius)', color: 'var(--text-dim)', fontSize: 12, textDecoration: 'none', flexShrink: 0 }}
+        >
+          Docs
+        </a>
+        <a
+          href="https://discord.gg/uZT4JDdtn2"
+          target="_blank"
+          rel="noopener noreferrer"
+          title="Community: news, and get in touch with the developers and other enthusiasts"
+          className="header-quiet"
+          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 8px', height: 32, borderRadius: 'var(--radius)', color: 'var(--text-dim)', fontSize: 12, textDecoration: 'none', flexShrink: 0 }}
+        >
+          <DiscordLogo size={15} />
+          Community
+        </a>
+        <span className="header-sep" style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 2px', flexShrink: 0 }} />
         {/* ── Auth indicator ── */}
 
         {/* Group not claimed → prompt to claim */}
@@ -185,6 +206,27 @@ export default function Header({ group, onSynced, onToast, isUnlocked, isClaimed
           </button>
         )}
 
+        {/* Tour replay button */}
+        {group && onTourClick && (
+          <button
+            className="sync-btn"
+            onClick={onTourClick}
+            title="Show feature tour"
+            style={{
+              width: 32, height: 32, padding: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0, fontSize: 16, fontWeight: 700,
+              background: 'transparent',
+              border: '1px solid var(--border)',
+              color: 'var(--text-dim)',
+            }}>
+            ?
+          </button>
+        )}
+
+        <span className="header-sep" style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 2px', flexShrink: 0 }} />
+        {lastSync && <span className="last-sync">Sync: {syncAgo}</span>}
+
         {/* Plugin setup — the group's connection to the game; needs the unlocked group to create tokens */}
         {group && (
           <button
@@ -210,47 +252,6 @@ export default function Header({ group, onSynced, onToast, isUnlocked, isClaimed
           </button>
         )}
 
-        <span className="header-sep" style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 2px', flexShrink: 0 }} />
-        {/* Tour replay button */}
-        {group && onTourClick && (
-          <button
-            className="sync-btn"
-            onClick={onTourClick}
-            title="Show feature tour"
-            style={{
-              width: 32, height: 32, padding: 0,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              flexShrink: 0, fontSize: 16, fontWeight: 700,
-              background: 'transparent',
-              border: '1px solid var(--border)',
-              color: 'var(--text-dim)',
-            }}>
-            ?
-          </button>
-        )}
-
-        {/* ── Quiet links: documentation and community. Deliberately plainer than the buttons that act on the group. ── */}
-        <a
-          href="https://thosjo95.github.io/RS3-GIM-Companion-2.0/"
-          target="_blank"
-          rel="noopener noreferrer"
-          title="Documentation: how everything works"
-          className="header-quiet"
-          style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '0 8px', height: 32, borderRadius: 'var(--radius)', color: 'var(--text-dim)', fontSize: 12, textDecoration: 'none', flexShrink: 0 }}
-        >
-          Docs
-        </a>
-        <a
-          href="https://discord.gg/uZT4JDdtn2"
-          target="_blank"
-          rel="noopener noreferrer"
-          title="Community: news, and get in touch with the developers and other enthusiasts"
-          className="header-quiet"
-          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 8px', height: 32, borderRadius: 'var(--radius)', color: 'var(--text-dim)', fontSize: 12, textDecoration: 'none', flexShrink: 0 }}
-        >
-          <DiscordLogo size={15} />
-          Community
-        </a>
       </div>
       {manageOpen && group && <ManageGroupModal group={group} onClose={() => setManageOpen(false)} onAddPlayer={() => onAddPlayer?.()} onChanged={() => onSynced?.()} onToast={onToast} />}
       {pluginOpen && group?.id && (

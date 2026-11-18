@@ -85,7 +85,7 @@ export default function Header({ group, onSynced, onToast, isUnlocked, isClaimed
           Docs
         </a>
         <a
-          href="https://discord.gg/uZT4JDdtn2"
+          href="https://discord.gg/xbB2T2Q6A"
           target="_blank"
           rel="noopener noreferrer"
           title="Community: news, and get in touch with the developers and other enthusiasts"

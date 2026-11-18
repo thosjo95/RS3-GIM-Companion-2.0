@@ -38,7 +38,7 @@ EMAIL
 rs3groupiron@pm.me (also for data deletion requests)
 
 FEEDBACK AND COLLABORATION
-Bug reports and suggestions are welcome in the GIM Companion community Discord (https://discord.gg/uZT4JDdtn2), in the plugin's channel in the RuneScape Plugin Portal Discord, or by email. Code contributions are welcome as pull requests on GitHub (https://github.com/thosjo95/RS3-GIM-Companion-2.0); please discuss larger changes first.
+Bug reports and suggestions are welcome in the GIM Companion community Discord (https://discord.gg/xbB2T2Q6A), in the plugin's channel in the RuneScape Plugin Portal Discord, or by email. Code contributions are welcome as pull requests on GitHub (https://github.com/thosjo95/RS3-GIM-Companion-2.0); please discuss larger changes first.
 
 EULA
 This Plugin uses software licensed by Jagex to the developer under the terms of the Jagex End User Licence Agreement (EULA) found at https://legal.jagex.com/docs/terms/eula (and all terms incorporated into it by reference). The development and any use of the Plugin is at all times subject to the Jagex EULA. GIM Companion is an independent project and is not affiliated with or endorsed by Jagex.

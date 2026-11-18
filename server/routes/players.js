@@ -4,6 +4,7 @@ const db      = require('../database');
 const { fetchHiscores, fetchPlayerEvents, fetchPlayerQuests, calcCombatLevel, sanitizeRSN } = require('../services/runescape');
 const { saveActivities, autoLogDrops, autoDetectDiaries, autoCountBossKills, autoDetectLevelMilestones, ingestActivities } = require('../services/activitySync');
 const { checkGroupAuth } = require('../utils/auth');
+const isDemoGroup = id => !!db.prepare('SELECT 1 FROM groups WHERE id = ? AND is_demo = 1').get(id);
 const { notifyGoalCompleted } = require('../services/discord');
 const { createRateLimiter } = require('../utils/rateLimit');
 
@@ -196,6 +197,7 @@ router.delete('/:id', (req, res) => {
 router.post('/:id/sync', syncOneLimiter, async (req, res) => {
   const player = db.prepare('SELECT * FROM players WHERE id = ?').get(req.params.id);
   if (!player) return res.status(404).json({ error: 'Player not found' });
+  if (isDemoGroup(player.group_id)) return res.json({ demo: true, message: 'The demo group is not synced.' });
 
   try {
     // Auto-heal any dirty RSN (non-breaking space, replacement char, etc.)
@@ -306,6 +308,7 @@ router.post('/:id/sync', syncOneLimiter, async (req, res) => {
 // POST /api/players/sync-all - hiscores only (no auth — RS3 data is public)
 // RuneMetrics (activity feed) is fetched separately by the 6-hour background cron.
 router.post('/sync-all/:groupId', syncAllLimiter, async (req, res) => {
+  if (isDemoGroup(req.params.groupId)) return res.json({ demo: true, results: [] });
   const players = db.prepare('SELECT * FROM players WHERE group_id = ?').all(req.params.groupId);
   const results = [];
 
@@ -419,6 +422,7 @@ const WITHIN_BATCH_MS  = 1000;
 const BETWEEN_BATCH_MS = 60000;
 
 router.post('/sync-activities/:groupId', syncAllLimiter, async (req, res) => {
+  if (isDemoGroup(req.params.groupId)) return res.json({ demo: true, results: [] });
   const players = db.prepare('SELECT * FROM players WHERE group_id = ?').all(req.params.groupId);
   const results = [];
 

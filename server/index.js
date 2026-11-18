@@ -78,7 +78,7 @@ cron.schedule('0 */2 * * *', async () => {
   const { fetchPlayerEvents } = require('./services/runescape');
   const { saveActivities, autoLogDrops, autoDetectDiaries, autoCountBossKills, autoDetectLevelMilestones, autoCompleteQuestGoals } = require('./services/activitySync');
 
-  const players = db.prepare('SELECT * FROM players WHERE group_id IS NOT NULL').all();
+  const players = db.prepare('SELECT * FROM players WHERE group_id IS NOT NULL AND group_id NOT IN (SELECT id FROM groups WHERE is_demo = 1)').all();
   const batches = Math.ceil(players.length / BATCH_SIZE);
   console.log(`[2h cron] Syncing Adventurer's Log events for ${players.length} player(s) in ${batches} batch(es)…`);
 
@@ -127,13 +127,17 @@ cron.schedule('30 3 * * *', async () => {
 cron.schedule('5 * * * *', () => { require('./services/hiscoresSync').runHiscoresSync({ label: 'hourly sync', events: false }).catch(e => console.error('[hourly sync] failed:', e.message)); });
 cron.schedule('0 0 * * *', () => { require('./services/hiscoresSync').runHiscoresSync({ label: 'daily sync', events: true, activeDays: 30 }).catch(e => console.error('[daily sync] failed:', e.message)); });
 
+// ── Demo group (beta only) ─────────────────────────────────────────────────────
+// GIM_DEMO=1 builds "Misthalin Five (Demo)" if it is missing and keeps it moving. See services/demoGroup.js.
+if (process.env.GIM_DEMO === '1') require('./services/demoGroup').start();
+
 // ── Cleanup cron ───────────────────────────────────────────────────────────────
 // Runs at 2am every day — removes groups inactive for 30+ days, and live XP drops older than 7 days.
 cron.schedule('0 2 * * *', () => {
   try {
     db.prepare('DELETE FROM xp_drops WHERE at < ?').run(new Date(Date.now() - 7 * 86400000).toISOString());
     const stale = db.prepare(
-      "SELECT id FROM groups WHERE last_activity IS NOT NULL AND last_activity < datetime('now', '-30 days')"
+      "SELECT id FROM groups WHERE is_demo = 0 AND last_activity IS NOT NULL AND last_activity < datetime('now', '-30 days')"
     ).all();
     for (const group of stale) {
       db.prepare('DELETE FROM groups WHERE id = ?').run(group.id);

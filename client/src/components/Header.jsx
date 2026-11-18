@@ -52,7 +52,8 @@ export default function Header({ group, onSynced, onToast, isUnlocked, isClaimed
       })()
     : 'never';
 
-  const showClaimNudge = group && !isClaimed && !isUnlocked;
+  const demo = !!group?.is_demo;                       // the public demo group: read-only, no claim, no unlock, no plugin, no sync
+  const showClaimNudge = group && !demo && !isClaimed && !isUnlocked;
 
   return (
     <header className="header">
@@ -99,7 +100,7 @@ export default function Header({ group, onSynced, onToast, isUnlocked, isClaimed
         {/* ── Auth indicator ── */}
 
         {/* Group not claimed → prompt to claim */}
-        {group && !isClaimed && (
+        {group && !demo && !isClaimed && (
           <button
             data-tour="lock"
             className="sync-btn"
@@ -117,7 +118,7 @@ export default function Header({ group, onSynced, onToast, isUnlocked, isClaimed
         )}
 
         {/* Claimed but not yet unlocked on this browser → unlock button */}
-        {group && isClaimed && !isUnlocked && (
+        {group && !demo && isClaimed && !isUnlocked && (
           <button
             data-tour="lock"
             className="sync-btn"
@@ -228,7 +229,7 @@ export default function Header({ group, onSynced, onToast, isUnlocked, isClaimed
         {lastSync && <span className="last-sync">Sync: {syncAgo}</span>}
 
         {/* Plugin setup — the group's connection to the game; needs the unlocked group to create tokens */}
-        {group && (
+        {group && !demo && (
           <button
             data-tour="plugin"
             onClick={() => setPluginOpen(true)}
@@ -246,7 +247,7 @@ export default function Header({ group, onSynced, onToast, isUnlocked, isClaimed
         )}
 
 
-        {group && (
+        {group && !demo && (
           <button data-tour="sync" className="sync-btn" onClick={syncAll} disabled={syncing}>
             {syncing ? <><span className="spinner" style={{width:14,height:14}} /> Syncing…</> : '↻ Sync All'}
           </button>

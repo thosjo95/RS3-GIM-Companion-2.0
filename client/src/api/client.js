@@ -31,7 +31,9 @@ async function request(path, options = {}) {
   });
   const data = await res.json().catch(() => ({}));
   if (res.status === 401 && _onUnauthorized) {
-    _onUnauthorized(data.error);
+    // Only an attempt to CHANGE something may ask for the secret. A plain read that is refused (a guest looking at a group
+    // that is not theirs) just shows the read-only view: the Unlock window opens only when the user presses Unlock.
+    if ((options.method || 'GET').toUpperCase() !== 'GET') _onUnauthorized(data.error);
     throw new Error(data.error || 'Unauthorized');
   }
   if (!res.ok) throw new Error(data.error || `Request failed: ${res.status}`);

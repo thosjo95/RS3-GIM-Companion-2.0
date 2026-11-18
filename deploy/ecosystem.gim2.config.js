@@ -15,6 +15,7 @@ module.exports = {
       GIM_DATA_DIR: '/var/lib/gim2',       // the database and its backups
       // Per-server switches live in /var/lib/gim2/extra-env.json so a deploy never overwrites them, for example
       // {"GIM_PREVIEW":"1","GIM_PREVIEW_COPIED":"18 November 2026"}   (beta: shows the Preview banner)
+      // beta: add "GIM_DEMO":"1" for the live demo group "Misthalin Five (Demo)" (built and fed by the server itself)
       // and on launch day add "GIM_PLUGIN_LIVE":"1" (removes the \"waiting for Jagex's approval\" note).
       ...extra,
     },

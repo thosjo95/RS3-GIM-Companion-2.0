@@ -18,7 +18,8 @@ let coolUntil = 0;
 function activePlayers(activeDays = 14) {
   return db.prepare(`
     SELECT p.* FROM players p
-    WHERE p.group_id IN (
+    WHERE p.group_id NOT IN (SELECT id FROM groups WHERE is_demo = 1)      -- the demo group's players are made up
+      AND p.group_id IN (
       SELECT g.id FROM groups g WHERE g.last_activity IS NULL OR g.last_activity >= datetime('now', ?)
       UNION
       SELECT p2.group_id FROM players p2 JOIN player_live_state s ON s.player_id = p2.id WHERE s.updated_at >= ?

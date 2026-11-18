@@ -368,6 +368,10 @@ db.exec(`
   if (added && wasV2) db.exec('UPDATE groups SET claimed_v2_at = CURRENT_TIMESTAMP WHERE password_hash IS NOT NULL');
 }
 
+// The public demo group ("Misthalin Five (Demo)"): made-up players, readable by everyone, never writable, never synced
+// with the hiscores, kept by a feeder (services/demoGroup.js) so the page looks alive.
+try { db.exec('ALTER TABLE groups ADD COLUMN is_demo INTEGER NOT NULL DEFAULT 0'); } catch { /* already there */ }
+
 // Group leaderboard: periodic snapshots of every player's metrics, and the competitions a group sets up.
 db.exec(`
   CREATE TABLE IF NOT EXISTS metric_snapshots (

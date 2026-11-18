@@ -319,7 +319,13 @@ export default function App() {
         />
         <main className="content">
           {/* ── Guest banner: viewing a group that isn't saved to your sidebar ── */}
-          {group && !myGroupIds.includes(activeGroupId) && (
+          {group?.is_demo && (
+            <div style={{ padding:'10px 16px', marginBottom:16, background:'rgba(200,168,75,0.08)', border:'1px solid var(--gold-dark)', borderRadius:'var(--radius)', fontSize:13, color:'var(--text-dim)' }}>
+              <strong style={{color:'var(--gold)'}}>Demo.</strong> {group.name.replace(/ (Demo)$/, '')} is a made-up group, so you can see what a group looks like
+              once the plugin is connected. Everything here is read-only and moves by itself.
+            </div>
+          )}
+          {group && !group.is_demo && !myGroupIds.includes(activeGroupId) && (
             <div style={{
               display:'flex', alignItems:'center', gap:12, flexWrap:'wrap',
               padding:'10px 16px', marginBottom:16,

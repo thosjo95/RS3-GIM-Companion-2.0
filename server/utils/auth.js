@@ -53,9 +53,16 @@ function checkGroupAuth(req, res, groupId) {
     return false;
   }
 
-  const group = db.prepare('SELECT id, password_hash, password_salt, needs_rekey FROM groups WHERE id = ?').get(groupId);
+  const group = db.prepare('SELECT id, password_hash, password_salt, needs_rekey, is_demo FROM groups WHERE id = ?').get(groupId);
   if (!group) {
     res.status(404).json({ error: 'Group not found' });
+    return false;
+  }
+
+  // The demo group is readable by everyone and never changes through the API.
+  if (group.is_demo) {
+    if (req.method === 'GET' || req.method === 'HEAD') return true;
+    res.status(403).json({ error: 'This is a read-only demo group.', demo: true });
     return false;
   }
 

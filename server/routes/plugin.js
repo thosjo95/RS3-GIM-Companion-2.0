@@ -261,7 +261,7 @@ router.post('/join', joinLimiter, (req, res) => {
 
   const wanted = normName(rsn);
   const candidates = db.prepare(`SELECT p.id, p.rsn, g.id AS group_id, g.name AS group_name, g.password_hash, g.password_salt
-      FROM players p JOIN groups g ON g.id = p.group_id WHERE g.password_hash IS NOT NULL AND g.needs_rekey = 0`).all()
+      FROM players p JOIN groups g ON g.id = p.group_id WHERE g.password_hash IS NOT NULL AND g.needs_rekey = 0 AND g.is_demo = 0`).all()
     .filter(p => normName(p.rsn) === wanted);
   const forms = secretForms(secret);
   for (const p of candidates) {

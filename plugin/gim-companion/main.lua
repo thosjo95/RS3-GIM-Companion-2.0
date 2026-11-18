@@ -310,30 +310,52 @@ local function componentText(componentId)
     if not ok or comp == nil then return nil end
     local okT, text = pcall(function() return comp.text end)
     if okT and type(text) == "string" then return text end
+    local okC, content = pcall(function() return comp.content end)
+    if okC and type(content) == "string" then return content end
     return nil
 end
 
 local NO_TARGET = { ["no target"] = true, ["tap to find target"] = true, ["click to find target"] = true, ["select a target"] = true }
 
 -- Called every couple of ticks: remember who we are fighting and when its health last changed.
+local lastLoggedTarget, warnedNoTarget = nil, false
 local function readTarget()
     local raw = componentText(id.Component.TOPLEVEL_V2_TARGET_INFO__NAME)
+    if raw == nil and not warnedNoTarget then
+        warnedNoTarget = true
+        log("[GIM] kills: the target name display cannot be read (component has no text/content)")
+    end
     local name = raw and stripTags(raw) or ""
     if name == "" or NO_TARGET[name:lower()] then lastHp = nil; return end
     local hp = componentText(id.Component.TOPLEVEL_V2_TARGET_INFO__ENTITY_HEALTH_LEFT)
+    if name ~= lastLoggedTarget then
+        lastLoggedTarget = name
+        trace('kills: target is now "' .. name .. '" health text = ' .. tostring(hp))
+    end
     if name ~= engagedName or hp ~= lastHp then
         engagedName, engagedAt, lastHp = name, ticks, hp
     end
 end
 
+local npcLogBudget = 40   -- how many removal decisions to print (they can be frequent in busy places)
 local function onNpcRemoved(event)
     local ok, name, grid = pcall(function() return event.npcEntity.displayName, event.npcEntity.coordGrid end)
-    if not ok or type(name) ~= "string" or name == "" or grid == nil then return end
-    if name ~= engagedName or ticks - engagedAt > KILL_CREDIT_TICKS then return end
+    if not ok or type(name) ~= "string" or name == "" or grid == nil then
+        if npcLogBudget > 0 then npcLogBudget = npcLogBudget - 1; log("[GIM] kills: NPC removed but name/position unreadable: " .. tostring(name)) end
+        return
+    end
+    local age = ticks - engagedAt
     local where = tileOf(grid)
     local okP, me = pcall(Player.GetEntity)
     local mine = okP and me ~= nil and tileOf(me.coordGrid) or nil
-    if not near(where, mine, KILL_NEAR_TILES) then return end
+    local isNear = near(where, mine, KILL_NEAR_TILES)
+    local counted = name == engagedName and age <= KILL_CREDIT_TICKS and isNear
+    if npcLogBudget > 0 and (engagedName ~= nil and (name == engagedName or age <= 40)) then
+        npcLogBudget = npcLogBudget - 1
+        log('[GIM] kills: NPC removed "' .. name .. '" target="' .. tostring(engagedName) .. '" health-moved ' .. age
+            .. ' ticks ago, near=' .. tostring(isNear) .. ' -> ' .. (counted and "COUNTED" or "not counted"))
+    end
+    if not counted then return end
 
     killTally[name] = (killTally[name] or 0) + 1
     recentKills[#recentKills + 1] = { name = name, tile = where, at = ticks }

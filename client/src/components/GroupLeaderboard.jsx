@@ -41,7 +41,7 @@ function Ranking({ rows, metric, colorOf, goal }) {
         return (
           <div key={r.player_id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
             <span style={{ width: 18, textAlign: 'center', fontWeight: 700, color: i === 0 && (r.value ?? 0) > 0 ? 'var(--gold)' : 'var(--text-dim)' }}>{i + 1}</span>
-            <span style={{ width: 110, flexShrink: 0, fontWeight: 600, color: colorOf(r.player_id), overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.rsn}</span>
+            <span style={{ width: 100, flexShrink: 0, fontWeight: 600, color: colorOf(r.player_id), overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.rsn}</span>
             <div style={{ flex: 1, height: 8, borderRadius: 4, background: 'var(--bg-root)', overflow: 'hidden' }}>
               <div style={{ width: `${Math.min(100, ((r.value ?? 0) / top) * 100)}%`, height: '100%', background: done ? '#4caf50' : colorOf(r.player_id), opacity: 0.9, transition: 'width 0.4s' }} />
             </div>
@@ -150,6 +150,8 @@ export default function GroupLeaderboard({ players, groupId, canWrite, onToast }
   const [comps, setComps] = useState([]);
   const [bosses, setBosses] = useState([]);
   const [modal, setModal] = useState(null);                 // null | {} (new) | competition (edit)
+  const [collapsed, setCollapsed] = useState(() => { try { return localStorage.getItem('gim_leaderboard_collapsed') === '1'; } catch { return false; } });
+  const toggleCollapsed = () => setCollapsed(v => { try { localStorage.setItem('gim_leaderboard_collapsed', v ? '0' : '1'); } catch { /* not saved */ } return !v; });
   const colorOf = id => MEMBER_COLORS[Math.max(0, players.findIndex(p => p.id === id)) % MEMBER_COLORS.length];
 
   const load = useCallback(() => {
@@ -171,14 +173,17 @@ export default function GroupLeaderboard({ players, groupId, canWrite, onToast }
   const targetName = c => (c.metric === 'xp' ? (c.target && c.target !== 'Overall' ? c.target : 'all skills') : c.metric === 'boss_kills' && c.target && c.target !== 'all' ? (bosses.find(b => b.key === c.target)?.name ?? 'one boss') : '');
 
   return (
-    <div className="panel" data-tour="group-leaderboard">
-      <div className="panel-header" style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+    <div className="panel" data-tour="group-leaderboard" style={{ width: '100%', maxWidth: 720, margin: '0 auto' }}>
+      <div className="panel-header" onClick={toggleCollapsed} title={collapsed ? 'Show the leaderboard' : 'Collapse'} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', cursor: 'pointer', padding: '8px 14px' }}>
+        <span style={{ color: 'var(--text-dim)', fontSize: 11, width: 12 }}>{collapsed ? '▸' : '▾'}</span>
         <span className="panel-title" style={{ flex: 1 }}>Group Leaderboard</span>
-        <div style={{ display: 'flex', gap: 2, background: 'var(--bg-panel-alt)', borderRadius: 'var(--radius)', padding: 3 }}>
-          {PERIODS.map(([id, label]) => <button key={id} style={pill(period === id)} onClick={() => setPeriod(id)}>{label}</button>)}
-        </div>
+        {!collapsed && (
+          <div onClick={e => e.stopPropagation()} style={{ display: 'flex', gap: 2, background: 'var(--bg-panel-alt)', borderRadius: 'var(--radius)', padding: 3 }}>
+            {PERIODS.map(([id, label]) => <button key={id} style={pill(period === id)} onClick={() => setPeriod(id)}>{label}</button>)}
+          </div>
+        )}
       </div>
-      <div className="panel-body" style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+      {!collapsed && <div className="panel-body" style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: '12px 14px' }}>
         {/* default boards */}
         <div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
@@ -199,7 +204,7 @@ export default function GroupLeaderboard({ players, groupId, canWrite, onToast }
               : <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>🔒 Unlock to create</span>}
           </div>
           {comps.length === 0 && <div style={{ color: 'var(--text-dim)', fontSize: 12, padding: '4px 0 2px' }}>No competitions yet. Create one to race for the most XP, quest points, boss kills and more.</div>}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 10 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 10 }}>
             {comps.map(c => (
               <div key={c.id} style={{ padding: '12px 14px', background: 'var(--bg-panel-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
@@ -221,7 +226,7 @@ export default function GroupLeaderboard({ players, groupId, canWrite, onToast }
             ))}
           </div>
         </div>
-      </div>
+      </div>}
 
       {modal && <CompetitionModal groupId={groupId} initial={modal.id ? modal : null} bosses={bosses} onClose={() => setModal(null)} onSaved={load} onToast={onToast} />}
     </div>

@@ -493,8 +493,19 @@ end
 -- creature name to the variable holding its count can be written down. It only reads; it prints at most ~70 lines.
 local probe = nil
 local probeLines = 0
+local probeSaved = {}
 local function probeLog(msg)
-    if probeLines < 70 then probeLines = probeLines + 1; log("[GIM] tracker probe: " .. msg) end
+    if probeLines >= 140 then return end
+    probeLines = probeLines + 1
+    log("[GIM] tracker probe: " .. msg)
+    -- also keep the lines in the game's own saved-data store, so they can be read without screenshots
+    probeSaved[#probeSaved + 1] = msg
+    pcall(function() PersistentDB:SetString("gim_probe", table.concat(probeSaved, "\n"):sub(1, 14000)) end)
+end
+-- Names that sound like the kill tracker (slayer creatures / bosses / beasts / kill counts).
+local function looksRelevant(name)
+    local n = name:lower()
+    return n:find("slay") or n:find("boss") or n:find("beast") or n:find("kill") or n:find("monster") or n:find("track") or n:find("creature") or n:find("npc_log")
 end
 local function probeDescribeValues(row, col)
     local okV, vals = pcall(function() return row:GetColumnValues(col) end)
@@ -509,7 +520,7 @@ local function probeDescribeValues(row, col)
 end
 
 local function probeStart()
-    probe = { stage = "tables", next = 0, tableLast = 4000, rowLast = 90000, tables = {}, seenRows = {}, rowsPrinted = 0, tableMisses = 0 }
+    probe = { stage = "tables", next = 0, tableLast = 20000, rowLast = 90000, tables = {}, seenRows = {}, rowsPrinted = 0, misses = 0, seen = 0, shown = 0, sample = {}, matches = 0 }
     probeLog("started - looking for kill tracker tables, then their rows (about 5-6 minutes)")
 end
 
@@ -519,9 +530,18 @@ local function probeStep()
         local last = math.min(probe.next + 80 - 1, probe.tableLast)
         for tid = probe.next, last do
             local okT, tbl = pcall(function() return config.DBTable.FromID(tid) end)
-            if okT and tbl ~= nil then
+            if not okT or tbl == nil then
+                probe.misses = probe.misses + 1
+                if probe.misses >= 700 and probe.seen > 0 then last = probe.tableLast; break end
+            else
+                probe.misses = 0
                 local okN, name = pcall(function() return tbl.configName end)
-                if okN and type(name) == "string" and name:lower():find("bslay") then
+                if okN and type(name) == "string" then
+                    probe.seen = probe.seen + 1
+                    if #probe.sample < 25 and probe.seen % 40 == 1 then probe.sample[#probe.sample + 1] = tid .. "=" .. name end
+                end
+                if okN and type(name) == "string" and looksRelevant(name) and probe.matches < 30 then
+                    probe.matches = probe.matches + 1
                     local okC, cols = pcall(function() return tbl.columnCount end)
                     probe.tables[tid] = name
                     probeLog("table " .. name .. " (id " .. tid .. ", " .. tostring(okC and cols or "?") .. " columns)")
@@ -540,8 +560,8 @@ local function probeStep()
         if probe.next > probe.tableLast then
             local n = 0
             for _ in pairs(probe.tables) do n = n + 1 end
-            probeLog("table scan finished: " .. n .. " matching table(s)")
-            if n == 0 then probe.stage = "done"; probeLog("no table with 'bslay' in its name; nothing more to scan") else probe.stage = "rows"; probe.next = 0 end
+            probeLog("table scan finished: " .. probe.seen .. " tables found, " .. n .. " with a relevant-sounding name. Sample of names: " .. table.concat(probe.sample, ", "))
+            if n == 0 then probe.stage = "done"; probeLog("nothing relevant by name; nothing more to scan") else probe.stage = "rows"; probe.next = 0 end
         end
         return
     end
@@ -551,7 +571,7 @@ local function probeStep()
         local okR, row = pcall(function() return config.DBRow.FromID(rid) end)
         if okR and row ~= nil then
             local okO, owner = pcall(function() return row.ownerDBTable.id end)
-            if okO and probe.tables[owner] and (probe.seenRows[owner] or 0) < 6 then
+            if okO and probe.tables[owner] and (probe.seenRows[owner] or 0) < 3 then
                 probe.seenRows[owner] = (probe.seenRows[owner] or 0) + 1
                 local okN, rname = pcall(function() return row.configName end)
                 local okC, cols = pcall(function() return row.columnCount end)

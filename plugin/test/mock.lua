@@ -4,7 +4,7 @@
 package.path = PLUGIN_DIR .. "/?.lua;" .. package.path   -- PLUGIN_DIR is injected by the harness
 package.preload["config"] = function() return { token = TOKEN } end   -- TOKEN is injected by the harness
 
-function log(...)
+function _unused_log(...)
   local t = {}
   for i = 1, select("#", ...) do t[#t + 1] = tostring((select(i, ...))) end
   print(table.concat(t, " "))

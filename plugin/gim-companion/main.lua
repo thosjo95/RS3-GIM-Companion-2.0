@@ -16,6 +16,9 @@
 
 local json = require("json")
 
+-- The game's console prints with the standard `print`; this wrapper keeps every message recognisable.
+local function log(...) print(...) end
+
 -- ── 1. Settings ───────────────────────────────────────────────────────────────
 -- NB: `config` is the game API's own global (config.Obj ...), so our settings use another name.
 local okSettings, settings = pcall(require, "config")

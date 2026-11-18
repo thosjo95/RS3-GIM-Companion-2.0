@@ -27,7 +27,8 @@ function timeAgo(iso) {
 
 // Items carry their backpack slot (0-27) when the plugin sent them slot by slot; older data is packed from the first slot.
 function Backpack({ items, pouch }) {
-  const coins = (pouch ?? 0) + items.filter(i => i.id === COINS_ID).reduce((n, i) => n + i.count, 0);
+  const loose = items.filter(i => i.id === COINS_ID).reduce((n, i) => n + i.count, 0);
+  const coins = pouch == null && loose === 0 ? null : (pouch ?? 0) + loose;     // null: the plugin has not reported the pouch
   const bySlot = items.length > 0 && items.every(i => Number.isInteger(i.slot));
   const cells = Array.from({ length: 28 }, (_, i) => bySlot ? (items.find(it => it.slot === i) ?? null) : (items[i] ?? null));
   return (
@@ -43,7 +44,7 @@ function Backpack({ items, pouch }) {
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10, fontSize: 12, color: 'var(--text-dim)' }}>
         <span><strong style={{ color: 'var(--text-bright)' }}>{items.length}</strong> / 28 slots</span>
-        <span title={pouch != null ? 'Money pouch plus coins in the backpack' : 'Coins in the backpack'} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><ItemIcon id={COINS_ID} name="Coins" size={16} /><strong style={{ color: 'var(--gold)' }}>{coins.toLocaleString()}</strong></span>
+        <span title={pouch != null ? 'Money pouch plus coins in the backpack' : 'Coins in the backpack'} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><ItemIcon id={COINS_ID} name="Coins" size={16} /><strong style={{ color: 'var(--gold)' }}>{coins == null ? '–' : coins.toLocaleString()}</strong></span>
       </div>
     </div>
   );

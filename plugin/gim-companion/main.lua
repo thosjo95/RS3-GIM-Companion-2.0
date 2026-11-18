@@ -587,6 +587,103 @@ local function probeStep()
     if probe.next > probe.rowLast then probe.stage = "done"; probeLog("finished") end
 end
 
+-- ── 4e. Kill tracker struct / enum probe (beta debugging; config.lua: trackerProbe = "structs") ─────────────────
+-- The tracker's creatures are game "structs" with named parameters (one of them is a creature name). This probe scans the
+-- enums and structs for anything named like "bslay", then prints the parameter names and values of a few structs, so the
+-- creature -> counter mapping can be read straight from the game. Read-only; output is also saved (key gim_probe).
+local probe2 = nil
+local function p2Show(v)
+    if type(v) == "string" then return '"' .. v:sub(1, 40) .. '"' end
+    return tostring(v)
+end
+
+local function probe2Start()
+    probe2 = { stage = "enums", next = 0, enumLast = 25000, structLast = 80000, misses = 0, enumsFound = 0, structsFound = 0,
+               structsShown = 0, paramNames = {}, enumsShown = 0 }
+    probeLog("struct/enum probe started (about 5-6 minutes)")
+end
+
+local function probe2Step()
+    local p = probe2
+    if p == nil or p.stage == "done" then return end
+
+    if p.stage == "enums" then
+        local last = math.min(p.next + 200 - 1, p.enumLast)
+        for eid = p.next, last do
+            local okE, en = pcall(function() return config.Enum.FromID(eid) end)
+            if not okE or en == nil then
+                p.misses = p.misses + 1
+                if p.misses >= 1500 and p.enumsFound > 0 then last = p.enumLast; break end
+            else
+                p.misses = 0
+                local okN, name = pcall(function() return en.configName end)
+                if okN and type(name) == "string" then
+                    p.enumsFound = p.enumsFound + 1
+                    if name:lower():find("bslay") and p.enumsShown < 14 then
+                        p.enumsShown = p.enumsShown + 1
+                        local okC, count = pcall(function() return en.valueCount end)
+                        local okV, vals = pcall(function() return en.values end)
+                        local bits = {}
+                        if okV and type(vals) == "table" then
+                            for i = 1, math.min(#vals, 5) do bits[#bits + 1] = p2Show(vals[i][1]) .. "->" .. p2Show(vals[i][2]) end
+                        end
+                        probeLog("enum " .. name .. " (id " .. eid .. ", " .. tostring(okC and count or "?") .. " values): " .. table.concat(bits, "  "))
+                    end
+                end
+            end
+        end
+        p.next = last + 1
+        if p.next > p.enumLast then
+            probeLog("enum scan finished: " .. p.enumsFound .. " enums, " .. p.enumsShown .. " with 'bslay' in the name")
+            p.stage = "structs"; p.next = 0; p.misses = 0
+        end
+        return
+    end
+
+    -- structs
+    local last = math.min(p.next + 150 - 1, p.structLast)
+    for sid = p.next, last do
+        local okS, st = pcall(function() return config.Struct.FromID(sid) end)
+        if not okS or st == nil then
+            p.misses = p.misses + 1
+            if p.misses >= 4000 and p.structsFound > 0 then last = p.structLast; break end
+        else
+            p.misses = 0
+            local okP, params = pcall(function() return st.params end)
+            if okP and type(params) == "table" then
+                local matched = false
+                for _, prm in ipairs(params) do
+                    local okN, pname = pcall(function() return prm.configName end)
+                    if okN and type(pname) == "string" and pname:lower():find("bslay") then matched = true; p.paramNames[pname] = true end
+                end
+                if matched then
+                    p.structsFound = p.structsFound + 1
+                    if p.structsShown < 5 then
+                        p.structsShown = p.structsShown + 1
+                        local okC, sname = pcall(function() return st.configName end)
+                        local bits = {}
+                        for _, prm in ipairs(params) do
+                            local okN, pname = pcall(function() return prm.configName end)
+                            local okV, val = pcall(function() return st:GetParamValue(prm) end)
+                            bits[#bits + 1] = tostring(okN and pname or "?") .. "=" .. (okV and p2Show(val) or "?")
+                        end
+                        probeLog("struct " .. tostring(okC and sname or sid) .. " (id " .. sid .. "): " .. table.concat(bits, " | "))
+                    end
+                end
+            end
+        end
+    end
+    p.next = last + 1
+    if p.next > p.structLast then
+        local names = {}
+        for n in pairs(p.paramNames) do names[#names + 1] = n end
+        table.sort(names)
+        probeLog("struct scan finished: " .. p.structsFound .. " structs use a 'bslay' parameter. Parameter names: " .. table.concat(names, ", "))
+        p.stage = "done"
+        probeLog("finished")
+    end
+end
+
 -- ── 5. Kills ──────────────────────────────────────────────────────────────────
 -- The game announces "an NPC was removed" for deaths but also for NPCs that merely leave your view. So a
 -- removal only counts as YOUR kill when it is the monster named on your target display, its health moved
@@ -1016,6 +1113,9 @@ Event.ServerLogic.Subscribe("gim_tick", function()
 
     if settings.trackerProbe == true and Player.IsAvailable() then
         if probe == nil then probeStart() else probeStep() end
+    end
+    if settings.trackerProbe == "structs" and Player.IsAvailable() then
+        if probe2 == nil then probe2Start() else probe2Step() end
     end
 
     if FEATURES.achievements and Player.IsAvailable() then

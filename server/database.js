@@ -386,6 +386,7 @@ try { db.exec('ALTER TABLE player_boss_kills ADD COLUMN is_group INTEGER'); } ca
 // The group's shared storage contents (the same for every member; the newest snapshot from any member wins).
 try { db.exec('ALTER TABLE player_live_state ADD COLUMN group_storage_json TEXT'); } catch {}
 try { db.exec('ALTER TABLE player_live_state ADD COLUMN group_storage_at TEXT'); } catch {}
+try { db.exec('ALTER TABLE player_live_state ADD COLUMN money_pouch INTEGER'); } catch {}   // coins in the money pouch
 
 // Drops reported by the plugin carry a dedupe signature so a retried request never logs a drop twice.
 try { db.exec('ALTER TABLE drops ADD COLUMN source TEXT'); } catch {}

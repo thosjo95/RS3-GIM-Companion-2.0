@@ -396,4 +396,30 @@ function autoCompleteQuestGoals(playerId, activities) {
   }
 }
 
-module.exports = { saveActivities, autoLogDrops, autoDetectDiaries, autoCountBossKills, autoDetectLevelMilestones, autoCompleteQuestGoals, completeQuestGoals, parseActivityDate, diaryRegionKey, BOSS_KILL_PATTERNS };
+// Store a freshly downloaded Adventurer's Log and run the same checks as the 2-hour cron on the NEW events only.
+// Returns how many events were new. Safe to call repeatedly (events are de-duplicated).
+function ingestActivities(playerId, activities) {
+  if (!Array.isArray(activities) || !activities.length) return 0;
+  const fresh = saveActivities(playerId, activities);
+  if (fresh.length > 0) {
+    autoLogDrops(playerId, fresh);
+    autoDetectDiaries(playerId, fresh);
+    autoCountBossKills(playerId, fresh);
+    autoDetectLevelMilestones(playerId, fresh);
+    autoCompleteQuestGoals(playerId, fresh);
+  }
+  return fresh.length;
+}
+
+// Fetch and store the Adventurer's Log for a list of players, one at a time with a pause (RuneMetrics rate limits).
+// Used in the background after a group is set up; errors are logged, never thrown.
+async function fetchActivitiesFor(players, { pauseMs = 1500 } = {}) {
+  const { fetchPlayerEvents } = require('./runescape');
+  for (const p of players) {
+    try { ingestActivities(p.id, (await fetchPlayerEvents(p.rsn)).activities); }
+    catch (err) { console.error(`[activities] ${p.rsn}: ${err.message}`); }
+    await new Promise(r => setTimeout(r, pauseMs));
+  }
+}
+
+module.exports = { ingestActivities, fetchActivitiesFor, saveActivities, autoLogDrops, autoDetectDiaries, autoCountBossKills, autoDetectLevelMilestones, autoCompleteQuestGoals, completeQuestGoals, parseActivityDate, diaryRegionKey, BOSS_KILL_PATTERNS };

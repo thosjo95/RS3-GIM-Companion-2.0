@@ -369,6 +369,8 @@ router.post('/setup', async (req, res) => {
   }
 
   res.status(201).json({ id: groupId, synced, failed });
+  // the activity feed: fetch every member's Adventurer's Log in the background instead of waiting for the 2-hour cron
+  require('../services/activitySync').fetchActivitiesFor(players).catch(e => console.error('[setup] activities:', e.message));
 });
 
 // POST /api/groups - create group (simple, no members)

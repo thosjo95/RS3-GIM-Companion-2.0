@@ -33,12 +33,14 @@ Player = {
 -- Item definitions (names/values come from config.Obj.FromID in the real game)
 local DEFS = {
   [995]  = { name = "Coins",        cost = 1 },
-  [385]  = { name = "Shark",        cost = 800 },
+  [385]  = { name = "Shark",        cost = 800, stackType = 0 },
+  [386]  = { name = "Shark",        cost = 800, stackType = 1 },   -- its note: next id, same name, always stacks
   [4151] = { name = "Abyssal whip", cost = 120000 },
   [560]  = { name = "Death rune",   cost = 200 },
   [11702] = { name = "Armadyl hilt", cost = 10 },   -- cheap, but named in a boss drop table (rare list)
 }
 config = { Obj = { FromID = function(i) return DEFS[i] end } }
+ObjStackType = { SOMETIMES = 0, ALWAYS = 1, NEVER = 2 }
 
 id = {
   Inv = { INV = 93, WORN = 94, BANK = 95, GROUP_IRONMAN_STORAGE_CLAN_TEMP = 96 },
@@ -104,6 +106,7 @@ Inventory = { Find = function(t)
     return makeInv(list)
   end
   if t == id.Inv.WORN then return makeInv({ { id = 4151, count = 1 } }) end
+  if t == 623 then local m = makeInv({ { id = 995, count = MONEY_POUCH or 0 } }); m.GetTotal = function(self, objId) return objId == 995 and (MONEY_POUCH or 0) or 0 end; return m end
   if t == id.Inv.BANK then return BANK_OPEN and makeInv(BANK_STATE) or nil end
   if t == id.Inv.GROUP_IRONMAN_STORAGE_CLAN_TEMP then return GROUP_OPEN and makeInv(GROUP_STATE) or nil end
   return nil

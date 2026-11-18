@@ -25,23 +25,25 @@ function timeAgo(iso) {
   return `${Math.round(s / 86400)} d ago`;
 }
 
-function Backpack({ items }) {
-  const coins = items.find(i => i.id === COINS_ID)?.count ?? 0;
-  const cells = Array.from({ length: 28 }, (_, i) => items[i] ?? null);
+// Items carry their backpack slot (0-27) when the plugin sent them slot by slot; older data is packed from the first slot.
+function Backpack({ items, pouch }) {
+  const coins = (pouch ?? 0) + items.filter(i => i.id === COINS_ID).reduce((n, i) => n + i.count, 0);
+  const bySlot = items.length > 0 && items.every(i => Number.isInteger(i.slot));
+  const cells = Array.from({ length: 28 }, (_, i) => bySlot ? (items.find(it => it.slot === i) ?? null) : (items[i] ?? null));
   return (
     <div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 56px)', gridAutoRows: '52px', gap: 4, justifyContent: 'center' }}>
         {cells.map((it, i) => (
-          <div key={i} title={it ? `${it.name}${it.count > 1 ? ` ×${it.count.toLocaleString()}` : ''}` : ''} style={{ position: 'relative', background: 'var(--bg-root)', border: '1px solid var(--border)', borderRadius: 4,
+          <div key={i} title={it ? `${it.name}${it.note_of ? ' (noted)' : ''}${it.count > 1 ? ` ×${it.count.toLocaleString()}` : ''}` : ''} style={{ position: 'relative', background: 'var(--bg-root)', border: '1px solid var(--border)', borderRadius: 4,
             display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            {it && <ItemIcon id={it.id} name={it.name} size={34} />}
+            {it && <ItemIcon id={it.id} name={it.name} noteOf={it.note_of} size={34} />}
             {it && it.count > 1 && <span style={{ position: 'absolute', top: 1, left: 3, fontSize: 10, fontWeight: 700, color: qtyColor(it.count), ...stroke }}>{qtyText(it.count)}</span>}
           </div>
         ))}
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10, fontSize: 12, color: 'var(--text-dim)' }}>
         <span><strong style={{ color: 'var(--text-bright)' }}>{items.length}</strong> / 28 slots</span>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><ItemIcon id={COINS_ID} name="Coins" size={16} /><strong style={{ color: 'var(--gold)' }}>{coins.toLocaleString()}</strong></span>
+        <span title={pouch != null ? 'Money pouch plus coins in the backpack' : 'Coins in the backpack'} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><ItemIcon id={COINS_ID} name="Coins" size={16} /><strong style={{ color: 'var(--gold)' }}>{coins.toLocaleString()}</strong></span>
       </div>
     </div>
   );
@@ -114,7 +116,7 @@ export default function PlayerLoadout({ player, groupId, canWrite, onClose }) {
       .then(r => { if (alive) { setRow((Array.isArray(r) ? r : []).find(x => x.player_id === player.id) ?? null); setError(false); } })
       .catch(() => { if (alive) setError(true); });
     load();
-    const t = setInterval(() => { if (!document.hidden) load(); }, 15000);
+    const t = setInterval(() => { if (!document.hidden) load(); }, 5000);      // a small request; the panel is only open while looked at
     return () => { alive = false; clearInterval(t); };
   }, [groupId, canWrite, player.id]);
 
@@ -135,7 +137,7 @@ export default function PlayerLoadout({ player, groupId, canWrite, onClose }) {
   else if (!canWrite) body = <Note>Unlock the group to see {player.rsn}'s items.</Note>;
   else if (error) body = <Note>Could not load the plugin data.</Note>;
   else if (!row || !row.updated_at) body = <Note>{player.rsn} has not sent any data from the plugin yet.</Note>;
-  else body = tab === 'backpack' ? <Backpack items={row.inventory ?? []} /> : <EquipmentGrid equipment={row.equipment ?? []} />;
+  else body = tab === 'backpack' ? <Backpack items={row.inventory ?? []} pouch={row.money_pouch} /> : <EquipmentGrid equipment={row.equipment ?? []} />;
 
   return (
     <div style={{ width: 360, maxWidth: '100%', margin: '0 auto', background: 'var(--bg-panel)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>

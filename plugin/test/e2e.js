@@ -60,8 +60,10 @@ const check = (c, m) => { console.log((c ? 'PASS' : 'FAIL') + '  ' + m); if (!c)
   check(captured[0].path === '/api/plugin/ingest' && captured[0].auth === 'Bearer ' + token && captured[0].ctype === 'application/json', 'correct path, bearer token and content type');
   check(s1.v === 1 && s1.rsn === 'LuaPlayer', 'payload names the character it came from');
   check(s1.skills.Constitution.xp === 4000 && s1.skills.Runecrafting.level === 30, 'skills read (HITPOINTS / RUNECRAFTING)');
-  const coins = s1.inventory.find(i => i.id === 995), shark = s1.inventory.find(i => i.id === 385);
-  check(coins.count === 150 && shark.count === 2 && s1.inventory.length === 2 && coins.name === 'Coins', 'duplicate backpack slots merged; names from item definitions');
+  const inv = s1.inventory;
+  check(inv.length === 4 && inv.map(i => i.slot).join(',') === '0,1,2,3' && inv[0].count === 100 && inv[1].count === 50 && inv[0].name === 'Coins',
+    'backpack sent slot by slot, as in the game (equal items not merged); names from item definitions');
+  check(s1.money_pouch === 0, 'the money pouch is read (coins in inventory 623)');
   check(s1.equipment.length === 1 && s1.equipment[0].id === 4151, 'worn items read');
   check(s1.bank === undefined && s1.position.x === 3200 && s1.position.y === 3201 && s1.position.z === 0, 'bank omitted while closed; position from map-square + local coordinates');
   check(s1.quests_full === true && s1.quests.length === 3 && s1.quests.find(q => q.name === 'Demon Slayer').state === 'started'

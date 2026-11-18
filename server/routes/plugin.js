@@ -56,6 +56,7 @@ function cleanItems(list, max, label) {
       count: it.count,
       value: Number.isFinite(it.value) && it.value >= 0 ? Math.round(it.value) : null,
       ...(isInt(it.slot, 0, 63) ? { slot: it.slot } : {}),
+      ...(isInt(it.note_of, 1, 1e9) ? { note_of: it.note_of } : {}),      // a noted item: the id of the item it is a note of
     };
   });
 }
@@ -93,6 +94,10 @@ function cleanPayload(b) {
     }
   }
   if (b.inventory !== undefined) out.inventory = cleanItems(b.inventory, MAX.inventory, 'inventory');
+  if (b.money_pouch !== undefined) {
+    if (!isInt(b.money_pouch, 0, Number.MAX_SAFE_INTEGER)) throw new Error('money_pouch must be a non-negative integer');
+    out.moneyPouch = b.money_pouch;
+  }
   if (b.equipment !== undefined) out.equipment = cleanItems(b.equipment, MAX.equipment, 'equipment');
   if (b.bank      !== undefined) out.bank      = cleanItems(b.bank,      MAX.bank,      'bank');
   if (b.group_storage !== undefined) out.groupStorage = cleanItems(b.group_storage, MAX.bank, 'group_storage');
@@ -311,6 +316,7 @@ router.post('/ingest', ingestLimiter, express.json({ limit: '1mb' }), (req, res)
     if (data.position !== undefined) set.position_json = JSON.stringify(data.position);
     if (data.skills !== undefined) set.skills_json = JSON.stringify(data.skills);
     if (data.inventory !== undefined) set.inventory_json = JSON.stringify(data.inventory);
+    if (data.moneyPouch !== undefined) set.money_pouch = data.moneyPouch;
     if (data.equipment !== undefined) set.equipment_json = JSON.stringify(data.equipment);
     if (data.bank !== undefined) set.bank_json = JSON.stringify(data.bank);
     if (data.groupStorage !== undefined) { set.group_storage_json = JSON.stringify(data.groupStorage); set.group_storage_at = now; }
@@ -376,7 +382,7 @@ router.get('/state', (req, res) => {
   //                  ?group_storage=latest   the shared storage once (from the newest snapshot) instead of once per member
   const ALL = ['position', 'skills', 'inventory', 'equipment', 'bank', 'group_storage'];
   const want = req.query.include === undefined ? ALL : String(req.query.include).split(',').map(x => x.trim()).filter(x => ALL.includes(x));
-  const col = { position: 'position_json', skills: 'skills_json', inventory: 'inventory_json', equipment: 'equipment_json', bank: 'bank_json', group_storage: 'group_storage_json' };
+  const col = { position: 'position_json', skills: 'skills_json', inventory: 'inventory_json, s.money_pouch', equipment: 'equipment_json', bank: 'bank_json', group_storage: 'group_storage_json' };
   const only = parseInt(req.query.player_id, 10);
   const latest = req.query.group_storage === 'latest';
   const selected = want.map(w => `s.${col[w]}`).join(', ');
@@ -401,7 +407,7 @@ router.get('/state', (req, res) => {
     const out = { player_id: r.player_id, rsn: r.rsn, has_token: !!r.has_token, token_last_used: r.token_last_used, updated_at: r.updated_at, world: r.world, group_storage_at: r.group_storage_at };
     if (want.includes('position')) out.position = parse(r.position_json);
     if (want.includes('skills')) out.skills = parse(r.skills_json);
-    if (want.includes('inventory')) out.inventory = parse(r.inventory_json) ?? [];
+    if (want.includes('inventory')) { out.inventory = parse(r.inventory_json) ?? []; out.money_pouch = r.money_pouch ?? null; }
     if (want.includes('equipment')) out.equipment = parse(r.equipment_json) ?? [];
     if (want.includes('bank')) out.bank = parse(r.bank_json) ?? [];
     if (want.includes('group_storage')) out.group_storage = latest && r !== storageOwner ? [] : (parse(r.group_storage_json) ?? []);

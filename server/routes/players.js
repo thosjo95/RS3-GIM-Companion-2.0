@@ -2,7 +2,7 @@ const express = require('express');
 const router  = express.Router();
 const db      = require('../database');
 const { fetchHiscores, fetchPlayerEvents, fetchPlayerQuests, calcCombatLevel, sanitizeRSN } = require('../services/runescape');
-const { saveActivities, autoLogDrops, autoDetectDiaries, autoCountBossKills, autoDetectLevelMilestones } = require('../services/activitySync');
+const { saveActivities, autoLogDrops, autoDetectDiaries, autoCountBossKills, autoDetectLevelMilestones, ingestActivities } = require('../services/activitySync');
 const { checkGroupAuth } = require('../utils/auth');
 const { notifyGoalCompleted } = require('../services/discord');
 const { createRateLimiter } = require('../utils/rateLimit');
@@ -129,8 +129,10 @@ router.post('/', async (req, res) => {
   // RS3 normalises names (capitalisation, spaces) and the API returns the definitive
   // form in its 'name' field.  Storing the canonical name avoids future encoding mismatches.
   let canonicalRSN = cleanRSN;
+  let addedActivities = null;     // the log is downloaded here anyway: store it once the player row exists
   try {
     const rm = await fetchPlayerEvents(cleanRSN);
+    addedActivities = rm.activities;
     if (rm.name && rm.name.length > 0) {
       canonicalRSN = rm.name;
       if (canonicalRSN !== cleanRSN) {
@@ -145,6 +147,7 @@ router.post('/', async (req, res) => {
     const result = db.prepare(
       'INSERT INTO players (rsn, group_id) VALUES (?, ?)'
     ).run(canonicalRSN, group_id || null);
+    try { ingestActivities(Number(result.lastInsertRowid), addedActivities); } catch (e) { console.error('[add-player] activities:', e.message); }
     res.status(201).json({ id: result.lastInsertRowid, rsn: canonicalRSN, group_id });
   } catch (err) {
     if (err.message.includes('UNIQUE')) {
@@ -213,6 +216,7 @@ router.post('/:id/sync', syncOneLimiter, async (req, res) => {
     let canonicalRSN = player.rsn;
     try {
       const rm = await fetchPlayerEvents(player.rsn);
+      try { ingestActivities(player.id, rm.activities); } catch (e) { console.error('[sync] activities:', e.message); }
       if (rm.name && rm.name.length > 0 && rm.name !== player.rsn) {
         // Only rename if no other player in the same group already has the canonical name
         const conflict = db.prepare('SELECT id FROM players WHERE rsn = ? AND group_id = ? AND id != ?').get(rm.name, player.group_id, player.id);
@@ -321,6 +325,7 @@ router.post('/sync-all/:groupId', syncAllLimiter, async (req, res) => {
       let existing = {};
       try {
         const rm = await fetchPlayerEvents(player.rsn);
+        try { ingestActivities(player.id, rm.activities); } catch (e) { console.error('[sync-all] activities:', e.message); }
         if (rm.name && rm.name.length > 0 && rm.name !== player.rsn) {
           db.prepare('UPDATE players SET rsn = ? WHERE id = ?').run(rm.name, player.id);
           console.log(`[sync-all] Canonical RSN: "${player.rsn}" → "${rm.name}"`);

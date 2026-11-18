@@ -40,7 +40,24 @@ function useItemId(id, name) {
 
 const wikiFile = name => `https://runescape.wiki/images/${encodeURIComponent(String(name).trim().replace(/ /g, '_'))}.png`;
 
-export function ItemIcon({ id, name, size = 36 }) {
+// A noted item: the note's own picture (blank paper) with the real item drawn small on top, as in the game.
+function NotedIcon({ id, noteOf, name, size }) {
+  return (
+    <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
+      <img src={`https://secure.runescape.com/m=itemdb_rs/obj_sprite.gif?id=${id}`} alt="" loading="lazy"
+        style={{ position: 'absolute', inset: 0, width: size, height: size, objectFit: 'contain', imageRendering: 'pixelated' }} />
+      <img src={`https://secure.runescape.com/m=itemdb_rs/obj_sprite.gif?id=${noteOf}`} alt={name ? `${name} (noted)` : 'noted item'} loading="lazy"
+        style={{ position: 'absolute', left: '18%', top: '14%', width: '62%', height: '62%', objectFit: 'contain', imageRendering: 'pixelated' }} />
+    </div>
+  );
+}
+
+export function ItemIcon({ id, name, size = 36, noteOf = null }) {
+  if (noteOf != null && id != null) return <NotedIcon id={id} noteOf={noteOf} name={name} size={size} />;
+  return <PlainItemIcon id={id} name={name} size={size} />;
+}
+
+function PlainItemIcon({ id, name, size }) {
   const resolved = useItemId(id, name);
   const [stage, setStage] = useState(0);
   useEffect(() => setStage(0), [resolved, name]);

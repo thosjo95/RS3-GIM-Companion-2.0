@@ -136,6 +136,16 @@ local function describeObj(objId)
         local okCost, cost = pcall(function() return proxy.cost end)
         if okName and type(name) == "string" and name ~= "" then info.name = name end
         if okCost and type(cost) == "number" then info.value = math.max(0, math.floor(cost)) end
+        -- A noted item ("bank note") has its own id and the same name, and its picture is just the note. The game's
+        -- item data offers no link to the real item, but a note is the id right after its item and always stacks
+        -- while the item does not. When that holds, remember the real item so the dashboard can draw it on the note.
+        pcall(function()
+            local base = config.Obj.FromID(objId - 1)
+            if base ~= nil and base.name == info.name and proxy.stackType == ObjStackType.ALWAYS
+                and base.stackType ~= ObjStackType.ALWAYS then
+                info.noteOf = objId - 1
+            end
+        end)
     end
     objInfo[objId] = info
     return info
@@ -148,8 +158,10 @@ local function isOpen(interfaceId)
     return ok and panel ~= nil
 end
 
--- One inventory as a list of { id, name, count, value }, merged per item id. nil = not available right now.
-local function readInv(invId, maxItems, withSlot)
+-- One inventory as a list of { id, name, count, value }. nil = not available right now.
+-- Normally equal items are merged into one entry per item id (what the bank and the drop checks need). With bySlot every
+-- slot is its own entry with its slot index, so the dashboard can draw the backpack and worn items exactly as in the game.
+local function readInv(invId, maxItems, bySlot)
     local okFind, inv = pcall(Inventory.Find, invId)
     if not okFind or inv == nil then return nil end
     local okValid, valid = pcall(function() return inv.isValid end)
@@ -163,12 +175,12 @@ local function readInv(invId, maxItems, withSlot)
         local objId = okObj and obj ~= nil and obj.id or 0
         local count = slot.count
         if type(objId) == "number" and objId > 0 and type(count) == "number" and count > 0 then
-            local entry = byId[objId]
+            local entry = not bySlot and byId[objId] or nil
             if entry == nil then
                 local info = describeObj(objId)
-                entry = { id = objId, name = info.name, count = 0, value = info.value }
-                if withSlot then entry.slot = slotIndex - 1 end     -- worn items: the equipment slot index (0 = head, 1 = cape, ...)
-                byId[objId] = entry
+                entry = { id = objId, name = info.name, count = 0, value = info.value, note_of = info.noteOf }
+                if bySlot then entry.slot = slotIndex - 1 end       -- 0-based: backpack slot, or worn slot (0 = head, 1 = cape, ...)
+                if not bySlot then byId[objId] = entry end
                 list[#list + 1] = entry
             end
             entry.count = entry.count + math.floor(count)
@@ -932,6 +944,26 @@ local function movingItemsByHand()
     return false
 end
 
+-- The money pouch. The game keeps it as a separate inventory that only holds coins. It is not in Jagex's documentation:
+-- inventory 623 and coins (item 995) come from the game's own data. The amount is printed once per login so it can be
+-- compared with the pouch in the game; if it cannot be read, nothing is sent.
+local MONEY_POUCH_INV = 623
+local COINS_ID = 995
+local pouchLogged = false
+local function readMoneyPouch()
+    local ok, total = pcall(function()
+        local inv = Inventory.Find(MONEY_POUCH_INV)
+        if inv == nil or inv.isValid ~= true then return nil end
+        return inv:GetTotal(COINS_ID)
+    end)
+    local amount = ok and type(total) == "number" and total >= 0 and math.floor(total) or nil
+    if not pouchLogged then
+        pouchLogged = true
+        log("[GIM] money pouch: " .. (amount and (tostring(amount) .. " coins") or "not readable"))
+    end
+    return amount
+end
+
 -- Loot that goes straight into the backpack (auto-loot) never appears on the ground: compare backpack totals.
 local function scanBackpack()
     local list = readInv(id.Inv.INV, 100)
@@ -980,10 +1012,12 @@ local function send()
     if dirty.skills then payload.skills = readSkills() end
 
     trace("send: reading backpack and worn items")
-    local backpack = readInv(id.Inv.INV, 100)
+    local backpack = readInv(id.Inv.INV, 100, true)
     if backpack then payload.inventory = backpack end
     local worn = readInv(id.Inv.WORN, 30, true)
     if worn then payload.equipment = worn end
+    local pouch = readMoneyPouch()
+    if pouch then payload.money_pouch = pouch end
 
     trace("send: reading position")
     local pos = readPosition()
@@ -1165,6 +1199,7 @@ Event.GameStateChanged.Subscribe("gim_state", function(event)
         bossHeld, bossChanged, lastBossCheck = {}, nil, -BOSS_RECHECK
         engagedName, lastHp, recentKills, fromGround, packBefore = nil, nil, {}, {}, nil
         rules = nil
+        pouchLogged = false
         if not tokenFromConfig then closeJoinWindow(); token, storedKey, joinHidden, joinRetryAt = nil, nil, false, 0 end   -- the next character may be another one
         dirty.skills, dirty.items = true, true
     end

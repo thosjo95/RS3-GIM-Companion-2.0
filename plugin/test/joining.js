@@ -72,7 +72,7 @@ function start(configLua) {
   g.dostr('HTTP_STATUS = 401 HTTP_RESPONSES["/api/plugin/join"] = \'{"error":"No claimed group with LuaPlayer as a member has that secret."}\'');
   g.dostr('TICK(5) NEWEST("input").content = "WRONG" PRESS("Connect") TICK(3)');
   check(g.lget('STORE["token_luaplayer"]') === null && g.posts('/api/plugin/ingest').length === 0, 'a wrong secret gives no key and sends nothing');
-  check(String(g.lget('NEWEST("text").content') || '').includes('No claimed group'), 'the window shows the server\'s explanation');
+  check(String(g.lget('NEWEST("text").content') || '').includes('Wrong secret'), 'the window shows a short reason (the full one goes to the console)');
   g.dostr('HTTP_STATUS = 200 HTTP_RESPONSES["/api/plugin/join"] = \'{"token":"gimp_SECONDTRY","group":"Test Group"}\'');
   g.dostr('NEWEST("input").content = "ABCD-EFGH-JK23" NEWEST("input").hooks[ui.Hook.ONCONTENTCHANGED](NEWEST("input"), ui.InputFieldActionResult.SUBMIT, "ABCD-EFGH-JK23") TICK(3)');
   check(g.lget('STORE["token_luaplayer"]') === 'gimp_SECONDTRY', 'pressing Enter in the box connects too');

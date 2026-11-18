@@ -272,7 +272,11 @@ local function join(rsn, secret)
             local why = (okJ and type(doc) == "table" and type(doc.error) == "string") and doc.error
                 or ("the server did not answer (HTTP " .. tostring(request.responseCode) .. ")")
             log("[GIM] could not join: " .. why)
-            setJoinStatus(why)
+            -- the window has room for one short line; the full explanation is in the console
+            local code = request.responseCode
+            setJoinStatus(code == 401 and "Wrong secret, or " .. rsn .. " is not in that group"
+                or code == 429 and "Too many tries. Wait a minute."
+                or "No answer from the server. Try again.")
             joinRetryAt = ticks + JOIN_RETRY_TICKS
         end
     end)
@@ -288,7 +292,7 @@ local function showJoinWindow(rsn)
         local box = ui.GroupBox.new(parent)
         box.stylesheetID = id.StyleSheet.DEFAULT
         box:SetHeaderLayout(0, 0, 0, 0, 0)
-        box:SetSize(420, 230)
+        box:SetSize(440, 260)
         box:SetPos(0, 0, 0.5, 0.3, 0.5, 0.5)
         local function line(content, top, height)
             local t = ui.Text.new(box)
@@ -299,17 +303,19 @@ local function showJoinWindow(rsn)
             t:AlignTo(ui.AlignMode.CENTRE)
             return t
         end
-        line("GIM Companion: join your group", 0.03, 0.13)
-        line("Type your group's secret (the one that unlocks the website)", 0.17, 0.13)
+        -- every line is kept short: a Text does not wrap, and a long line is cut off at both edges
+        line("GIM Companion", 0.05, 0.11)
+        line("Type your group's secret,", 0.19, 0.10)
+        line("the one that unlocks the website.", 0.28, 0.10)
 
         local field = ui.InputField.new(box)
         field.stylesheetID = id.StyleSheet.INPUT_DEFAULT
         field:Setup(ui.TextContentVisibilityMode.VISIBLE, ui.InputFieldFilterMode.NONE, 40)
         field.emptyText = "XXXX-XXXX-XXXX"
-        field:SetSize(0, 0, 0.7, 0.15)
-        field:SetPos(0, 0, 0.15, 0.34)
+        field:SetSize(0, 0, 0.6, 0.14)
+        field:SetPos(0, 0, 0.2, 0.42)
 
-        local status = line("Joining " .. rsn .. " to the group's dashboard", 0.53, 0.13)
+        local status = line("Character: " .. rsn, 0.61, 0.10)
 
         local function connect()
             local secret = (field.content or ""):match("^%s*(.-)%s*$")
@@ -322,15 +328,15 @@ local function showJoinWindow(rsn)
         end)
 
         local connectBtn = ui.Button.new(box)
-        connectBtn:SetPos(0, 0, 0.17, 0.74)
-        connectBtn:SetSize(0, 0, 0.3, 0.18)
+        connectBtn:SetPos(0, 0, 0.18, 0.77)
+        connectBtn:SetSize(0, 0, 0.28, 0.15)
         connectBtn.label = "Connect"
         connectBtn.stylesheetID = id.StyleSheet.BUTTON_DEFAULT
         connectBtn:Subscribe(ui.Hook.ONBUTTONPRESSED, connect)
 
         local hide = ui.Button.new(box)
-        hide:SetPos(0, 0, 0.53, 0.74)
-        hide:SetSize(0, 0, 0.3, 0.18)
+        hide:SetPos(0, 0, 0.54, 0.77)
+        hide:SetSize(0, 0, 0.28, 0.15)
         hide.label = "Hide"
         hide.stylesheetID = id.StyleSheet.BUTTON_DEFAULT
         hide:Subscribe(ui.Hook.ONBUTTONPRESSED, function() joinHidden = true; closeJoinWindow() end)

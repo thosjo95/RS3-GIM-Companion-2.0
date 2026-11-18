@@ -248,7 +248,15 @@ export default function ItemsTab({ players, groupId, canWrite, onToast }) {
       .catch(e => setError(e.message));
   }, [groupId, canWrite]);
 
-  useEffect(() => { load(); const t = setInterval(load, 30000); return () => clearInterval(t); }, [load]);
+  // The plugin sends about every 30 s, so poll quickly (only while this browser tab is visible) and
+  // refresh immediately when the user comes back to it.
+  useEffect(() => {
+    load();
+    const tick = () => { if (!document.hidden) load(); };
+    const t = setInterval(tick, 8000);
+    document.addEventListener('visibilitychange', tick);
+    return () => { clearInterval(t); document.removeEventListener('visibilitychange', tick); };
+  }, [load]);
 
   if (!canWrite) {
     return (

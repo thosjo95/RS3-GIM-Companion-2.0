@@ -18,6 +18,10 @@ Sends your own character's bank, quests, kills and drops to your Group Ironman's
 
 **Listing image:** `plugin/submission/listing-image.png` (16:9, 1280x720)
 
+**Media (step 2, up to 10 images at once):** `plugin/submission/gallery/` holds 13 screenshots (1600x900) of a made-up group
+("Misthalin Five", made with `node server/scripts/devShowcase.js`). Suggested ten: 01-overview, 02-backpack, 04-group-vault,
+05-bank-journal, 06-quests-journey, 08-boss-log, 09-clue-scrolls, 10-group-leaderboard, 11-live-xp, 13-plugin-setup.
+
 **Homepage:** https://github.com/thosjo95/RS3-GIM-Companion-2.0
 
 **Tags:** group ironman, tracker, quests, bank, drops, kills, dashboard, httpAccess (a tag for every requested permission is required)
@@ -25,7 +29,7 @@ Sends your own character's bank, quests, kills and drops to your Group Ironman's
 ## Description (paste as the description)
 
 ```
-GIM Companion connects the RuneScape client to a web dashboard for Group Ironman teams. It reads what the public web APIs cannot give and sends it, for YOUR OWN character only, to your group's page: your bank and the shared group storage, backpack and worn items, quest and achievement progress, area tasks, the Group Ironman Journey, lifetime boss and slayer kills, and valuable drops. The dashboard then shows the whole team's progress, goals, leaderboards and competitions.
+GIM Companion connects the RuneScape client to a web dashboard for Group Ironman teams. It reads what the public web APIs cannot give and sends it, for YOUR OWN character only, to your group's page: your bank and the shared group storage, backpack and worn items, quest and achievement progress, area tasks, the Group Ironman Journey, lifetime boss and slayer kills, and valuable drops. The dashboard then shows the whole team's progress, live XP drops, a boss log with drops, a clue log, goals, leaderboards and competitions.
 
 The plugin only reads the game. It never presses anything, never sends input to the game and never changes anything. It does not read or send anything about other players.
 

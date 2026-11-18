@@ -8,7 +8,7 @@ import ManageGroupModal from './ManageGroupModal';
 import DiscordLogo from './DiscordLogo';
 import RsIcon from './RsIcon';
 
-export default function Header({ group, onSynced, onToast, isUnlocked, isClaimed, myRsn, onLockClick, onClaimClick, onSetRsnClick, onWebhookClick, onMenuToggle, mobileMenuOpen, onTourClick, onAddPlayer }) {
+export default function Header({ group, onSynced, onToast, isUnlocked, isClaimed, myRsn, onLockClick, onClaim, onSetRsnClick, onWebhookClick, onMenuToggle, mobileMenuOpen, onTourClick, onAddPlayer }) {
   const [syncing, setSyncing] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
   const [pluginOpen, setPluginOpen] = useState(false);
@@ -103,7 +103,7 @@ export default function Header({ group, onSynced, onToast, isUnlocked, isClaimed
           <button
             data-tour="lock"
             className="sync-btn"
-            onClick={onClaimClick}
+            onClick={() => setPluginOpen(true)}
             title="Claim this group to protect it with a secret and enable editing"
             style={{
               background: 'transparent',
@@ -112,7 +112,7 @@ export default function Header({ group, onSynced, onToast, isUnlocked, isClaimed
               padding: '0 12px', fontSize: 12, fontWeight: 600,
               animation: 'pulse 2s ease-in-out infinite',
             }}>
-            🔒 Claim group
+            <RsIcon name="group" fallback="" size={14} /> Claim group
           </button>
         )}
 
@@ -129,7 +129,7 @@ export default function Header({ group, onSynced, onToast, isUnlocked, isClaimed
               color: 'var(--text-dim)',
               padding: '0 12px', fontSize: 12,
             }}>
-            🔒 Unlock
+            <RsIcon name="group" fallback="" size={14} /> Unlock
           </button>
         )}
 
@@ -255,7 +255,7 @@ export default function Header({ group, onSynced, onToast, isUnlocked, isClaimed
       </div>
       {manageOpen && group && <ManageGroupModal group={group} onClose={() => setManageOpen(false)} onAddPlayer={() => onAddPlayer?.()} onChanged={() => onSynced?.()} onToast={onToast} />}
       {pluginOpen && group?.id && (
-        <PluginSetupModal group={group} canWrite={isUnlocked} onToast={onToast} onClose={() => setPluginOpen(false)} />
+        <PluginSetupModal group={group} canWrite={isUnlocked} isClaimed={isClaimed} onClaim={onClaim} onUnlock={onLockClick} onToast={onToast} onClose={() => setPluginOpen(false)} />
       )}
       {notesOpen && group?.id && (
         <GroupNotesOverlay

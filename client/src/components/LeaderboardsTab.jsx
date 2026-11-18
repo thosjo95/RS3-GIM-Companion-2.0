@@ -1308,7 +1308,7 @@ function BossKills({ players, colorMap, groupId, canWrite }) {
         </table>
       </div>
       <div style={{ marginTop: 10, fontSize: 10, color: 'var(--text-dim)' }}>
-        Counted from the Adventurer's Log feed — accumulates each sync (the game batches kills, e.g. “I killed 17 Hermods”). Only kills since a player was added are counted.
+        With the plugin these are the game's own lifetime boss counters. Members without the plugin are counted from the Adventurer's Log (only kills since they were added, as the game reports them).
       </div>
       <BossLog players={players} colorMap={colorMap} groupId={groupId} canWrite={canWrite}
         bossName={bossFilter === 'All' ? null : activeBosses.find(b => b.key === bossFilter)?.label ?? null} />

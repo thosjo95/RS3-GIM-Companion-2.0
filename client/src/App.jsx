@@ -11,7 +11,6 @@ import GimTypeLabel from './components/common/GimTypeLabel';
 import ToastArea from './components/common/ToastArea';
 import SetRsnModal from './components/modals/SetRsnModal';
 import UnlockModal from './components/modals/UnlockModal';
-import ClaimModal from './components/modals/ClaimModal';
 import SetupScreen from './components/setup/SetupScreen';
 import SearchGroupModal from './components/groups/SearchGroupModal';
 import Sidebar from './components/groups/Sidebar';
@@ -32,7 +31,6 @@ export default function App() {
   const [groupPasswords, setGroupPasswordsState] = useState(loadStoredPasswords);
   const [favoriteGroupIds, setFavoriteGroupIdsState] = useState(loadFavoriteIds);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [showClaimModal, setShowClaimModal] = useState(false);
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [showRsnModal, setShowRsnModal] = useState(false);
   const [showWebhookModal, setShowWebhookModal] = useState(false);
@@ -236,8 +234,9 @@ export default function App() {
     saveGroupPassword(activeGroupId, result.secret);
     pinGroup(activeGroupId); // claim = save to "Your groups"
     if (rsn) setMyRsn(rsn);
-    await loadGroups(); // refresh to get updated is_claimed
-    return result; // returns { secret } so modal can display it
+    await loadGroups(); // refresh to get updated is_claimed (the group list)
+    await loadGroup(activeGroupId); // and the open group, so the top bar stops offering "Claim group"
+    return result; // returns { secret } so the Plugin window can show it
   }
 
   if (loading) {
@@ -283,7 +282,7 @@ export default function App() {
         isClaimed={!!group?.is_claimed}
         myRsn={myRsn}
         onLockClick={() => setShowPasswordModal(true)}
-        onClaimClick={() => setShowClaimModal(true)}
+        onClaim={handleClaimSubmit}
         onSetRsnClick={() => setShowRsnModal(true)}
         onWebhookClick={() => setShowWebhookModal(true)}
         onMenuToggle={() => setShowMobileSidebar(s => !s)}
@@ -379,13 +378,6 @@ export default function App() {
           group={group}
           onConfirm={handlePasswordSubmit}
           onCancel={() => setShowPasswordModal(false)}
-        />
-      )}
-      {showClaimModal && (
-        <ClaimModal
-          group={group}
-          onConfirm={handleClaimSubmit}
-          onCancel={() => setShowClaimModal(false)}
         />
       )}
       {showSearchModal && (

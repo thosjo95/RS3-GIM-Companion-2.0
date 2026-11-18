@@ -69,7 +69,7 @@ device, not per character (keys include the character name).
 
 ## State of the work (Nov 2026)
 
-**Done and pushed:** server API with plugin ingest and keys; joining with the group secret; listing image; docs updated; dashboard (player cards with inspect panel for
+**Done and pushed:** server API with plugin ingest and keys; joining with the group secret; listing image; docs updated; live XP drops (`xp_drops`, Live XP tile, drops floating over the cards); boss log with drops and clue log (`progress_log`, services/progressLog.js); clues as a leaderboard/competition metric; backpack slot by slot, noted items (`note_of`), money pouch (`money_pouch`, K/M/B display); claiming moved into the Plugin window (ClaimModal removed; "Claim group" opens PluginSetupModal); tour opens once per group and per browser and starts with New/Existing group; gallery screenshots in `plugin/submission/gallery/` made from the fictional group of `node server/scripts/devShowcase.js` (secret SHOW-CASE-2026); dashboard (player cards with inspect panel for
 backpack/equipment/skills, online indicator, Drops chest, Leaderboard and Goals tiles as floating panels, Group Stats grid,
 Group Vault with banks and group storage and Bank Journal, Goals with auto-tracking and recommendations, Quests and Tasks with
 the Journey, Leaderboards incl. Slayer Kills, group leaderboard and competitions, Manage group, top bar rearrangement, new
@@ -114,6 +114,7 @@ manifest). 2.0 has never been run against a real 1.x database.
 - Explain briefly and plainly; say honestly what was not verified (for example anything that needs the real game client).
 - Do not publish, push settings changes or deploy without being asked. Pushing commits to the 2.0 repo has been standing practice.
 - The owner cannot be reached by SSH from here; server steps are written as commands for the owner to run.
+- The Vite dev server can miss a file change on Windows (it then serves a half-edited module). If the page shows old behaviour, `touch` the changed files in client/src. Grid columns use `minmax(0, 1fr)` so long lines cannot push the page wider than the screen.
 - Shell tips on this Windows machine: heredocs with quotes or backslashes break; write patch scripts with the Write tool and run
   them with node. After server code changes restart the dev API server.
 - Names: RuneScape hiscores write names with a non-breaking space; always compare names after replacing `\s` with a normal space.

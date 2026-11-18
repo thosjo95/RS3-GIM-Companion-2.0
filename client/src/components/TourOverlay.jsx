@@ -43,7 +43,7 @@ const SETUP_STEPS = {
     {
       target: '[data-tour="lock"]',
       title: 'Claim the group and share the secret',
-      body: 'Claim the group to protect it. You get a secret code that is shown once, so save it and share it with your members (on Discord, for example). The secret does two things: everyone unlocks the website with it, and everyone types it into the plugin in the game. Without the secret the group is read-only, and private things (bank, storage, quests from the game) stay hidden.',
+      body: 'Press Claim group. The Plugin window creates your group secret: save it somewhere safe and share it with your members (on Discord, for example). The secret does two things: everyone unlocks the website with it, and everyone types it into the GIM Companion plugin in the game. Without it the group is read-only, and private things (bank, storage, quests from the game) stay hidden.',
       action: 'Claim now',
       missing: 'Pick your group first (previous step). If the group is already unlocked in this browser, there is nothing to do here.',
     },
@@ -66,7 +66,7 @@ const SETUP_STEPS = {
     {
       target: '[data-tour="lock"]',
       title: 'Unlock with your group secret',
-      body: 'If your group was claimed before, press Unlock and enter the secret you already have; it still works, and it is also what you type into the plugin. If nobody ever claimed it, press Claim group now: you get a new secret, shown once, to save and share with your members. Without the secret the group is read-only and private things stay hidden.',
+      body: 'If your group was claimed before, press Unlock and enter the secret you already have; it still works, and it is also what you type into the plugin. If nobody ever claimed it, press Claim group: the Plugin window creates a secret for you to save and share with your members. Without the secret the group is read-only and private things stay hidden.',
       action: 'Claim or unlock now',
       missing: 'Pick your group first (previous step). If the group is already unlocked in this browser, there is nothing to do here.',
     },

@@ -1,23 +1,99 @@
-import React from 'react';
+import React, { useState } from 'react';
 import ItemsTab from './ItemsTab';
 import RsIcon from './RsIcon';
 
-// "Plugin setup" lives in the top bar (next to Docs / Discord) because it is about the group's connection to the
-// game, not about any one page: it explains how members connect the plugin with the group secret and shows whether
-// each member's plugin has been heard from.
-export default function PluginSetupModal({ group, canWrite, onClose, onToast }) {
+// The Plugin window (top bar). It is the ONE place for the group secret:
+//   - group not claimed yet: claim it here. That creates the secret, which the claimer saves and shares with the group;
+//   - claimed but locked in this browser: unlock with the secret;
+//   - unlocked: how to connect the GIM Companion plugin with the secret, the secret itself, and who is connected.
+export default function PluginSetupModal({ group, canWrite, isClaimed, onClaim, onUnlock, onClose, onToast }) {
+  const [rsn, setRsn] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [newSecret, setNewSecret] = useState(null);    // shown right after claiming
+  const [copied, setCopied] = useState(false);
+  const players = group?.players ?? [];
+
+  async function claim() {
+    setBusy(true);
+    try { const r = await onClaim(rsn || null); setNewSecret(r.secret); }
+    catch (e) { onToast?.(e.message || 'Could not claim the group', 'error'); }
+    finally { setBusy(false); }
+  }
+  const copy = () => navigator.clipboard?.writeText(newSecret).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
+
+  const box = { padding: 12, border: '1px solid var(--border)', borderRadius: 'var(--radius)', fontSize: 12, lineHeight: 1.6, color: 'var(--text-dim)' };
+  let body;
+  if (!isClaimed && !newSecret) {
+    body = (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={box}>
+          <strong style={{ color: 'var(--text-bright)' }}>{group?.name}</strong> has no group secret yet. Claiming the group creates one.
+          The secret does two things: every member <strong>unlocks this website</strong> with it, and every member <strong>types it into the
+          GIM Companion plugin</strong> in RuneScape to connect their character.
+        </div>
+        <div style={{ ...box, background: 'rgba(192,64,64,0.10)', borderColor: 'rgba(192,64,64,0.4)' }}>
+          <strong style={{ color: 'var(--red-bright)' }}>Only claim your own group.</strong> The one who claims it must save the secret safely and share it
+          with the group. If someone else claimed your group or the secret is lost, contact the developer on{' '}
+          <a href="https://discord.gg/xbB2T2Q6A" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--gold)' }}>Discord</a> or at{' '}
+          <a href="mailto:rs3groupiron@pm.me" style={{ color: 'var(--gold)' }}>rs3groupiron@pm.me</a>.
+        </div>
+        {players.length > 0 && (
+          <label style={{ fontSize: 12 }}>Which character is yours? (optional)
+            <select className="form-input" value={rsn} onChange={e => setRsn(e.target.value)} style={{ width: '100%', marginTop: 4 }}>
+              <option value="">Select your character</option>
+              {players.map(p => <option key={p.id} value={p.rsn}>{p.rsn}</option>)}
+            </select>
+          </label>
+        )}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary" onClick={claim} disabled={busy}>{busy ? 'Claiming...' : 'Claim group and create the secret'}</button>
+        </div>
+      </div>
+    );
+  } else if (!canWrite && !newSecret) {
+    body = (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={box}>
+          This group is claimed. Enter the group secret to unlock it in this browser. It is the same secret every member types into the
+          GIM Companion plugin in RuneScape. Ask the member who claimed the group for it.
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <button className="btn btn-ghost" onClick={onClose}>Close</button>
+          <button className="btn btn-primary" onClick={() => { onClose(); onUnlock(); }}>Unlock with the secret</button>
+        </div>
+      </div>
+    );
+  } else {
+    body = (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {newSecret && (
+          <div style={{ padding: 14, border: '1px solid var(--gold-dark)', borderRadius: 'var(--radius-lg)', background: 'rgba(200,168,75,0.08)' }}>
+            <div style={{ fontSize: 13, color: 'var(--text-dim)', marginBottom: 10 }}>
+              Group claimed. This is your group secret. <strong style={{ color: 'var(--gold)' }}>Save it somewhere safe and share it with your group</strong>:
+              only this browser remembers it, and nobody can look it up again.
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <code style={{ flex: 1, fontSize: 18, fontWeight: 700, color: 'var(--gold)', letterSpacing: 2 }}>{newSecret}</code>
+              <button className="btn btn-primary btn-sm" onClick={copy}>{copied ? 'Copied' : 'Copy'}</button>
+            </div>
+          </div>
+        )}
+        <ItemsTab players={players} groupId={group?.id} canWrite onToast={onToast} view="setup" />
+      </div>
+    );
+  }
+
   return (
-    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && !newSecret && onClose()}>
       <div className="modal" style={{ maxWidth: 640 }}>
         <div className="modal-header">
           <span className="modal-title" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-            <RsIcon name="setup" fallback="🔌" size={18} /> Plugin setup
+            <RsIcon name="setup" fallback="" size={18} /> {isClaimed || newSecret ? 'Plugin setup' : 'Claim group'}
           </span>
-          <button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button>
+          <button className="btn btn-ghost btn-sm" onClick={onClose} title="Close">×</button>
         </div>
-        <div className="modal-body">
-          <ItemsTab players={group?.players ?? []} groupId={group?.id} canWrite={canWrite} onToast={onToast} view="setup" />
-        </div>
+        <div className="modal-body">{body}</div>
       </div>
     </div>
   );

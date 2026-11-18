@@ -334,6 +334,25 @@
       asks for it once; type it and press <strong>Connect</strong>. See <a href="#plugin-install">Install &amp; connect</a>.
     </p>
 
+    <h3>Live XP drops</h3>
+    <p>
+      XP gained in each skill floats up from the member's player card as it happens (about every 30 seconds while they play), and
+      the <strong>Live XP</strong> tile shows each member's XP of the last hour and every drop of the last day. See <a href="#tab-overview">Overview</a>.
+    </p>
+
+    <h3>Boss log, clue log and clue competitions</h3>
+    <p>
+      Leaderboards now keep a <strong>boss log</strong> (every kill the game counts, with the drops linked to each boss) and a
+      <strong>clue log</strong> (every clue a member completes, per tier). Clues completed are also a board on the group leaderboard and
+      something to race for in competitions. See <a href="#tab-leaderboards">Leaderboards</a>.
+    </p>
+
+    <h3>Backpack as in the game, with the money pouch</h3>
+    <p>
+      The inspect panel shows the backpack slot by slot, exactly as in the game (noted items drawn on their note), and the coins in the
+      money pouch, shortened like the game does (white K, green M, blue B). See <a href="#player-bar">Player cards</a>.
+    </p>
+
     <h3>Drops, Goals and Leaderboard tiles</h3>
     <p>
       Three tiles beside the activity feed open as panels that float over the page: the <strong>Drops</strong> chest, your
@@ -397,11 +416,13 @@ npm install --prefix server
 npm install --prefix client
 npm run dev            # API on :3001, dashboard on :5173</code></pre>
     <h4>Try it without the game</h4>
-<pre><code>node server/scripts/devDemo.js     # a demo group with fake players, items, quests and a journey
-                                   # unlock it with the secret it prints (dev database only)</code></pre>
+<pre><code>node server/scripts/devShowcase.js # "Misthalin Five": five made-up members with data in every feature
+                                   # (secret SHOW-CASE-2026, dev database only; used for the screenshots)
+node server/scripts/devDemo.js     # a smaller demo group with fake players and items</code></pre>
     <h4>Connect the real plugin</h4>
     <ol>
-      <li>Open the dashboard, unlock your group and click <strong>Plugin</strong> in the top bar.</li>
+      <li>Open the dashboard and click <strong>Plugin</strong> in the top bar. A group nobody has claimed yet is claimed right there: that creates
+        the group secret, which the claimer saves and shares with the group. A claimed group is unlocked with that secret.</li>
       <li>Follow <a href="#plugin-install">Install &amp; connect</a>: the plugin asks for the group secret in the game.</li>
     </ol>
 
@@ -437,13 +458,16 @@ npm run dev            # API on :3001, dashboard on :5173</code></pre>
         Group Ironman hiscores (the rank links to the group there). This used to be a heading on every page.</li>
       <li><strong>+</strong> (unlocked groups) opens <strong>Manage group</strong>: add a character by hand (this is how you build a
         custom group), correct a character name, or remove a member. Removing asks for confirmation and deletes that player's data.</li>
-      <li><strong>Plugin</strong> opens the plugin setup window: how to connect, the group secret (hidden until you press Show, with Copy),
-        every member's connection status and <strong>Disconnect</strong>.</li>
+      <li><strong>Plugin</strong> is the one place for the group secret. For a group nobody has claimed, it claims the group and creates the
+        secret (also reached through <strong>Claim group</strong>); the claimer must save it and share it with the group. For a claimed group it
+        shows how to connect, the secret (hidden until you press Show, with Copy), every member's connection status and <strong>Disconnect</strong>.</li>
+      <li><strong>?</strong> starts the tour. It opens by itself the first time a browser opens a group and begins with
+        <em>New group</em> or <em>Existing group</em>; its setup steps have buttons that open the claim, unlock and Plugin windows.</li>
       <li><strong>Group notes</strong>, <strong>Discord notifications</strong>, <strong>?</strong> tour, <strong>Docs</strong>, <strong>Discord</strong>, <strong>Sync All</strong> as in 1.x.</li>
     </ul>
 
     <h2 id="tab-overview">Overview</h2>
-    <p>Group Stats (every member's skills side by side, with a Levels/XP switch), recent activity grouped by day, and three tiles
+    <p>Group Stats (every member's skills side by side, with a Levels/XP switch), recent activity grouped by day, and four tiles
     beside the activity. The Quests view moved to <a href="#tab-quests">Quests and Tasks</a>.</p>
     <p>Each tile opens a panel that floats over the page, so nothing below it moves:</p>
     <table>
@@ -453,7 +477,11 @@ npm run dev            # API on :3001, dashboard on :5173</code></pre>
       <tr><td><strong>Leaderboard</strong> (trophy)</td><td>Who gained the most XP, levels, quest points, boss kills, slayer kills or drops over the last day, week or month, and the group's
         <strong>competitions</strong>: press <em>New competition</em>, choose what to track (for example 50 Araxxi kills), start and end time and an optional goal,
         or start from a preset. The tile shows how many competitions are running.</td></tr>
+      <tr><td><strong>Live XP</strong></td><td>Each member's XP of the last hour with their top skills, and every XP drop of the last 24 hours, newest first.
+        The tile shows the group's XP of the last hour. Needs the plugin and an unlocked group.</td></tr>
     </table>
+    <p>New XP also floats up from the player cards as "+1,240" with the skill icon. Drops are counted per plugin update (about every
+    30 seconds), not per single hit, and kept for 7 days.</p>
 
     <h2 id="tab-goals">Goals</h2>
     <p>The planning board with the Goal Browser and Active Goals. Quest goals now complete themselves when the plugin sees you
@@ -505,11 +533,16 @@ npm run dev            # API on :3001, dashboard on :5173</code></pre>
       <tr><th>Board</th><th>What it shows</th></tr>
       <tr><td><strong>Firsts</strong></td><td>Who did each milestone first. Dated from the Adventurer's Log; skills fall back to the hiscores; <strong>killed bosses count as a first kill (date unknown)</strong> from the plugin's lifetime counts. Manual corrections always win.</td></tr>
       <tr><td><strong>Milestones</strong></td><td>The activity feed of milestones.</td></tr>
-      <tr><td><strong>Boss Kills</strong></td><td>Per-boss kills per player. With the plugin these are the <strong>game's exact lifetime counts</strong> (the same numbers as <em>Adventures → Beasts → Boss kills</em>); without it, the Adventurer's Log estimate.</td></tr>
+      <tr><td><strong>Boss Kills</strong></td><td>Per-boss kills per player. With the plugin these are the <strong>game's exact lifetime counts</strong> (the same numbers as <em>Adventures → Beasts → Boss kills</em>); without it, the Adventurer's Log estimate. Below it the
+        <strong>boss log</strong>: every rise of a boss counter ("killed Hermod ×2 · now 71") and every drop linked to a boss, newest first,
+        following the boss filter.</td></tr>
       <tr><td><strong>Slayer Kills</strong></td><td>Lifetime kills per slayer creature from the game's own counters (only the creatures matched so far).</td></tr>
-      <tr><td><strong>Clue Scrolls</strong></td><td>From the hiscores.</td></tr>
+      <tr><td><strong>Clue Scrolls</strong></td><td>Completed clues per tier from the hiscores, and the <strong>clue log</strong> below it: each time the
+        hiscores show a member completed more clues (read about once an hour), with the new total.</td></tr>
       <tr><td><strong>Skill Mastery</strong></td><td>99s and 120s per player with dates.</td></tr>
     </table>
+    <p>The boss and clue logs start when tracking starts: the first count seen is only a starting point. Clues completed can also be
+    tracked on the group leaderboard and in competitions (all tiers or one tier).</p>
 
     <!-- ── PLUGIN ───────────────────────────────────────── -->
     <h2 id="plugin-overview">The RuneScape plugin</h2>
@@ -537,7 +570,7 @@ npm run dev            # API on :3001, dashboard on :5173</code></pre>
       <li><strong>Open the console</strong> in the beta client: <strong>Alt + the key under Esc</strong>. The console's first lines name the keys on your layout
         (for example Alt-§, Alt-² or Alt-ø on a Nordic keyboard). Then enable the plugin:
 <pre><code>prf                                   # refresh the plugin list
-ppr gim-companion                     # request its permissions
+ppr gim-companion                     # the plugin asks for its permission
 ppe gim-companion httpAccess          # allow network access
 pon gim-companion                     # enable it</code></pre></li>
     </ol>
@@ -723,7 +756,7 @@ pon gim-companion                     # enable it</code></pre></li>
     <table>
       <tr><th>Table</th><th>Holds</th></tr>
       <tr><td><code>plugin_tokens</code></td><td>Token hashes per player, revoked flag, last used.</td></tr>
-      <tr><td><code>player_live_state</code></td><td>Latest skills, backpack, worn items, bank, group storage and position per player.</td></tr>
+      <tr><td><code>player_live_state</code></td><td>Latest skills, backpack (slot by slot), worn items, bank, group storage, money pouch and position per player.</td></tr>
       <tr><td><code>storage_ledger</code></td><td>The Bank Journal (group storage in/out). Unique per movement.</td></tr>
       <tr><td><code>player_quests</code></td><td>Quest state per player (a full baseline prunes stale rows).</td></tr>
       <tr><td><code>player_achievements</code></td><td>Completed achievements; Journey steps also while unfinished, with description, reward and progress counter.</td></tr>
@@ -732,6 +765,8 @@ pon gim-companion                     # enable it</code></pre></li>
       <tr><td><code>player_kill_vars</code></td><td>Raw kill tracker variables.</td></tr>
       <tr><td><code>plugin_kill_batches</code></td><td>References of batches already applied (de-duplication, kept 7 days).</td></tr>
       <tr><td><code>drops</code> (extended)</td><td>Plugin drops carry a unique <code>sig</code> and source.</td></tr>
+      <tr><td><code>xp_drops</code></td><td>XP gained per skill between two plugin updates (live XP), kept 7 days.</td></tr>
+      <tr><td><code>progress_log</code></td><td>The boss log and the clue log: one row per rise of a count.</td></tr>
       <tr><td><code>achievements</code> (1.x)</td><td>The area task grid; filled from the plugin as well as the Adventurer's Log and by hand.</td></tr>
     </table>
     <p>The 1.x tables (players, goals, skills, snapshots, gear, firsts, …) are unchanged.</p>
@@ -778,6 +813,14 @@ npm run build --prefix client</code></pre>
     <h2 id="changelog">Changelog</h2>
 
     <h3>2.0.0-dev · November 2026</h3>
+    <h4>Latest</h4>
+    <ul>
+      <li>Live XP drops on the player cards and a Live XP tile.</li>
+      <li>Boss log with drops, clue log, clues completed as a leaderboard board and competition metric.</li>
+      <li>Backpack slot by slot as in the game, noted items, money pouch with K/M/B amounts.</li>
+      <li>Claiming a group moved into the Plugin window: one place for the group secret. The tour starts with New group or Existing group.</li>
+      <li>The Overview fits narrower screens; the wide leaderboard panel no longer runs off the page.</li>
+    </ul>
     <h4>Plugin</h4>
     <ul>
       <li>New Lua plugin for the official RuneScape 3 plugin system: skills, backpack, worn items, bank, group storage, position.</li>

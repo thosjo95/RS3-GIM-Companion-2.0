@@ -94,7 +94,7 @@ export default function RightPanel({ goals, players, filteredPlayerId, groupId, 
         {open && (
           <>
             <div onClick={() => setOpen(null)} style={{ position: 'fixed', inset: 0, zIndex: 90 }} />
-            <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 6, zIndex: 91, display: 'flex', justifyContent: 'center', pointerEvents: 'none' }}>
+            <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 6, zIndex: 91, display: 'flex', justifyContent: open === 'board' ? 'flex-end' : 'center', pointerEvents: 'none' }}>{/* the wide leaderboard lines up with the right edge and opens over the page to the left */}
             <div style={{ pointerEvents: 'auto', width: open === 'board' ? 'min(720px, 92vw)' : 'min(520px, 100%)', boxShadow: '0 12px 36px rgba(0,0,0,0.65)', borderRadius: 'var(--radius-lg)' }}>
               {open === 'board' && <GroupLeaderboard embedded players={players} groupId={groupId} canWrite={canWrite} onToast={onToast} onClose={() => setOpen(null)} />}
               {open === 'drops' && <DropsPanel drops={drops} players={players} selectedId={filteredPlayerId} onClose={() => setOpen(null)} />}

@@ -346,17 +346,23 @@ export default function ItemsTab({ players, groupId, canWrite, onToast, selected
 
   const load = useCallback(() => {
     if (!canWrite || !groupId) return;
-    Promise.all([api.getPluginState(groupId), api.getPluginLedger(groupId)])
-      .then(([s, l]) => { setState(s); setLedger(l); setError(null); })
+    // each view loads only its own data: the vault the banks and the shared storage (once), the journal its entries,
+    // the setup list just who is connected
+    const wanted = view === 'items' ? api.getPluginState(groupId, { include: 'bank,group_storage', group_storage: 'latest' })
+      : view === 'setup' ? api.getPluginState(groupId, { include: '' })
+      : Promise.resolve(null);
+    const ledgerWanted = view === 'ledger' ? api.getPluginLedger(groupId) : Promise.resolve(null);
+    Promise.all([wanted, ledgerWanted])
+      .then(([s, l]) => { if (s) setState(s); if (l) setLedger(l); setError(null); })
       .catch(e => setError(e.message));
-  }, [groupId, canWrite]);
+  }, [groupId, canWrite, view]);
 
   // The plugin sends about every 30 s, so poll quickly (only while this browser tab is visible) and
   // refresh immediately when the user comes back to it.
   useEffect(() => {
     load();
     const tick = () => { if (!document.hidden) load(); };
-    const t = setInterval(tick, 8000);
+    const t = setInterval(tick, 20000);
     document.addEventListener('visibilitychange', tick);
     return () => { clearInterval(t); document.removeEventListener('visibilitychange', tick); };
   }, [load]);

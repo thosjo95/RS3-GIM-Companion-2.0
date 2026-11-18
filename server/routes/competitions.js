@@ -27,6 +27,19 @@ function unlocked(req, groupId) {
   return !!pw && verifyGroupPassword(pw, g);
 }
 
+// Standings need a few hundred small queries; many viewers of the same group get one answer a minute.
+const cache = new Map();
+const TTL = 60 * 1000;
+function cached(key, fn) {
+  const hit = cache.get(key);
+  if (hit && Date.now() - hit.at < TTL) return hit.value;
+  const value = fn();
+  cache.set(key, { at: Date.now(), value });
+  if (cache.size > 2000) { for (const [k, v] of cache) if (Date.now() - v.at >= TTL) cache.delete(k); }
+  return value;
+}
+const forgetGroup = groupId => { for (const k of cache.keys()) if (k.startsWith(`comps:${groupId}:`)) cache.delete(k); };
+
 const players = groupId => db.prepare('SELECT id, rsn FROM players WHERE group_id = ?').all(groupId);
 
 // GET /api/competitions/leaderboard?group_id=&period=day|week|month
@@ -36,13 +49,15 @@ router.get('/leaderboard', (req, res) => {
   if (!groupId) return res.status(400).json({ error: 'group_id required' });
   const open = unlocked(req, groupId);
   const list = players(groupId);
-  const startMs = Date.now() - PERIODS[period];
-  res.json({
-    period, since: new Date(startMs).toISOString(),
-    boards: DEFAULT_BOARDS.map(b => (PLUGIN_METRICS.has(b.metric) && !open
-      ? { ...b, locked: true, rows: [] }
-      : { ...b, locked: false, rows: standings(list, b.metric, b.target, startMs) })),
-  });
+  res.json(cached(`lb:${groupId}:${period}:${open}`, () => {
+    const startMs = Date.now() - PERIODS[period];
+    return {
+      period, since: new Date(startMs).toISOString(),
+      boards: DEFAULT_BOARDS.map(b => (PLUGIN_METRICS.has(b.metric) && !open
+        ? { ...b, locked: true, rows: [] }
+        : { ...b, locked: false, rows: standings(list, b.metric, b.target, startMs) })),
+    };
+  }));
 });
 
 const cleanComp = (b, groupId) => {
@@ -66,6 +81,16 @@ function present(c, open, list) {
   return { ...c, status, locked, rows: locked || status === 'upcoming' ? [] : standings(list, c.metric, c.target, startMs, endMs) };
 }
 
+// GET /api/competitions/summary?group_id= — just how many are running (for the Leaderboard tile): no standings are computed
+router.get('/summary', (req, res) => {
+  const groupId = parseInt(req.query.group_id, 10);
+  if (!groupId) return res.status(400).json({ error: 'group_id required' });
+  const now = Date.now();
+  const rows = db.prepare('SELECT starts_at, ends_at FROM group_competitions WHERE group_id = ?').all(groupId);
+  const live = rows.filter(c => Date.parse(c.starts_at) <= now && (!c.ends_at || Date.parse(c.ends_at) >= now)).length;
+  res.json({ live, total: rows.length });
+});
+
 // GET /api/competitions/options?group_id= — the bosses the group's plugins have reported (for the "which boss" picker)
 router.get('/options', (req, res) => {
   const groupId = parseInt(req.query.group_id, 10);
@@ -81,8 +106,7 @@ router.get('/', (req, res) => {
   const groupId = parseInt(req.query.group_id, 10);
   if (!groupId) return res.status(400).json({ error: 'group_id required' });
   const open = unlocked(req, groupId), list = players(groupId);
-  const rows = db.prepare('SELECT * FROM group_competitions WHERE group_id = ? ORDER BY starts_at DESC').all(groupId);
-  res.json(rows.map(c => present(c, open, list)));
+  res.json(cached(`comps:${groupId}:${open}`, () => db.prepare('SELECT * FROM group_competitions WHERE group_id = ? ORDER BY starts_at DESC').all(groupId).map(c => present(c, open, list))));
 });
 
 // Everyone who can write to the group may create, change and remove competitions.
@@ -93,6 +117,7 @@ router.post('/', (req, res) => {
   const id = Number(db.prepare('INSERT INTO group_competitions (group_id, title, metric, target, starts_at, ends_at, goal) VALUES (?, ?, ?, ?, ?, ?, ?)')
     .run(c.group_id, c.title, c.metric, c.target, c.starts_at, c.ends_at, c.goal).lastInsertRowid);
   for (const p of players(groupId)) { try { snapshotPlayer(p.id, true); } catch { /* the baseline falls back to the first snapshot */ } }
+  forgetGroup(groupId);
   res.status(201).json({ id });
 });
 
@@ -103,6 +128,7 @@ router.put('/:id', (req, res) => {
   let c; try { c = cleanComp({ ...cur, ...req.body }, cur.group_id); } catch (e) { return res.status(400).json({ error: e.message }); }
   db.prepare('UPDATE group_competitions SET title = ?, metric = ?, target = ?, starts_at = ?, ends_at = ?, goal = ? WHERE id = ?')
     .run(c.title, c.metric, c.target, c.starts_at, c.ends_at, c.goal, cur.id);
+  forgetGroup(cur.group_id);
   res.json({ ok: true });
 });
 
@@ -111,6 +137,7 @@ router.delete('/:id', (req, res) => {
   if (!cur) return res.status(404).json({ error: 'Not found' });
   if (!checkGroupAuth(req, res, cur.group_id)) return;
   db.prepare('DELETE FROM group_competitions WHERE id = ?').run(cur.id);
+  forgetGroup(cur.group_id);
   res.json({ ok: true });
 });
 

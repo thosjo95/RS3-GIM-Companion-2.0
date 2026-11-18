@@ -96,12 +96,14 @@ export const api = {
   getBossKills: (groupId) => request(`/boss-kills?group_id=${groupId}`),
 
   // GIM 2.0 — data pushed by the in-game plugin
-  getPluginState:    (groupId)          => request(`/plugin/state?group_id=${groupId}`),
+  // `include` / `player_id` / `group_storage` narrow the answer (see /api/plugin/state): never ask for more than the page shows
+  getPluginState:    (groupId, o = {})  => request(`/plugin/state?group_id=${groupId}${o.include !== undefined ? `&include=${o.include}` : ''}${o.player_id ? `&player_id=${o.player_id}` : ''}${o.group_storage ? `&group_storage=${o.group_storage}` : ''}`),
   getPluginAchievements: (groupId) => request(`/plugin/achievements?group_id=${groupId}`),
   getRecommendations: (groupId, playerId) => request(`/goals/recommendations?group_id=${groupId}${playerId ? `&player_id=${playerId}` : ''}`),
   getSlayerKills:    (groupId) => request(`/plugin/slayer-kills?group_id=${groupId}`),
   getGroupLeaderboard: (groupId, period) => request(`/competitions/leaderboard?group_id=${groupId}&period=${period}`),
   getCompetitionOptions: (groupId) => request(`/competitions/options?group_id=${groupId}`),
+  getCompetitionSummary: (groupId) => request(`/competitions/summary?group_id=${groupId}`),
   getCompetitions:   (groupId) => request(`/competitions?group_id=${groupId}`),
   createCompetition: (body) => request('/competitions', { method: 'POST', body }),
   updateCompetition: (id, body) => request(`/competitions/${id}`, { method: 'PUT', body }),

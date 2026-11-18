@@ -110,7 +110,7 @@ export default function PlayerLoadout({ player, groupId, canWrite, onClose }) {
   useEffect(() => {
     if (!canWrite || !groupId) return undefined;
     let alive = true;
-    const load = () => api.getPluginState(groupId)
+    const load = () => api.getPluginState(groupId, { player_id: player.id, include: 'inventory,equipment,skills' })
       .then(r => { if (alive) { setRow((Array.isArray(r) ? r : []).find(x => x.player_id === player.id) ?? null); setError(false); } })
       .catch(() => { if (alive) setError(true); });
     load();

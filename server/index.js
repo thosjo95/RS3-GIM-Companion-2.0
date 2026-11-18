@@ -12,6 +12,7 @@ const PORT = process.env.PORT || 3001;
 app.set('trust proxy', 1);
 
 app.disable('x-powered-by');
+app.use(require('compression')({ threshold: 1024 }));
 
 // In production nginx serves the client and proxies /api from the same origin, so
 // CORS is only needed for local dev (vite on :5173). Override with CORS_ORIGINS.
@@ -116,82 +117,11 @@ cron.schedule('30 3 * * *', async () => {
   catch (e) { console.error('[roster] failed:', e.message); }
 });
 
-// ── Hiscores sync (hourly) and daily snapshot ─────────────────────────────────
-// Syncs every player's hiscores (skills, clue scrolls, RuneScore) and Adventurer's Log events, so nobody has to press
-// Sync by hand. The same run stores the daily snapshot (one per player and day).
-let hiscoresRunning = false;
-async function syncAllHiscores(label) {
-  if (hiscoresRunning) return;          // a slow run must not overlap the next one
-  hiscoresRunning = true;
-  try {
-  const { fetchHiscores, fetchPlayerEvents, calcCombatLevel } = require('./services/runescape');
-  const { saveActivities, autoLogDrops, autoDetectDiaries, autoCountBossKills, autoDetectLevelMilestones, autoCompleteQuestGoals } = require('./services/activitySync');
-
-  const players = db.prepare('SELECT * FROM players').all();
-  const today   = new Date().toISOString().slice(0, 10);
-
-  for (const player of players) {
-    try {
-      const [data, rm] = await Promise.all([
-        fetchHiscores(player.rsn),
-        fetchPlayerEvents(player.rsn).catch(() => null),
-      ]);
-      const combat = calcCombatLevel(data.skills);
-
-      // stats_json: hiscores activities (clue scrolls, RuneScore…). The quest counts are
-      // written by the player sync routes, so carry the previous values over.
-      let prevStats = {};
-      try { prevStats = player.stats_json ? JSON.parse(player.stats_json) : {}; } catch { /* corrupt — ignore */ }
-      const statsJson = JSON.stringify({
-        activities:     data.activities,
-        questsComplete: prevStats.questsComplete ?? null,
-        questsStarted:  prevStats.questsStarted  ?? null,
-      });
-      const activitiesJson = rm ? JSON.stringify(rm.activities) : null;
-
-      db.prepare(
-        'UPDATE players SET last_synced = CURRENT_TIMESTAMP, combat_level = ?, stats_json = ?, activities_json = COALESCE(?, activities_json) WHERE id = ?'
-      ).run(combat, statsJson, activitiesJson, player.id);
-
-      db.runTransaction(() => {
-        const upsert = db.prepare(`
-          INSERT INTO skills (player_id, skill_name, level, xp, rank)
-          VALUES (?, ?, ?, ?, ?)
-          ON CONFLICT(player_id, skill_name) DO UPDATE SET
-            level = excluded.level, xp = excluded.xp, rank = excluded.rank
-        `);
-        for (const [name, s] of Object.entries(data.skills)) {
-          upsert.run(player.id, name, s.level, s.xp, s.rank ?? -1);
-        }
-      });
-
-      db.prepare(`
-        INSERT INTO snapshots (player_id, snapshot_date, total_xp, total_level, skills_json)
-        VALUES (?, ?, ?, ?, ?)
-        ON CONFLICT(player_id, snapshot_date) DO NOTHING
-      `).run(player.id, today, data.totalXp, data.totalLevel, JSON.stringify(data.skills));
-
-      if (rm?.activities) {
-        const newActivities = saveActivities(player.id, rm.activities);
-        if (newActivities.length > 0) {
-          autoLogDrops(player.id, newActivities);
-          autoDetectDiaries(player.id, newActivities);
-          autoCountBossKills(player.id, newActivities);
-          autoDetectLevelMilestones(player.id, newActivities);
-          autoCompleteQuestGoals(player.id, newActivities);
-        }
-      }
-
-      console.log(`[${label}] Synced ${player.rsn}`);
-    } catch (err) {
-      console.error(`[${label}] Failed ${player.rsn}: ${err.message}`);
-    }
-    await new Promise(r => setTimeout(r, 700));       // be gentle with the hiscores site
-  }
-  } finally { hiscoresRunning = false; }
-}
-cron.schedule('5 * * * *', () => { syncAllHiscores('hourly sync').catch(e => console.error('[hourly sync] failed:', e.message)); });
-cron.schedule('0 0 * * *', () => { syncAllHiscores('daily sync').catch(e => console.error('[daily sync] failed:', e.message)); });
+// ── Hiscores sync ─────────────────────────────────────────────────────────────
+// Hourly: skills only, active groups only. Daily (midnight): also the Adventurer's Log. Both store the daily snapshot.
+// See services/hiscoresSync.js for the rules (active groups, oldest first, back off when Jagex says slow down).
+cron.schedule('5 * * * *', () => { require('./services/hiscoresSync').runHiscoresSync({ label: 'hourly sync', events: false }).catch(e => console.error('[hourly sync] failed:', e.message)); });
+cron.schedule('0 0 * * *', () => { require('./services/hiscoresSync').runHiscoresSync({ label: 'daily sync', events: true, activeDays: 30 }).catch(e => console.error('[daily sync] failed:', e.message)); });
 
 // ── Cleanup cron ───────────────────────────────────────────────────────────────
 // Runs at 2am every day — removes groups inactive for 30+ days.

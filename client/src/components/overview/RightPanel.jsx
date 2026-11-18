@@ -19,7 +19,7 @@ export default function RightPanel({ goals, players, filteredPlayerId, groupId, 
   useEffect(() => {
     if (!groupId) return undefined;
     let alive = true;
-    const load = () => api.getCompetitions(groupId).then(r => { if (alive) setLiveCompetitions((Array.isArray(r) ? r : []).filter(x => x.status === 'live').length); }).catch(() => {});
+    const load = () => api.getCompetitionSummary(groupId).then(r => { if (alive) setLiveCompetitions(r?.live ?? 0); }).catch(() => {});
     load();
     const t = setInterval(() => { if (!document.hidden) load(); }, 60000);
     return () => { alive = false; clearInterval(t); };

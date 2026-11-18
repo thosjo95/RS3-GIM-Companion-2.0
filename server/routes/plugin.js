@@ -259,20 +259,23 @@ router.post('/ingest', ingestLimiter, express.json({ limit: '1mb' }), (req, res)
   let ledgerAdded = 0;
   const applied = {};
   db.runTransaction(() => {
-    db.prepare(`
-      INSERT INTO player_live_state (player_id, updated_at, world, position_json, skills_json, inventory_json, equipment_json, bank_json, group_storage_json, group_storage_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(player_id) DO UPDATE SET
-        updated_at = excluded.updated_at, world = excluded.world, position_json = excluded.position_json,
-        skills_json = excluded.skills_json, inventory_json = excluded.inventory_json,
-        equipment_json = excluded.equipment_json, bank_json = excluded.bank_json,
-        group_storage_json = excluded.group_storage_json, group_storage_at = excluded.group_storage_at
-    `).run(
-      playerId, now, data.world ?? prev.world ?? null,
-      j(data.position, prev.position_json), j(data.skills, prev.skills_json),
-      j(data.inventory, prev.inventory_json), j(data.equipment, prev.equipment_json), j(data.bank, prev.bank_json),
-      j(data.groupStorage, prev.group_storage_json), data.groupStorage !== undefined ? now : (prev.group_storage_at ?? null),
-    );
+    // A heartbeat usually carries nothing new: write only the columns that arrived, not the whole row (a bank is
+    // 100 KB; rewriting it every 30 seconds for every online player is pure waste).
+    const set = { updated_at: now };
+    if (data.world !== undefined) set.world = data.world;
+    if (data.position !== undefined) set.position_json = JSON.stringify(data.position);
+    if (data.skills !== undefined) set.skills_json = JSON.stringify(data.skills);
+    if (data.inventory !== undefined) set.inventory_json = JSON.stringify(data.inventory);
+    if (data.equipment !== undefined) set.equipment_json = JSON.stringify(data.equipment);
+    if (data.bank !== undefined) set.bank_json = JSON.stringify(data.bank);
+    if (data.groupStorage !== undefined) { set.group_storage_json = JSON.stringify(data.groupStorage); set.group_storage_at = now; }
+    if (prev.player_id === undefined) {
+      const cols = Object.keys(set);
+      db.prepare(`INSERT INTO player_live_state (player_id, ${cols.join(', ')}) VALUES (?, ${cols.map(() => '?').join(', ')})`).run(playerId, ...cols.map(c => set[c]));
+    } else {
+      const cols = Object.keys(set);
+      db.prepare(`UPDATE player_live_state SET ${cols.map(c => c + ' = ?').join(', ')} WHERE player_id = ?`).run(...cols.map(c => set[c]), playerId);
+    }
 
     const ins = db.prepare(`
       INSERT OR IGNORE INTO storage_ledger (player_id, store, item_id, item_name, delta, value_each, occurred_at)
@@ -322,24 +325,43 @@ router.get('/state', (req, res) => {
   if (!groupId) return res.status(400).json({ error: 'group_id required' });
   if (!checkGroupAuth(req, res, groupId)) return;
 
+  // Pages ask only for what they show, so a banks page does not download everyone's backpack and a skills panel does not
+  // download banks:  ?include=bank,group_storage,inventory,equipment,skills,position  (default: all, as before)
+  //                  ?player_id=N            one player only
+  //                  ?group_storage=latest   the shared storage once (from the newest snapshot) instead of once per member
+  const ALL = ['position', 'skills', 'inventory', 'equipment', 'bank', 'group_storage'];
+  const want = req.query.include === undefined ? ALL : String(req.query.include).split(',').map(x => x.trim()).filter(x => ALL.includes(x));
+  const col = { position: 'position_json', skills: 'skills_json', inventory: 'inventory_json', equipment: 'equipment_json', bank: 'bank_json', group_storage: 'group_storage_json' };
+  const only = parseInt(req.query.player_id, 10);
+  const latest = req.query.group_storage === 'latest';
+  const selected = want.map(w => `s.${col[w]}`).join(', ');
+
   const rows = db.prepare(`
-    SELECT p.id AS player_id, p.rsn,
-           s.updated_at, s.world, s.position_json, s.skills_json, s.inventory_json, s.equipment_json, s.bank_json, s.group_storage_json, s.group_storage_at,
+    SELECT p.id AS player_id, p.rsn, s.updated_at, s.world, s.group_storage_at${selected ? ', ' + selected : ''},
            (SELECT MAX(last_used_at) FROM plugin_tokens t WHERE t.player_id = p.id AND t.revoked = 0) AS token_last_used,
            EXISTS (SELECT 1 FROM plugin_tokens t WHERE t.player_id = p.id AND t.revoked = 0) AS has_token
     FROM players p
     LEFT JOIN player_live_state s ON s.player_id = p.id
-    WHERE p.group_id = ?
+    WHERE p.group_id = ?${Number.isInteger(only) ? ' AND p.id = ' + only : ''}
     ORDER BY p.rsn
   `).all(groupId);
 
-  res.json(rows.map(r => ({
-    player_id: r.player_id, rsn: r.rsn, has_token: !!r.has_token, token_last_used: r.token_last_used,
-    updated_at: r.updated_at, world: r.world,
-    position: parse(r.position_json), skills: parse(r.skills_json),
-    inventory: parse(r.inventory_json) ?? [], equipment: parse(r.equipment_json) ?? [], bank: parse(r.bank_json) ?? [],
-    group_storage: parse(r.group_storage_json) ?? [], group_storage_at: r.group_storage_at,
-  })));
+  // with group_storage=latest only the row with the newest storage snapshot carries the contents
+  let storageOwner = null;
+  if (latest && want.includes('group_storage')) {
+    for (const r of rows) if (r.group_storage_at && (!storageOwner || r.group_storage_at > storageOwner.group_storage_at)) storageOwner = r;
+  }
+
+  res.json(rows.map(r => {
+    const out = { player_id: r.player_id, rsn: r.rsn, has_token: !!r.has_token, token_last_used: r.token_last_used, updated_at: r.updated_at, world: r.world, group_storage_at: r.group_storage_at };
+    if (want.includes('position')) out.position = parse(r.position_json);
+    if (want.includes('skills')) out.skills = parse(r.skills_json);
+    if (want.includes('inventory')) out.inventory = parse(r.inventory_json) ?? [];
+    if (want.includes('equipment')) out.equipment = parse(r.equipment_json) ?? [];
+    if (want.includes('bank')) out.bank = parse(r.bank_json) ?? [];
+    if (want.includes('group_storage')) out.group_storage = latest && r !== storageOwner ? [] : (parse(r.group_storage_json) ?? []);
+    return out;
+  }));
 });
 
 router.get('/ledger', (req, res) => {

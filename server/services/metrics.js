@@ -63,9 +63,28 @@ function snapshotPlayer(playerId, force = false) {
   return true;
 }
 
+/**
+ * Keeps the table small: everything newer than 7 days is kept as taken (30-minute resolution for competitions that
+ * just started), older snapshots are thinned to the LAST one of each day, and anything older than 120 days goes.
+ * Gains over weeks and months only need the state at the start of a period, so one per day is enough.
+ */
+function thinSnapshots(now = Date.now()) {
+  const week = new Date(now - 7 * 86400000).toISOString();
+  const gone = db.prepare(`
+    DELETE FROM metric_snapshots WHERE rowid IN (
+      SELECT a.rowid FROM metric_snapshots a
+      WHERE a.taken_at < ? AND EXISTS (
+        SELECT 1 FROM metric_snapshots b WHERE b.player_id = a.player_id AND substr(b.taken_at, 1, 10) = substr(a.taken_at, 1, 10) AND b.taken_at > a.taken_at
+      )
+    )`).run(week).changes;
+  const old = db.prepare('DELETE FROM metric_snapshots WHERE taken_at < ?').run(new Date(now - 120 * 86400000).toISOString()).changes;
+  return { thinned: gone, expired: old };
+}
+
+let lastThinned = 0;
 function snapshotAll() {
   for (const { id } of db.prepare('SELECT id FROM players').all()) { try { snapshotPlayer(id); } catch (e) { console.error('[metrics] snapshot failed:', e.message); } }
-  db.prepare("DELETE FROM metric_snapshots WHERE taken_at < ?").run(new Date(Date.now() - 120 * 86400000).toISOString());
+  if (Date.now() - lastThinned > 20 * 3600 * 1000) { lastThinned = Date.now(); try { thinSnapshots(); } catch (e) { console.error('[metrics] thinning failed:', e.message); } }
 }
 
 /** The daily hiscores snapshots (older than this feature) as a metrics object: only XP and total level are in them. */
@@ -140,4 +159,4 @@ function standings(players, metric, target, startMs, endMs = null) {
   return out.sort((a, b) => (b.value ?? -1) - (a.value ?? -1));
 }
 
-module.exports = { collect, snapshotPlayer, snapshotAll, dataAt, pick, standings, PLUGIN_METRICS };
+module.exports = { collect, snapshotPlayer, snapshotAll, thinSnapshots, dataAt, pick, standings, PLUGIN_METRICS };

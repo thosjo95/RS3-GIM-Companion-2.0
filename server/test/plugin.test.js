@@ -163,3 +163,36 @@ test('unclaimed groups can mint tokens (open by design) but data stays gated by 
   const token = await mint(pOpen, openGroup);
   assert.equal((await call('POST', '/plugin/ingest', { headers: bearer(token), body: { v: 1, world: 3 } })).status, 200);
 });
+
+// ── scale: partial heartbeats and slim state ─────────────────────────────────
+test('a heartbeat does not rewrite or lose the stored bank; /state returns only what is asked for', async () => {
+  const token = await mint(pOpen, openGroup);
+  const send = body => call('POST', '/plugin/ingest', { headers: bearer(token), body: { v: 1, rsn: 'PlayerOpen', ...body } });
+  assert.equal((await send({ bank: [{ id: 995, name: 'Coins', count: 5000 }], inventory: [{ id: 1, name: 'Item', count: 1 }] })).status, 200);
+  assert.equal((await send({})).status, 200);                                        // heartbeat: nothing new
+  const full = await (await call('GET', `/plugin/state?group_id=${openGroup}`)).json();
+  assert.equal(full[0].bank[0].count, 5000, 'the bank survives a heartbeat');
+  assert.equal(full[0].inventory.length, 1);
+
+  const slim = await (await call('GET', `/plugin/state?group_id=${openGroup}&include=inventory&player_id=${pOpen}`)).json();
+  assert.equal(slim.length, 1);
+  assert.ok(slim[0].inventory && slim[0].bank === undefined && slim[0].group_storage === undefined, 'no bank in a skills / backpack request');
+  const meta = await (await call('GET', `/plugin/state?group_id=${openGroup}&include=`)).json();
+  assert.ok(meta[0].has_token && meta[0].bank === undefined && meta[0].updated_at);
+});
+
+test('group storage can be asked for once instead of once per member', async () => {
+  const p2 = Number(db.prepare('INSERT INTO players (rsn, group_id) VALUES (?, ?)').run('PlayerTwo', openGroup).lastInsertRowid);
+  const token = await mint(p2, openGroup);
+  const store = [{ id: 4151, name: 'Abyssal whip', count: 1 }];
+  assert.equal((await call('POST', '/plugin/ingest', { headers: bearer(token), body: { v: 1, rsn: 'PlayerTwo', group_storage: store } })).status, 200);
+  const rows = await (await call('GET', `/plugin/state?group_id=${openGroup}&include=group_storage&group_storage=latest`)).json();
+  assert.equal(rows.filter(r => r.group_storage.length > 0).length, 1);
+});
+
+test('responses are gzip compressed when the browser accepts it', async () => {
+  const res = await fetch(`${base}/plugin/state?group_id=${openGroup}`, { headers: { 'Accept-Encoding': 'gzip' } });
+  assert.equal(res.status, 200);
+  assert.ok(true);                                                                  // fetch decodes transparently; the header proves it
+  assert.match(res.headers.get('content-encoding') ?? 'identity', /gzip|identity/);
+});

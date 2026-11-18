@@ -56,24 +56,25 @@
     }
 
     /* ── Layout ── */
+    html, body { overflow-x: hidden; }
     .layout { display: flex; min-height: 100vh; }
 
     /* ── Sidebar ── */
     .sidebar {
       width: var(--sidebar); flex-shrink: 0;
       position: sticky; top: 0; height: 100vh;
-      overflow-y: auto; scrollbar-width: thin;
+      overflow-y: auto; overflow-x: hidden; scrollbar-width: thin;
       background: var(--bg-panel);
       border-right: 1px solid var(--border);
       padding: 24px 0;
     }
     .sidebar-logo {
-      display: flex; align-items: center; gap: 10px;
+      display: flex; flex-direction: column; align-items: flex-start; gap: 10px;
       padding: 0 20px 20px;
       border-bottom: 1px solid var(--border);
       margin-bottom: 16px;
     }
-    .sidebar-logo img { height: auto; width: 100%; max-width: 190px; }
+    .sidebar-logo img { height: auto; width: 100%; max-width: 200px; display: block; }
     .sidebar-logo span { font-weight: 700; font-size: 13px; color: var(--gold); line-height: 1.3; }
     .sidebar-version { font-size: 10px; color: var(--text-dim); font-weight: 400; }
     .sidebar nav a {
@@ -103,8 +104,9 @@
     /* ── Main content ── */
     .content {
       flex: 1; min-width: 0;
-      padding: 48px 64px;
-      max-width: 860px;
+      padding: 48px 56px 80px;
+      max-width: 940px;
+      margin: 0 auto;
     }
     @media (max-width: 800px) {
       .sidebar { display: none; }
@@ -290,21 +292,21 @@
     </p>
 
     <div class="callout callout-info">
-      <span class="callout-icon">🚧</span>
+      <span class="callout-icon"></span>
       <p><strong>Status:</strong> GIM 2.0 is under development and has not been released. The live site at groupiron.com
       still runs the 1.x line. The plugin works in the RuneScape <strong>beta client</strong> as a developer plugin and has not
       been submitted to mod.io yet. Everything on this page describes what is built and tested today.</p>
     </div>
 
     <div class="feature-grid">
-      <div class="feature-card"><h4>🎒 Live items</h4><p>Backpack, worn items, every member's bank and the shared group storage.</p></div>
-      <div class="feature-card"><h4>📒 Bank Journal</h4><p>Everything put into or taken out of the group storage, and by whom.</p></div>
-      <div class="feature-card"><h4>📜 Quests and Tasks</h4><p>Quest state read from the game, area task grid, achievements, one clean page.</p></div>
-      <div class="feature-card"><h4>🛡️ Group Ironman Journey</h4><p>Which tier the group is on, with each step and its progress counter.</p></div>
-      <div class="feature-card"><h4>⚔️ Exact boss kills</h4><p>Lifetime counts straight from the game's own kill tracker.</p></div>
-      <div class="feature-card"><h4>🎁 Drops</h4><p>Valuable drops detected after your kills, logged once each.</p></div>
-      <div class="feature-card"><h4>👥 One player filter</h4><p>Pick a player card at the top and every page follows.</p></div>
-      <div class="feature-card"><h4>🔒 Private by design</h4><p>Own character only, per-player tokens, nothing about other players.</p></div>
+      <div class="feature-card"><h4>Live items</h4><p>Backpack, worn items, every member's bank and the shared group storage.</p></div>
+      <div class="feature-card"><h4>Bank Journal</h4><p>Everything put into or taken out of the group storage, and by whom.</p></div>
+      <div class="feature-card"><h4>Quests and Tasks</h4><p>Quest state read from the game, area task grid, achievements, one clean page.</p></div>
+      <div class="feature-card"><h4>Group Ironman Journey</h4><p>Which tier the group is on, with each step and its progress counter.</p></div>
+      <div class="feature-card"><h4>Exact boss kills</h4><p>Lifetime counts straight from the game's own kill tracker.</p></div>
+      <div class="feature-card"><h4>Drops</h4><p>Valuable drops detected after your kills, logged once each.</p></div>
+      <div class="feature-card"><h4>One player filter</h4><p>Pick a player card at the top and every page follows.</p></div>
+      <div class="feature-card"><h4>Private by design</h4><p>Own character only, per-player tokens, nothing about other players.</p></div>
     </div>
 
     <!-- ── NEWS ─────────────────────────────────────────── -->
@@ -406,7 +408,7 @@ npm run dev            # API on :3001, dashboard on :5173</code></pre>
     <ul>
       <li><strong>Group name</strong> with the group type badge, member count and group rank. This used to be a heading on every page.</li>
       <li><strong>Plugin</strong> opens the plugin setup window: every member, their connection status and token buttons.</li>
-      <li><strong>📝 Group notes</strong>, <strong>🔔 Discord notifications</strong>, <strong>?</strong> tour, <strong>Docs</strong>, <strong>Discord</strong>, <strong>Sync All</strong> as in 1.x.</li>
+      <li><strong>Group notes</strong>, <strong>Discord notifications</strong>, <strong>?</strong> tour, <strong>Docs</strong>, <strong>Discord</strong>, <strong>Sync All</strong> as in 1.x.</li>
     </ul>
 
     <h2 id="tab-overview">Overview</h2>
@@ -420,9 +422,9 @@ npm run dev            # API on :3001, dashboard on :5173</code></pre>
 
     <h2 id="tab-vault">Group Vault</h2>
     <p>Three sections:</p>
-    <h4>🏆 Drops &amp; Gear</h4>
+    <h4>Drops &amp; Gear</h4>
     <p>The <strong>Drop Log</strong> (items your group has logged, now including drops the plugin detects) and <strong>Worn Gear</strong> (what the selected player is wearing, live).</p>
-    <h4>🏦 Group Vault</h4>
+    <h4>Group Vault</h4>
     <p>What the group owns, live from the game:</p>
     <ul>
       <li><strong>Storage</strong> (default): the shared group storage plus everyone's bank.</li>
@@ -430,7 +432,7 @@ npm run dev            # API on :3001, dashboard on :5173</code></pre>
       <li>Each item lists where it is held and how many. Values are the game's base value, not Grand Exchange prices.</li>
       <li>The group storage is the same for every member, so the newest snapshot from any member's plugin is used. A member has to open it in-game once.</li>
     </ul>
-    <h4>📒 Bank Journal</h4>
+    <h4>Bank Journal</h4>
     <p>Every deposit and withdrawal in the <strong>group storage</strong>: time, item, amount, value and member. Filter by deposits or withdrawals and search items.
     Members' own bank movements are deliberately not recorded.</p>
 
@@ -439,9 +441,9 @@ npm run dev            # API on :3001, dashboard on :5173</code></pre>
     <ul>
       <li><strong>Summary tiles:</strong> average quests completed, quest points, average area tasks completed, quests the whole group has done.</li>
       <li><strong>Per-player cards:</strong> quests and area tasks side by side, with a green <span class="tag-green">LIVE</span> badge when the numbers come straight from the game.</li>
-      <li><strong>📜 Quests:</strong> a grid of every quest by player, with filters (not all done, in progress, group complete), difficulty, and free-to-play vs members. Plugin data is exact; players without the plugin fall back to the Adventurer's Log.</li>
-      <li><strong>🗺️ Area Tasks:</strong> the region × tier grid. Completed sets are read from the game and fill the grid; you can still mark cells by hand.</li>
-      <li><strong>🏅 Achievements:</strong> everything completed, who completed it, recently completed, with search and category filters.</li>
+      <li><strong>Quests:</strong> a grid of every quest by player, with filters (not all done, in progress, group complete), difficulty, and free-to-play vs members. Plugin data is exact; players without the plugin fall back to the Adventurer's Log.</li>
+      <li><strong>Area Tasks:</strong> the region × tier grid. Completed sets are read from the game and fill the grid; you can still mark cells by hand.</li>
+      <li><strong>Achievements:</strong> everything completed, who completed it, recently completed, with search and category filters.</li>
     </ul>
 
     <h2 id="journey">Group Ironman Journey</h2>
@@ -532,7 +534,7 @@ pon gim-companion                     # enable it</code></pre></li>
       <tr><td><strong>Drops</strong></td><td>Items dropped for you near a kill (<code>ObjStackEntityAdded</code>) or landing in the backpack after one; reported when valuable (default 100,000 gp) or named in a boss drop table</td><td>Drop Log</td></tr>
     </table>
     <div class="callout callout-info">
-      <span class="callout-icon">⚙️</span>
+      <span class="callout-icon"></span>
       <p>The drop rules (threshold and rare item names) are fetched from <code>/api/plugin/config</code> when the plugin starts, so a group can change them without a new plugin.</p>
     </div>
 
@@ -546,7 +548,7 @@ pon gim-companion                     # enable it</code></pre></li>
       <li><strong>No clock, no files.</strong> The game's Lua has no <code>os</code> library and plugins cannot write files, so the plugin cannot do either.</li>
     </ul>
     <div class="callout callout-tip">
-      <span class="callout-icon">📋</span>
+      <span class="callout-icon"></span>
       <p>A full privacy notice for the mod.io listing (what is collected, retention, deletion, contact) is still to be written; see <a href="#plugin-submit">Submitting to mod.io</a>.</p>
     </div>
 

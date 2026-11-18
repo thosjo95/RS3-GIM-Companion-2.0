@@ -2,24 +2,10 @@ import React, { useState } from 'react';
 import { api } from '../api/client';
 import { MEMBER_COLORS } from '../lib/rs3';
 import EditRsnModal from './overview/EditRsnModal';
-import { useConfig } from './PreviewBanner';
 
 // "Manage group": the roster in one place. Add a player, correct a character name, remove a member. These used to
 // sit on the player cards; they live here so the cards stay clean.
-// The group's own minimum for a drop (total gp) to show in its Drops. The plugin reads it too when it starts.
-const DROP_STEPS = [[0, 'Every drop'], [50_000, '50K'], [100_000, '100K'], [250_000, '250K'], [500_000, '500K'], [1_000_000, '1M'], [2_500_000, '2.5M'], [5_000_000, '5M'], [10_000_000, '10M']];
-
 export default function ManageGroupModal({ group, onClose, onAddPlayer, onChanged, onToast }) {
-  const config = useConfig();
-  const defaultMin = config?.drop_default_min ?? 100_000;
-  const [dropMin, setDropMin] = useState(group?.drop_min_value ?? defaultMin);
-  async function saveDropMin(v) {
-    const prev = dropMin;
-    setDropMin(v);
-    try { await api.setDropMin(group.id, v); onToast?.('Drops now show from ' + (v === 0 ? 'every drop' : DROP_STEPS.find(s => s[0] === v)?.[1] ?? v.toLocaleString() + ' gp'), 'success'); onChanged?.(); }
-    catch (e) { setDropMin(prev); onToast?.(e.message, 'error'); }
-  }
-  const players = group?.players ?? [];
   const [editing, setEditing] = useState(null);
   const [removing, setRemoving] = useState(null);       // the player waiting for a second click to confirm
 
@@ -65,17 +51,6 @@ export default function ManageGroupModal({ group, onClose, onAddPlayer, onChange
                 </div>
               ))}
               {players.length === 0 && <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No members yet.</div>}
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--bg-panel-alt)' }}>
-              <div style={{ flex: 1, fontSize: 12, color: 'var(--text-dim)', lineHeight: 1.5 }}>
-                <strong style={{ color: 'var(--text-bright)' }}>Smallest drop to show</strong><br />
-                Drops worth less than this (quantity times value) stay out of the Drops list. Drops of unknown value are always shown. The plugin picks the new value up the next time it starts.
-              </div>
-              <select className="form-input" value={dropMin} onChange={e => saveDropMin(Number(e.target.value))} style={{ width: 120 }}>
-                {!DROP_STEPS.some(s => s[0] === dropMin) && <option value={dropMin}>{dropMin.toLocaleString()} gp</option>}
-                {DROP_STEPS.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
-              </select>
             </div>
 
             {removing != null && (

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import ItemsTab from './ItemsTab';
+import GroupSettings from './GroupSettings';
 import RsIcon from './RsIcon';
 import { usePreview, useConfig } from './PreviewBanner';
 
@@ -7,7 +8,7 @@ import { usePreview, useConfig } from './PreviewBanner';
 //   - group not claimed yet: claim it here. That creates the secret, which the claimer saves and shares with the group;
 //   - claimed but locked in this browser: unlock with the secret;
 //   - unlocked: how to connect the GIM Companion plugin with the secret, the secret itself, and who is connected.
-export default function PluginSetupModal({ group, canWrite, isClaimed, onClaim, onClaimV2, onUnlock, onClose, onToast }) {
+export default function PluginSetupModal({ group, canWrite, isClaimed, onClaim, onClaimV2, onUnlock, onClose, onToast, onChanged }) {
   const [rsn, setRsn] = useState('');
   const [oldSecret, setOldSecret] = useState('');     // a group that came over from groupiron.com: its old secret, once
   const [busy, setBusy] = useState(false);
@@ -136,6 +137,7 @@ export default function PluginSetupModal({ group, canWrite, isClaimed, onClaim, 
           </div>
         )}
         <ItemsTab players={players} groupId={group?.id} canWrite onToast={onToast} view="setup" />
+        {isClaimed && canWrite && <GroupSettings group={group} onChanged={onChanged} onToast={onToast} />}
       </div>
     );
   }

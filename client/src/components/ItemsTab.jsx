@@ -78,6 +78,8 @@ function ItemsView({ state, colorOf, selectedPlayerId }) {
   const [search, setSearch] = useState('');
   const [source, setSource] = useState('bank');
   const [sort, setSort] = useState('count');
+  const [layout, setLayoutState] = useState(() => { try { return localStorage.getItem('gim_vault_layout') || 'cards'; } catch { return 'cards'; } });
+  const setLayout = v => { setLayoutState(v); try { localStorage.setItem('gim_vault_layout', v); } catch { /* not saved */ } };
   const groupStorage = useMemo(() => newestGroupStorage(state), [state]);
 
   const items = useMemo(() => {
@@ -138,6 +140,11 @@ function ItemsView({ state, colorOf, selectedPlayerId }) {
           <option value="value">Sort: total value</option>
           <option value="name">Sort: name</option>
         </select>
+        <div style={{ display: 'flex', gap: 2, marginLeft: 4 }}>
+          {[['cards', 'Cards'], ['tiles', 'Tiles'], ['list', 'List']].map(([id, label]) => (
+            <button key={id} style={pillStyle(layout === id)} onClick={() => setLayout(id)}>{label}</button>
+          ))}
+        </div>
         <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text-dim)' }}>
           {items.length.toLocaleString()} items · {fmtNum(totalValue)} gp
         </span>
@@ -146,20 +153,58 @@ function ItemsView({ state, colorOf, selectedPlayerId }) {
 
       {items.length === 0 && <div style={{ color: 'var(--text-dim)', fontSize: 13, padding: 20, textAlign: 'center' }}>No items match.</div>}
 
-      {source === 'group' ? (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 8 }}>
+      {layout === 'tiles' && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
           {items.slice(0, limit).map(r => (
-            <div key={r.id} title={`${r.name} ×${r.total.toLocaleString()}`} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', background: 'var(--bg-panel-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}>
-              <StackIcon name={r.name} count={r.total} />
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 12, color: 'var(--text-bright)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</div>
-                {r.value != null && <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>{fmtNum(r.value * r.total)} gp</div>}
-              </div>
+            <div key={r.id} title={[`${r.name} ×${r.total.toLocaleString()}`, ...(source === 'bank' ? r.holders.map(h => `${h.rsn}: ${h.count.toLocaleString()}`) : [])].join('\n')}
+              style={{ position: 'relative', padding: 4, background: 'var(--bg-panel-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}>
+              <StackIcon name={r.name} count={r.total} size={36} />
+              {source === 'bank' && r.holders.length > 1 && (
+                <div style={{ display: 'flex', height: 3, borderRadius: 2, overflow: 'hidden', marginTop: 2 }}>
+                  {r.holders.map((h, i) => <div key={i} style={{ width: `${(h.count / r.total) * 100}%`, background: colorOf(h.playerId) }} />)}
+                </div>
+              )}
             </div>
           ))}
         </div>
-      ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 10 }}>
+      )}
+
+      {layout === 'list' && (
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+            <thead>
+              <tr style={{ textAlign: 'left', color: 'var(--text-dim)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                <th style={{ padding: '6px 8px' }}>Item</th><th style={{ textAlign: 'right' }}>Total</th>{source === 'bank' && <th style={{ paddingLeft: 14 }}>Held by</th>}<th style={{ textAlign: 'right' }}>Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.slice(0, limit).map(r => (
+                <tr key={r.id} style={{ borderTop: '1px solid var(--border)' }}>
+                  <td style={{ padding: '4px 8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><ItemIcon name={r.name} size={26} /><span style={{ color: 'var(--text-bright)', fontWeight: 600 }}>{r.name}</span></div>
+                  </td>
+                  <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--gold)', fontVariantNumeric: 'tabular-nums' }}>{r.total.toLocaleString()}</td>
+                  {source === 'bank' && (
+                    <td style={{ paddingLeft: 14 }}>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2px 12px' }}>
+                        {r.holders.map((h, i) => (
+                          <span key={i} style={{ whiteSpace: 'nowrap' }}>
+                            <span style={{ color: colorOf(h.playerId), fontWeight: 600 }}>{h.rsn}</span> <span style={{ color: 'var(--text-bright)' }}>{h.count.toLocaleString()}</span>
+                          </span>
+                        ))}
+                      </div>
+                    </td>
+                  )}
+                  <td style={{ textAlign: 'right', color: 'var(--text-dim)' }}>{r.value != null ? `${fmtNum(r.value * r.total)} gp` : '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {layout === 'cards' && (
+        <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${source === 'bank' ? 280 : 200}px, 1fr))`, gap: 10 }}>
           {items.slice(0, limit).map(r => (
             <div key={r.id} style={{ padding: '10px 12px', background: 'var(--bg-panel-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -167,23 +212,24 @@ function ItemsView({ state, colorOf, selectedPlayerId }) {
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-bright)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.name}>{r.name}</div>
                   <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>
-                    {r.holders.length > 1 ? `${r.holders.length} members · ` : ''}total {fmtNum(r.total)}{r.value != null ? ` · ${fmtNum(r.value * r.total)} gp` : ''}
+                    {source === 'bank' && r.holders.length > 1 ? `${r.holders.length} members · ` : ''}total {fmtNum(r.total)}{r.value != null ? ` · ${fmtNum(r.value * r.total)} gp` : ''}
                   </div>
                 </div>
               </div>
-              {/* who has it banked and how many: a bar split by member, then one line each */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 9 }}>
-                {r.holders.map((h, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12 }}>
-                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: colorOf(h.playerId), flexShrink: 0 }} />
-                    <span style={{ color: colorOf(h.playerId), fontWeight: 600, width: 96, flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.rsn}</span>
-                    <div style={{ flex: 1, height: 5, borderRadius: 3, background: 'var(--bg-root)', overflow: 'hidden' }} title={`${Math.round((h.count / r.total) * 100)}% of the group's ${r.name}`}>
-                      <div style={{ width: `${(h.count / r.total) * 100}%`, height: '100%', background: colorOf(h.playerId), opacity: 0.85 }} />
+              {source === 'bank' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 9 }}>
+                  {r.holders.map((h, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12 }}>
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: colorOf(h.playerId), flexShrink: 0 }} />
+                      <span style={{ color: colorOf(h.playerId), fontWeight: 600, width: 96, flexShrink: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.rsn}</span>
+                      <div style={{ flex: 1, height: 5, borderRadius: 3, background: 'var(--bg-root)', overflow: 'hidden' }} title={`${Math.round((h.count / r.total) * 100)}% of the group's ${r.name}`}>
+                        <div style={{ width: `${(h.count / r.total) * 100}%`, height: '100%', background: colorOf(h.playerId), opacity: 0.85 }} />
+                      </div>
+                      <span style={{ color: 'var(--text-bright)', fontVariantNumeric: 'tabular-nums', minWidth: 56, textAlign: 'right' }}>{h.count.toLocaleString()}</span>
                     </div>
-                    <span style={{ color: 'var(--text-bright)', fontVariantNumeric: 'tabular-nums', minWidth: 56, textAlign: 'right' }}>{h.count.toLocaleString()}</span>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>

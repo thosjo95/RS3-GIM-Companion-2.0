@@ -33,7 +33,8 @@ const ingestLimiter = createRateLimiter({ windowMs: 60_000, max: 60, message: 'T
 
 // Limits per section — generous for real use, small enough to stop abuse.
 const MAX = { inventory: 100, equipment: 30, bank: 6000, changes: 500, quests: 900, kills: 200, drops: 50 };
-const DROP_THRESHOLD = 100_000;   // gp; the plugin also reports any item named in a boss's drop table
+// gp; the plugin also reports any item named in a boss's drop table. GIM_DROP_THRESHOLD overrides it for testing.
+const DROP_THRESHOLD = Number(process.env.GIM_DROP_THRESHOLD) || 100_000;
 
 const isInt = (v, min, max) => Number.isInteger(v) && v >= min && v <= max;
 

@@ -9,9 +9,11 @@ import GroupLeaderboard from './GroupLeaderboard';
 // ── Main export ───────────────────────────────────────────────────────────────
 
 // The player cards (and the player filter) live in PlayerBar, pinned above every page; `selectedId` comes from there.
-export default function OverviewTab({ group, goals, players, groupId, onRefresh, onToast, canWrite, myRsn, selectedId = null, pendingRequests = [], onGoToRequests }) {
+export default function OverviewTab({ group, goals, players, groupId, onRefresh, onToast, canWrite, myRsn, selectedId = null, selectedIds = [], pendingRequests = [], onGoToRequests }) {
 
   const selectedPlayer = players.find(p => p.id === selectedId) ?? null;
+  // two or more selected cards: the same group overview, for just those players
+  const comparedPlayers = selectedIds.length >= 2 ? players.filter(p => selectedIds.includes(p.id)) : players;
 
   const groupTotals = useMemo(() => {
     let totalXp = 0, totalLevel = 0;
@@ -92,7 +94,7 @@ export default function OverviewTab({ group, goals, players, groupId, onRefresh,
         <div className="panel">
           <div className="panel-header" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span className="panel-title" style={{ flex: 1 }}>
-              {selectedPlayer ? selectedPlayer.rsn : 'Group Stats'}
+              {selectedPlayer ? selectedPlayer.rsn : selectedIds.length >= 2 ? `Comparing ${selectedIds.length} players` : 'Group Stats'}
             </span>
             {!selectedPlayer && group && (
               <SnapshotButton group={group} players={players} goals={goals} onToast={onToast} />
@@ -104,7 +106,7 @@ export default function OverviewTab({ group, goals, players, groupId, onRefresh,
                 ? <SkillTable player={selectedPlayer} />
                 : <div className="empty-state"><p>No data — sync this player first.</p></div>
               : players.length > 0
-                ? <GroupStats players={players} goals={goals} groupId={groupId} />
+                ? <GroupStats players={comparedPlayers} goals={goals} groupId={groupId} />
                 : <div className="empty-state"><p>No players yet.</p></div>}
           </div>
         </div>

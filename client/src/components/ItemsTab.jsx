@@ -115,7 +115,7 @@ function ItemsView({ state, colorOf, selectedPlayerId }) {
         ? `Group storage: ${groupStorage.items.length} items, last seen ${timeAgo(groupStorage.at)} (opened by ${groupStorage.by}).`
         : 'Group storage: not seen yet. A member with the plugin running needs to open it in-game once.')
     : (selectedPlayerId != null
-        ? 'Showing the selected player’s bank. Click the selected player card again to see who holds what.'
+        ? 'Showing the selected player’s bank. Deselect the player card (click it again) to see who holds what.'
         : 'Each item shows who has it banked and how many.');
 
   return (

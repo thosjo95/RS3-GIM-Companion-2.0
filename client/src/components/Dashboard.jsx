@@ -131,12 +131,16 @@ export default function Dashboard({ group, goals, pendingRequests, onRefresh, on
   const [goalsJumpKey, setGoalsJumpKey] = useState(0); // incremented to force GoalsTab → Active Goals
 
   // The ONE player filter for the whole dashboard: the cards pinned at the top (PlayerBar). null = everyone.
-  const [selectedPlayerId, setSelectedPlayerId] = useState(null);
-  useEffect(() => {   // forget the selection if that player is removed or the group changes
-    if (selectedPlayerId != null && !players.some(p => p.id === selectedPlayerId)) setSelectedPlayerId(null);
-  }, [players, selectedPlayerId]);
-  // Pages that list players side by side (Area Tasks, Leaderboards) simply receive only the selected player.
-  const visiblePlayers = selectedPlayerId != null ? players.filter(p => p.id === selectedPlayerId) : players;
+  // Several cards can be selected to compare them: one selected player is a single-player view, two or more is a
+  // comparison of just those, none is the whole group.
+  const [selectedIds, setSelectedIds] = useState([]);
+  useEffect(() => {   // forget selected players that were removed or when the group changes
+    setSelectedIds(ids => (ids.every(id => players.some(p => p.id === id)) ? ids : ids.filter(id => players.some(p => p.id === id))));
+  }, [players]);
+  const toggleSelected = id => setSelectedIds(ids => (ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id]));
+  const selectedPlayerId = selectedIds.length === 1 ? selectedIds[0] : null;       // for pages that take one player
+  // Pages that list players side by side (Area Tasks, Leaderboards) receive just the selected players.
+  const visiblePlayers = selectedIds.length > 0 ? players.filter(p => selectedIds.includes(p.id)) : players;
   const shownRef                    = useRef({});      // tracks which tours have fired this session
   const prevReplayKey               = useRef(0);
 
@@ -182,8 +186,8 @@ export default function Dashboard({ group, goals, pendingRequests, onRefresh, on
         groupId={groupId}
         canWrite={canWrite}
         myRsn={myRsn}
-        selectedId={selectedPlayerId}
-        onSelect={setSelectedPlayerId}
+        selectedIds={selectedIds}
+        onToggle={toggleSelected}
         onRefresh={onRefresh}
         onToast={onToast}
         onAddPlayer={onAddPlayer}
@@ -228,6 +232,7 @@ export default function Dashboard({ group, goals, pendingRequests, onRefresh, on
           canWrite={canWrite}
           myRsn={myRsn}
           selectedId={selectedPlayerId}
+          selectedIds={selectedIds}
           pendingRequests={pendingRequests ?? []}
           onGoToRequests={() => { onTabChange('goals'); setGoalsJumpKey(k => k + 1); }}
         />

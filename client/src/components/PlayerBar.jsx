@@ -12,7 +12,7 @@ import PlayerLoadout from './PlayerLoadout';
  *
  * Also owns the roster actions that used to sit in the Overview: add, refresh roster, sync, edit RSN, remove.
  */
-export default function PlayerBar({ group, players, groupId, canWrite, myRsn, selectedId, onSelect, onRefresh, onToast, onAddPlayer }) {
+export default function PlayerBar({ group, players, groupId, canWrite, myRsn, selectedIds = [], onToggle, onRefresh, onToast, onAddPlayer }) {
   const [editRsnPlayer, setEditRsnPlayer] = useState(null);
   const [rosterLoading, setRosterLoading] = useState(false);
   const [loadoutId, setLoadoutId] = useState(null);       // whose backpack / equipment / skills panel is open
@@ -34,7 +34,7 @@ export default function PlayerBar({ group, players, groupId, canWrite, myRsn, se
     if (!window.confirm(`Remove ${player.rsn} from this group?\n\nThis will permanently delete their skills, goals, gear and activity data.`)) return;
     try {
       await api.deletePlayer(player.id);
-      if (selectedId === player.id) onSelect(null);
+      if (selectedIds.includes(player.id)) onToggle(player.id);
       await onRefresh();
       onToast?.(`${player.rsn} removed`, 'success');
     } catch (err) {
@@ -84,9 +84,9 @@ export default function PlayerBar({ group, players, groupId, canWrite, myRsn, se
             <MemberCard
               key={p.id}
               player={p}
-              active={selectedId === p.id}
+              active={selectedIds.includes(p.id)}
               color={MEMBER_COLORS[i % MEMBER_COLORS.length]}
-              onClick={() => onSelect(selectedId === p.id ? null : p.id)}
+              onClick={() => onToggle(p.id)}
               isMe={!!myRsn && normRsn(p.rsn) === normRsn(myRsn)}
               canWrite={canWrite}
               onEditRsn={setEditRsnPlayer}

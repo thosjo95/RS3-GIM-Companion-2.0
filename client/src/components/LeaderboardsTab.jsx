@@ -408,6 +408,29 @@ function fmtDate(str) {
 
 // ── Firsts board ──────────────────────────────────────────────────────────────
 
+// Official RuneScape images (runescape.wiki) for the Firsts: boss chatheads / NPC images and item images. An entry
+// without one, or whose image fails to load, keeps its emoji.
+const FIRST_WIKI_IMG = {
+  ghrazi_blood_knights: 'Ghrazi venator', silverquill: 'Silverquill, the Dreadhog', ivar: 'Ivar, King of Bones',
+  fire_cape: 'Fire cape', har_aken: 'Har-Aken', infernal_cape: 'TzKal-Zuk chathead',
+  gwd_graardor: 'General Graardor chathead', gwd_kril: "K'ril Tsutsaroth chathead", gwd_zilyana: 'Commander Zilyana chathead',
+  gwd_kreearra: "Kree'arra chathead", nex: 'Nex chathead', helwyr: 'Helwyr chathead', vindicta: 'Vindicta chathead',
+  gregorovic: 'Gregorovic chathead', telos: 'Telos, the Warden', telos_100: 'Telos, the Warden', kk: 'Kalphite King (Melee)',
+  dagannoth_kings: 'Dagannoth Prime', vorago: 'Vorago chathead', araxxi: 'Araxxi', solak: 'Solak chathead',
+  legiones: 'Legio Primus', zammy_loe: 'Zamorak, Lord of Chaos chathead', rasial: 'Rasial, the First Necromancer', osseous_rex: 'Osseous Rex',
+  quest_cape: 'Quest point cape (2012)', comp_cape: 'Completionist cape', max_cape: 'Max cape',
+  ekzekkil: 'Ek-ZekKil', drygore: 'Drygore longsword', ascension_xbow: 'Ascension crossbow', seismic: 'Seismic wand',
+  nox: 'Noxious longbow', tectonic: 'Tectonic robe top', sirenic: 'Sirenic hauberk', zaros_gs: 'Zaros godsword',
+  eldritch_xbow: 'Eldritch crossbow', seren_godbow: 'Seren godbow', cinderbane: 'Cinderbane gloves',
+};
+function FirstIcon({ id, emoji, size = 22 }) {
+  const [bad, setBad] = useState(false);
+  const file = FIRST_WIKI_IMG[id];
+  if (!file || bad) return <>{emoji}</>;
+  return <img src={`https://runescape.wiki/images/${file.replace(/ /g, '_')}.png`} alt="" onError={() => setBad(true)}
+    style={{ width: size, height: size, objectFit: 'contain', verticalAlign: 'middle' }} />;
+}
+
 // A "first kill" milestone and the boss it is about (the keys of /api/boss-kills). Only clear one-to-one cases are listed.
 const FIRST_BOSS_KEY = {
   ghrazi_blood_knights: 'ghrazi_blood_knights', silverquill: 'silverquill', ivar: 'ivar', fire_cape: 'tztok_jad', har_aken: 'har_aken',
@@ -662,7 +685,7 @@ function MilestoneCard({ result, colorMap, canWrite, onEdit }) {
         <span style={{ fontSize: 20, lineHeight: 1, flexShrink: 0, marginTop: 1 }}>
           {result.skillIcon
             ? <img src={SKILL_ICON_URL(result.skillIcon)} alt={result.skillIcon} style={{ width: 22, height: 22, verticalAlign: 'middle' }} />
-            : result.icon}
+            : <FirstIcon id={result.key} emoji={result.icon} />}
         </span>
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: isAchieved ? 'var(--text-bright)' : 'var(--text-dim)', lineHeight: 1.3 }}>
@@ -1093,20 +1116,59 @@ function SlayerKills({ players, colorMap, groupId }) {
   useEffect(() => { api.getSlayerKills(groupId).then(r => setRows(Array.isArray(r) ? r : [])).catch(() => setRows([])); }, [groupId]);
   const ids = new Set(players.map(p => p.id));
   const shown = (rows ?? []).filter(r => ids.has(r.player_id));
-  const names = [...new Set(shown.flatMap(r => r.creatures.map(c => c.name)))].sort();
-  if (rows && shown.length === 0) return <div className="empty-state"><p>No slayer kills yet. They are read from the game by the plugin shortly after login.</p></div>;
+  const kills = (r, n) => r.creatures.find(c => c.name === n)?.kills ?? 0;
+  const names = [...new Set(shown.flatMap(r => r.creatures.map(c => c.name)))]
+    .sort((x, y) => shown.reduce((t, r) => t + kills(r, y), 0) - shown.reduce((t, r) => t + kills(r, x), 0));
+  if (rows === null) return <div style={{ textAlign: 'center', padding: 40 }}><span className="spinner" /></div>;
+  if (shown.length === 0) return (
+    <div style={{ color: 'var(--text-dim)', fontSize: 12, textAlign: 'center', padding: '24px 0' }}>
+      <p>No slayer kills yet.</p>
+      <p style={{ marginTop: 8, fontSize: 11, lineHeight: 1.6 }}>They are read from the game by the plugin shortly after login.</p>
+    </div>
+  );
   return (
-    <div style={{ overflowX: 'auto' }}>
-      <table className="data-table" style={{ width: '100%', fontSize: 12 }}>
-        <thead><tr><th style={{ textAlign: 'left' }}>Creature</th>{shown.map(r => <th key={r.player_id} style={{ color: colorMap[r.player_id] }}>{r.rsn}</th>)}</tr></thead>
-        <tbody>
-          {names.map(n => (
-            <tr key={n}><td>{n}</td>{shown.map(r => <td key={r.player_id} style={{ textAlign: 'center' }}>{(r.creatures.find(c => c.name === n)?.kills ?? 0).toLocaleString()}</td>)}</tr>
-          ))}
-          <tr style={{ fontWeight: 700 }}><td>Total (listed)</td>{shown.map(r => <td key={r.player_id} style={{ textAlign: 'center' }}>{r.total.toLocaleString()}</td>)}</tr>
-        </tbody>
-      </table>
-      <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 10 }}>Counts come straight from the game. More creatures are added as their counters are identified.</div>
+    <div>
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ borderCollapse: 'collapse', fontSize: 12, width: '100%' }}>
+          <thead>
+            <tr style={{ borderBottom: '1px solid var(--border)' }}>
+              <th align="left" style={{ padding: '4px 12px 8px 4px', fontSize: 10, fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.4px', whiteSpace: 'nowrap' }}>Creature</th>
+              {shown.map(r => (
+                <th key={r.player_id} align="center" style={{ padding: '4px 12px 8px', fontSize: 12, fontWeight: 700, color: colorMap[r.player_id], whiteSpace: 'nowrap' }}>
+                  {r.rsn}
+                  <div style={{ fontSize: 10, fontWeight: 400, color: 'var(--text-dim)' }}>{r.total.toLocaleString()} total</div>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {names.map((n, bi) => {
+              const values = shown.map(r => kills(r, n));
+              const maxVal = Math.max(...values);
+              return (
+                <tr key={n} style={{ borderTop: '1px solid var(--border)', background: bi % 2 ? 'rgba(255,255,255,0.015)' : 'transparent' }}>
+                  <td style={{ padding: '7px 12px 7px 4px', whiteSpace: 'nowrap', fontWeight: 600, color: 'var(--text-bright)' }}>{n}</td>
+                  {shown.map((r, pi) => {
+                    const val = values[pi];
+                    const isTop = val > 0 && val === maxVal;
+                    return (
+                      <td key={r.player_id} align="center" style={{
+                        padding: '7px 12px', borderLeft: '1px solid var(--border)',
+                        background: isTop ? 'rgba(200,168,75,0.18)' : undefined,
+                        fontWeight: isTop ? 700 : 400,
+                        color: isTop ? 'var(--gold)' : val > 0 ? 'var(--text)' : 'var(--text-dim)',
+                      }}>{val > 0 ? val.toLocaleString() : '—'}</td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <div style={{ marginTop: 10, fontSize: 10, color: 'var(--text-dim)' }}>
+        Counts come straight from the game (Adventures &gt; Beasts). More creatures are added as their counters are identified.
+      </div>
     </div>
   );
 }

@@ -12,7 +12,7 @@ It only **reads** the game. It never clicks, never sends input to the game and n
 | Sent (your own character only) | Never sent |
 |---|---|
 | Character name, skills and levels | Anything about other players (their names, items, positions, chat) |
-| Backpack, worn items, bank, group storage contents | Chat messages, friends list, clan lists |
+| Backpack, worn items, money pouch, bank, group storage contents | Chat messages, friends list, clan lists |
 | Quest states, completed achievements and area tasks, the Journey | Your RuneScape login, password or payment details |
 | Boss and slayer kill counts, notable drops | Anything outside the RuneScape client |
 | World and position | |

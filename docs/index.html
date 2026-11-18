@@ -565,7 +565,8 @@ pon gim-companion                     # enable it</code></pre></li>
     <table>
       <tr><th>Data</th><th>Where it comes from</th><th>Shown in</th></tr>
       <tr><td><strong>Skills</strong> (xp, level)</td><td><code>Player.GetXPUncapped / GetLevelGameplay</code></td><td>Live state</td></tr>
-      <tr><td><strong>Backpack, worn items</strong></td><td>Inventories <code>INV</code> and <code>WORN</code></td><td>Group Vault</td></tr>
+      <tr><td><strong>Backpack, worn items</strong></td><td>Inventories <code>INV</code> and <code>WORN</code>, slot by slot</td><td>Inspect panel, Group Vault</td></tr>
+      <tr><td><strong>Money pouch</strong></td><td>Coins in inventory 623 (not in Jagex's docs; the amount is printed once per login)</td><td>Inspect panel</td></tr>
       <tr><td><strong>Bank</strong></td><td>Inventory <code>BANK</code>, only while the bank window is open</td><td>Group Vault</td></tr>
       <tr><td><strong>Group storage</strong> + movements</td><td>Inventory <code>GROUP_IRONMAN_STORAGE_CLAN_TEMP</code>, only while its window is open</td><td>Group Vault, Bank Journal</td></tr>
       <tr><td><strong>Position</strong></td><td><code>Player.GetEntity().coordGrid</code></td><td>Live state</td></tr>

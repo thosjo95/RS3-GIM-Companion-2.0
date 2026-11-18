@@ -30,7 +30,7 @@ GIM Companion connects the RuneScape client to a web dashboard for Group Ironman
 The plugin only reads the game. It never presses anything, never sends input to the game and never changes anything. It does not read or send anything about other players.
 
 GETTING STARTED
-1. On the website (https://groupiron.com) one member claims your group and gets the group secret, and shares it with the group.
+1. On the website (https://beta.groupiron.com) one member claims your group and gets the group secret, and shares it with the group.
 2. Install and enable GIM Companion, and allow network access (httpAccess) when the game asks.
 3. Log in. A GIM Companion window asks for the group secret: type it and press Connect. Your numbers appear on the dashboard within a minute.
 
@@ -41,13 +41,13 @@ FEEDBACK AND COLLABORATION
 Bug reports and suggestions are welcome in the GIM Companion community Discord (https://discord.gg/uZT4JDdtn2), in the plugin's channel in the RuneScape Plugin Portal Discord, or by email. Code contributions are welcome as pull requests on GitHub (https://github.com/thosjo95/RS3-GIM-Companion-2.0); please discuss larger changes first.
 
 EULA
-This plugin uses software licensed by Jagex under the Jagex End User Licence Agreement (https://legal.jagex.com). The development and any use of the Plugin is at all times subject to the Jagex EULA. GIM Companion is an independent project and is not affiliated with or endorsed by Jagex.
+This Plugin uses software licensed by Jagex to the developer under the terms of the Jagex End User Licence Agreement (EULA) found at https://legal.jagex.com/docs/terms/eula (and all terms incorporated into it by reference). The development and any use of the Plugin is at all times subject to the Jagex EULA. GIM Companion is an independent project and is not affiliated with or endorsed by Jagex.
 
 PERMISSIONS
 httpAccess: sends your own character's game data to the website https://api.groupiron.com, which is the only address the plugin can contact. The information sent is listed under Data Protection below. The website uses it to show your Group Ironman team its progress (items, quests, kills, drops, goals and leaderboards) and who is playing right now. Without this permission the plugin does nothing. No other permission is requested, and httpAccess is not combined with any other permission.
 
 DATA PROTECTION (data is sent to a destination in the EU: server in Helsinki, Finland)
-Information used and sent, for your own character only: character name; skill levels; backpack, worn items, bank and group storage contents and what you put in or take out of the group storage; quest, achievement and area task progress including the Group Ironman Journey; boss and slayer kill counts; notable drops; world and position. To connect, the group secret you type is sent once; the plugin then uses a key for your character only (stored on the server only as a one-way hash). The plugin does not send chat, friends or clan lists, login or payment details, or anything about other players.
+Information used and sent, for your own character only: character name; skill levels; backpack, worn items, money pouch, bank and group storage contents and what you put in or take out of the group storage; quest, achievement and area task progress including the Group Ironman Journey; boss and slayer kill counts; notable drops; world and position. To connect, the group secret you type is sent once; the plugin then uses a key for your character only (stored on the server only as a one-way hash). The plugin does not send chat, friends or clan lists, login or payment details, or anything about other players.
 Endpoint: https://api.groupiron.com (hosted by Hetzner Online GmbH in Helsinki, Finland).
 Privacy notice: https://thosjo95.github.io/RS3-GIM-Companion-2.0/privacy.html
 Security: all traffic uses HTTPS; the plugin keeps a key, not the group secret; a key can only send data for its one character while that character is a member of the group, and only its hash is stored; group secrets are stored as salted hashes; requests are rate limited and strictly validated; the server runs under an unprivileged account with a firewall and automatic security updates; only the developer has administrative access. Group pages show public hiscores data to anyone; everything that comes from the plugin is visible only to people who unlocked the group.
@@ -55,6 +55,9 @@ Retention: a member's data is deleted when they are removed from the group, a gr
 Requests about your data (access, correction, deletion, withdrawal of consent) go to rs3groupiron@pm.me.
 The plugin does not store game information on your computer between sessions; it only stores the key for your character as a setting.
 ```
+
+After approval, when groupiron.com has moved to the new server, change the website link in GETTING STARTED to
+https://groupiron.com (an edit after approval is fine; Jagex is notified automatically).
 
 ## Step 4: Upload
 

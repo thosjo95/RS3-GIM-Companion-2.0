@@ -50,13 +50,19 @@ export default function App() {
   }
 
   // Only show groups this browser has explicitly added, favorites first
-  const groups = allGroups
+  const pinnedGroups = allGroups
     .filter(g => myGroupIds.includes(g.id))
     .sort((a, b) => {
       const aFav = favoriteGroupIds.includes(a.id) ? 0 : 1;
       const bFav = favoriteGroupIds.includes(b.id) ? 0 : 1;
       return aFav - bFav;
     });
+
+  // While the preview runs, the public demo group is in everyone's sidebar (until they remove it). It is not one of the
+  // user's own groups, so it does not count for the welcome screen or for choosing the first group.
+  const [demoHidden, setDemoHidden] = useState(() => { try { return localStorage.getItem('demoHidden') === '1'; } catch { return false; } });
+  const demoGroup = demoHidden ? null : allGroups.find(g => g.is_demo && !pinnedGroups.some(p => p.id === g.id));
+  const groups = demoGroup ? [...pinnedGroups, demoGroup] : pinnedGroups;
 
   const groupsRef = useRef(groups);
   groupsRef.current = groups;
@@ -79,6 +85,12 @@ export default function App() {
   }
 
   function removeFromSidebar(id) {
+    if (allGroups.find(g => g.id === id)?.is_demo) {              // the demo group: hide it for this browser
+      try { localStorage.setItem('demoHidden', '1'); } catch { /* fine */ }
+      setDemoHidden(true);
+      if (id === activeGroupId) setActiveGroupId(pinnedGroups[0]?.id ?? null);
+      return;
+    }
     const updated = loadMyGroupIds().filter(x => x !== id);
     saveMyGroupIds(updated);
     setMyGroupIdsState(updated);
@@ -265,7 +277,7 @@ export default function App() {
 
   // No group yet, or creating a new one
   // — allow browsing a non-pinned group (activeGroupId set) to fall through to the main layout
-  if (creatingGroup || (groups.length === 0 && !activeGroupId)) {
+  if (creatingGroup || (pinnedGroups.length === 0 && !activeGroupId)) {
     return (
       <div className="app">
         <Header group={null} onSynced={() => {}} onToast={pushToast} />
@@ -273,7 +285,7 @@ export default function App() {
           onCreated={handleGroupCreated}
           onToast={pushToast}
           prefill={pendingImport}
-          onCancel={groups.length > 0 || activeGroupId ? () => { setCreatingGroup(false); setPendingImport(null); } : null}
+          onCancel={pinnedGroups.length > 0 || activeGroupId ? () => { setCreatingGroup(false); setPendingImport(null); } : null}
           groups={allGroups}
           onSwitchToGroup={id => { setCreatingGroup(false); setPendingImport(null); selectGroup(id); }}
           onStar={saveGroup}

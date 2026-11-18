@@ -17,6 +17,9 @@ if ! command -v node >/dev/null || [ "$(node -p 'parseInt(process.versions.node)
 fi
 command -v pm2 >/dev/null || npm install -g pm2 --silent
 
+# a 2 GB swap file: the dashboard build needs a little more memory than a small server has to spare
+if [ ! -f /swapfile ]; then fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile >/dev/null && swapon /swapfile && echo "/swapfile none swap sw 0 0" >> /etc/fstab; fi
+
 # the user that runs the app (no password, no shell login), and its folders
 id gim >/dev/null 2>&1 || useradd --system --create-home --shell /bin/bash gim
 mkdir -p /opt/gim2 /var/lib/gim2

@@ -75,9 +75,11 @@ for release (probes removed, debug off, manifest 1.0.0, `https://api.groupiron.c
 notice (`docs/privacy.html`); mod.io listing text; deploy files for a fresh server.
 
 **Open, in this order:**
-1. Owner: finish the new Hetzner server (CPX12, Helsinki, EU): Cloudflare DNS records `api` and `beta` as **DNS only (grey
-   cloud)** to the server IP, then follow `deploy/README.md` (bootstrap, deploy, nginx, certbot). Then
-   `https://api.groupiron.com/api/health` must answer. Reviewers need a live server.
+1. Owner: finish the new Hetzner server (CPX12, Helsinki, EU). Status: DNS records `api` and `beta` exist (DNS only), the
+   server is bootstrapped, the app runs under PM2 as `gim2` and `http://127.0.0.1:3001/api/health` answers, the dashboard is built.
+   **Left: enable the nginx site and run certbot** (`deploy/README.md` step 5; the default nginx page still shows because
+   `/etc/nginx/sites-enabled/default` is not yet replaced). Then `https://api.groupiron.com/api/health` and
+   `https://beta.groupiron.com` must work. Reviewers need a live server. The server database starts empty.
 2. Test the in-game link window in the RS3 beta client (re-run `install-dev.ps1`, `prl gim-companion`). Fix the UI code if the
    real API differs. A Plugin Hub screenshot showed the dev plugin as "Loading..." with author "NOT AVAILABLE": check the
    client console for errors.
@@ -86,8 +88,12 @@ notice (`docs/privacy.html`); mod.io listing text; deploy files for a fresh serv
    Worn gear panel, link codes are already covered). The docs site has no icons or emoji; keep it that way.
 5. The owner must read through `main.lua` before submitting (AI policy); offer a section-by-section walkthrough.
 6. Submit on mod.io (steps in `listing.md`); do not change files while Jagex has a freeze on.
-7. Re-link the owner's own character (its token and plugin data were lost to an old refresh-roster bug, since fixed).
-8. Optional: more slayer creature counters (needs another beta probe), a "RuneScape 3 GIM" cross-group hiscore page, a paste-token
+7. The live 1.x site's announcement popup was changed on the LOCAL `main` branch of the old 1.x code (commit `275b135`,
+   worktree `../GIM-1x-announce`): it now promotes 2.0 at https://beta.groupiron.com instead of another tracker. It is **not pushed
+   and not deployed**: the owner decides when (push to `origin main`, then the owner runs the production deploy). The popup was
+   removed from the 2.0 code.
+8. Re-link the owner's own character (its token and plugin data were lost to an old refresh-roster bug, since fixed).
+9. Optional: more slayer creature counters (needs another beta probe), a "RuneScape 3 GIM" cross-group hiscore page, a paste-token
    input in the plugin (Input Field component, docs page not read yet).
 
 ## Migration (do not start before approval)

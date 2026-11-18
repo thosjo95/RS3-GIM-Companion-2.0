@@ -32,7 +32,7 @@ const TOUR_STEPS = [
   {
     target: null,
     title: '5 · Install the plugin and paste the token',
-    body: '1) Install the GIM Companion plugin in the RuneScape client (until it is on mod.io, copy it with plugin\\install-dev.ps1 into the beta client\'s dev_plugins folder; the documentation site has the full guide). 2) Open its config.lua and paste the token you just copied between the quotes (token = \"gimp_...\"). While 2.0 is in development the plugin sends to the server on your own computer. 3) In the game press ALT + the key under Esc to open the console and run: prf, then ppe gim-companion httpAccess, then pon gim-companion. Your numbers appear here within a minute, and the Plugin setup dot turns green.',
+    body: '1) In the RuneScape client open the plugin browser, search for "GIM Companion" and install it. 2) Enable it and allow network access when the game asks. 3) Paste the token you just copied into the plugin's settings. That is all: your numbers appear here within a minute and the dot in Plugin setup turns green. The plugin only sends your own character's data, and you can pause or remove it in the game at any time.',
   },
   // ── The front page ───────────────────────────────────────────────────────
   {

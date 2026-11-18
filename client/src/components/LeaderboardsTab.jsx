@@ -1114,13 +1114,13 @@ function SetSkillDateModal({ playerId, rsn, skill, level, achievedAt, onClose, o
 function SlayerKills({ players, colorMap, groupId }) {
   const [rows, setRows] = useState(null);
   useEffect(() => { api.getSlayerKills(groupId).then(r => setRows(Array.isArray(r) ? r : [])).catch(() => setRows([])); }, [groupId]);
-  const ids = new Set(players.map(p => p.id));
-  const shown = (rows ?? []).filter(r => ids.has(r.player_id));
+  // every player gets a column, also those the plugin has not reported yet
+  const shown = players.map(p => (rows ?? []).find(r => r.player_id === p.id) ?? { player_id: p.id, rsn: p.rsn, creatures: [], total: 0 });
   const kills = (r, n) => r.creatures.find(c => c.name === n)?.kills ?? 0;
   const names = [...new Set(shown.flatMap(r => r.creatures.map(c => c.name)))]
     .sort((x, y) => shown.reduce((t, r) => t + kills(r, y), 0) - shown.reduce((t, r) => t + kills(r, x), 0));
   if (rows === null) return <div style={{ textAlign: 'center', padding: 40 }}><span className="spinner" /></div>;
-  if (shown.length === 0) return (
+  if (names.length === 0) return (
     <div style={{ color: 'var(--text-dim)', fontSize: 12, textAlign: 'center', padding: '24px 0' }}>
       <p>No slayer kills yet.</p>
       <p style={{ marginTop: 8, fontSize: 11, lineHeight: 1.6 }}>They are read from the game by the plugin shortly after login.</p>

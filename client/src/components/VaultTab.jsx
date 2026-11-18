@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { api } from '../api/client';
-import GearLoadouts from './GearLoadouts';
+import WornGear from './WornGear';
 import ItemsTab from './ItemsTab';
 import { IconLabel } from './RsIcon';
 
@@ -717,20 +717,12 @@ export default function VaultTab({ players, groupId, goals = [], onToast, canWri
           borderRadius: 'var(--radius-lg)',
           padding: '20px 18px',
         }}>
-          <div className="section-title" style={{ marginBottom: 14 }}>Gear Loadouts</div>
+          <div className="section-title" style={{ marginBottom: 14 }}>Worn Gear</div>
           {players.length > 0
-            ? <GearLoadouts
-                players={players}
-                groupId={groupId}
-                canWrite={canWrite}
-                onToast={onToast}
-                myRsn={myRsn}
-                onEquipmentChanged={loadEquipment}
-                selectedPlayerId={selectedPlayerId}
-              />
+            ? <WornGear players={players} groupId={groupId} canWrite={canWrite} selectedPlayerId={selectedPlayerId} />
             : (
               <div className="empty-state">
-                <p>Add players to track gear loadouts.</p>
+                <p>Add players to see what they wear.</p>
               </div>
             )
           }

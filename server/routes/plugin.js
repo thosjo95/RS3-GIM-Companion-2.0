@@ -53,6 +53,7 @@ function cleanItems(list, max, label) {
       name: typeof it.name === 'string' ? it.name.slice(0, 80) : null,
       count: it.count,
       value: Number.isFinite(it.value) && it.value >= 0 ? Math.round(it.value) : null,
+      ...(isInt(it.slot, 0, 63) ? { slot: it.slot } : {}),
     };
   });
 }

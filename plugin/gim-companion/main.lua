@@ -145,7 +145,7 @@ local function isOpen(interfaceId)
 end
 
 -- One inventory as a list of { id, name, count, value }, merged per item id. nil = not available right now.
-local function readInv(invId, maxItems)
+local function readInv(invId, maxItems, withSlot)
     local okFind, inv = pcall(Inventory.Find, invId)
     if not okFind or inv == nil then return nil end
     local okValid, valid = pcall(function() return inv.isValid end)
@@ -154,7 +154,7 @@ local function readInv(invId, maxItems)
     if not okSlots or slots == nil then return nil end
 
     local byId, list = {}, {}
-    for _, slot in ipairs(slots) do
+    for slotIndex, slot in ipairs(slots) do
         local okObj, obj = pcall(function() return slot.obj end)
         local objId = okObj and obj ~= nil and obj.id or 0
         local count = slot.count
@@ -163,6 +163,7 @@ local function readInv(invId, maxItems)
             if entry == nil then
                 local info = describeObj(objId)
                 entry = { id = objId, name = info.name, count = 0, value = info.value }
+                if withSlot then entry.slot = slotIndex - 1 end     -- worn items: the equipment slot index (0 = head, 1 = cape, ...)
                 byId[objId] = entry
                 list[#list + 1] = entry
             end
@@ -1272,7 +1273,7 @@ local function send()
     trace("send: reading backpack and worn items")
     local backpack = readInv(id.Inv.INV, 100)
     if backpack then payload.inventory = backpack end
-    local worn = readInv(id.Inv.WORN, 30)
+    local worn = readInv(id.Inv.WORN, 30, true)
     if worn then payload.equipment = worn end
 
     trace("send: reading position")

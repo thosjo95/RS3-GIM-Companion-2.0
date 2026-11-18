@@ -691,21 +691,16 @@ function ItemPickerRow({ item, isCurrent, currentConfirmed, skillLevels, styleCo
 
 // ── Main GearLoadouts component ───────────────────────────────────────────────
 
-export default function GearLoadouts({ players, groupId, canWrite, onToast, myRsn, onEquipmentChanged }) {
+export default function GearLoadouts({ players, groupId, canWrite, onToast, myRsn, onEquipmentChanged, selectedPlayerId: pinnedPlayerId = null }) {
   // Gear data loaded once from /api/rs3/items (icon map + slot suggestions by style)
   const { iconMap, gearDb, allItems } = useRs3Gear();
 
   // Resolve logged-in player — normalise both sides so NBSP / case differences never break the lookup
   const _normMyRsn = (myRsn || '').replace(/\s/g, ' ').trim().toLowerCase();
   const myPlayer = _normMyRsn ? players.find(p => (p.rsn || '').replace(/\s/g, ' ').trim().toLowerCase() === _normMyRsn) : null;
-  const [selectedPlayerId, setSelectedPlayerId] = useState(myPlayer?.id ?? players[0]?.id ?? null);
-
-  // When myRsn loads from localStorage (starts as '' then becomes e.g. 'degree C'), auto-switch to the right player
-  useEffect(() => {
-    if (myPlayer?.id && selectedPlayerId !== myPlayer.id) {
-      setSelectedPlayerId(myPlayer.id);
-    }
-  }, [myPlayer?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  // A loadout belongs to one character. It follows the player picked in the pinned player bar; with nobody
+  // picked it shows your own character (or the first member).
+  const selectedPlayerId = pinnedPlayerId ?? myPlayer?.id ?? players[0]?.id ?? null;
 
   const [style, setStyle]       = useState('melee');
   // loadout: { [slot]: { name: string, confirmed: boolean } }
@@ -715,6 +710,7 @@ export default function GearLoadouts({ players, groupId, canWrite, onToast, myRs
   const [saving, setSaving]     = useState(null);
   // Pending confirmation: { slot, itemName } | null
   const [pendingConfirm, setPendingConfirm] = useState(null);
+  useEffect(() => { setActiveSlot(null); }, [selectedPlayerId]);   // a different player: close any open slot picker
 
   const activeStyle    = STYLES.find(s => s.key === style);
   const selectedPlayer = players.find(p => p.id === selectedPlayerId);
@@ -846,22 +842,10 @@ export default function GearLoadouts({ players, groupId, canWrite, onToast, myRs
       {/* Header row */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
 
-        {/* Player chips — click to switch whose loadout you're viewing */}
-        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'center' }}>
-          {players.map(p => {
-            const active = p.id === selectedPlayerId;
-            const isMe   = normRsn(p.rsn) === normRsn(myRsn);
-            return (
-              <button
-                key={p.id}
-                className={`chip${active ? ' active' : ''}`}
-                onClick={() => { setSelectedPlayerId(p.id); setActiveSlot(null); }}
-                title={isMe ? 'Your character' : `View ${p.rsn}'s loadout`}>
-                {p.rsn}
-                {isMe && <span style={{ fontSize: 9, opacity: 0.75 }}>you</span>}
-              </button>
-            );
-          })}
+        {/* Whose loadout this is — switch players with the cards at the top of the page */}
+        <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>
+          Loadout for <strong style={{ color: 'var(--text-bright)' }}>{selectedPlayer?.rsn ?? '—'}</strong>
+          {pinnedPlayerId == null && <span style={{ fontSize: 10, marginLeft: 6 }}>(pick a player card above to switch)</span>}
         </div>
 
         <div className="flex gap-4 tab-bar-scroll" style={{ background: 'var(--bg-root)', borderRadius: 'var(--radius)', padding: 3 }}>

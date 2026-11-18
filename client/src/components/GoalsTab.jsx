@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { api } from '../api/client';
 import GoalModal from './GoalModal';
 import {
@@ -646,13 +646,20 @@ function SuggestionCard({ suggestion: s, selectedPlayers, alreadyAdded, onAdd, o
 
 // ── Goal Browser ──────────────────────────────────────────────────────────────
 
-function GoalBrowser({ players, goals, onAdd, canWrite, addingId, onCreateCustom, achievements, groupId, myPlayerId }) {
+function GoalBrowser({ players, goals, onAdd, canWrite, addingId, onCreateCustom, achievements, groupId, myPlayerId, focusPlayerId = null }) {
   const DISMISSED_KEY = `rs3gim_dismissed_suggestions_${groupId || 'default'}`;
   const autoStage = useMemo(() => detectStage(players), [players]);
   const [stage,    setStage]    = useState(autoStage);
   const [category, setCategory] = useState('all');
   // Default to just "me" if a character name is set, otherwise select everyone
-  const [selected, setSelected] = useState(() => myPlayerId ? [myPlayerId] : players.map(p => p.id));
+  // The chips below choose WHO a suggestion is checked against and added for. They start from the player picked in
+  // the pinned player bar (or "me"), and can still be widened to several players by hand.
+  const [selected, setSelected] = useState(() => focusPlayerId ?? myPlayerId ? [focusPlayerId ?? myPlayerId] : players.map(p => p.id));
+  const firstFocus = useRef(true);
+  useEffect(() => {
+    if (firstFocus.current) { firstFocus.current = false; return; }
+    setSelected(focusPlayerId != null ? [focusPlayerId] : (myPlayerId ? [myPlayerId] : players.map(p => p.id)));
+  }, [focusPlayerId]); // eslint-disable-line react-hooks/exhaustive-deps
   const [search,   setSearch]   = useState('');
   const [showDismissed,        setShowDismissed]        = useState(false);
   const [showCompletedDiaries, setShowCompletedDiaries] = useState(false);
@@ -963,9 +970,10 @@ function GoalBrowser({ players, goals, onAdd, canWrite, addingId, onCreateCustom
 
 // ── Main export ───────────────────────────────────────────────────────────────
 
-export default function GoalsTab({ group, goals, players, groupId, onRefresh, onToast, canWrite, myRsn, jumpToActiveKey = 0 }) {
+export default function GoalsTab({ group, goals, players, groupId, onRefresh, onToast, canWrite, myRsn, jumpToActiveKey = 0, selectedPlayerId = null }) {
   const [view,           setView]           = useState('board');
-  const [filterPlayer,   setFilterPlayer]   = useState('all');
+  // The player filter is the pinned player bar at the top of the page (selectedPlayerId); there is no filter here.
+  const filterPlayer = selectedPlayerId != null ? String(selectedPlayerId) : 'all';
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterPriority, setFilterPriority] = useState('all');
   const [filterScope,    setFilterScope]    = useState('all');
@@ -1185,6 +1193,7 @@ export default function GoalsTab({ group, goals, players, groupId, onRefresh, on
           achievements={achievements}
           groupId={groupId}
           myPlayerId={myPlayerId}
+          focusPlayerId={selectedPlayerId}
         /></div>
       )}
 
@@ -1200,12 +1209,6 @@ export default function GoalsTab({ group, goals, players, groupId, onRefresh, on
                 <button key={id} onClick={() => setView(id)} style={pillStyle(view === id)}>{label}</button>
               ))}
             </div>
-
-            {/* Player filter */}
-            <select style={selStyle} value={filterPlayer} onChange={e => setFilterPlayer(e.target.value)}>
-              <option value="all">All players</option>
-              {players.map(p => <option key={p.id} value={String(p.id)}>{p.rsn}</option>)}
-            </select>
 
             {/* Category filter */}
             <select style={selStyle} value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
@@ -1229,9 +1232,9 @@ export default function GoalsTab({ group, goals, players, groupId, onRefresh, on
             </div>
 
             {/* Clear filters */}
-            {(filterPlayer !== 'all' || filterCategory !== 'all' || filterPriority !== 'all' || filterScope !== 'all') && (
+            {(filterCategory !== 'all' || filterPriority !== 'all' || filterScope !== 'all') && (
               <button
-                onClick={() => { setFilterPlayer('all'); setFilterCategory('all'); setFilterPriority('all'); setFilterScope('all'); }}
+                onClick={() => { setFilterCategory('all'); setFilterPriority('all'); setFilterScope('all'); }}
                 style={{ fontSize: 11, color: 'var(--text-dim)', background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px' }}>
                 ✕ Clear filters
               </button>

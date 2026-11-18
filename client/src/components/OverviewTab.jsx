@@ -1,8 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { api } from '../api/client';
-import { fmtXp, MEMBER_COLORS, normRsn } from '../lib/rs3';
-import EditRsnModal from './overview/EditRsnModal';
-import MemberCard from './overview/MemberCard';
+import React, { useState, useMemo, useEffect } from 'react';
+import { fmtXp } from '../lib/rs3';
 import SkillTable from './overview/SkillTable';
 import SnapshotButton from './overview/SnapshotButton';
 import { PlayerQuestTable } from './overview/QuestTables';
@@ -11,40 +8,11 @@ import RightPanel from './overview/RightPanel';
 
 // ── Main export ───────────────────────────────────────────────────────────────
 
-export default function OverviewTab({ group, goals, players, groupId, onRefresh, onToast, canWrite, myRsn, pendingRequests = [], onGoToRequests, onAddPlayer }) {
-  const [selectedId, setSelectedId] = useState(null);
-  const [editRsnPlayer, setEditRsnPlayer] = useState(null); // player being RSN-edited
+// The player cards (and the player filter) live in PlayerBar, pinned above every page; `selectedId` comes from there.
+export default function OverviewTab({ group, goals, players, groupId, onRefresh, onToast, canWrite, myRsn, selectedId = null, pendingRequests = [], onGoToRequests }) {
   const [playerView, setPlayerView] = useState('skills'); // 'skills' | 'quests'
+  useEffect(() => { setPlayerView('skills'); }, [selectedId]);
 
-  const isUnranked = group?.gim_type === 'regular_unranked';
-  const [rosterLoading, setRosterLoading] = useState(false);
-
-  async function handleRemovePlayer(player) {
-    if (!window.confirm(`Remove ${player.rsn} from this group?\n\nThis will permanently delete their skills, goals, gear and activity data.`)) return;
-    try {
-      await api.deletePlayer(player.id);
-      await onRefresh();
-      onToast?.(`${player.rsn} removed`, 'success');
-    } catch (err) {
-      onToast?.(err.message, 'error');
-    }
-  }
-
-  async function handleRefreshRoster() {
-    setRosterLoading(true);
-    try {
-      const result = await api.refreshRoster(groupId);
-      await onRefresh();
-      const parts = [];
-      if (result.added?.length)   parts.push(`+${result.added.join(', +')}`);
-      if (result.removed?.length) parts.push(`−${result.removed.join(', −')}`);
-      onToast?.(parts.length ? `Roster updated: ${parts.join(' ')}` : 'Roster is up to date', 'success');
-    } catch (err) {
-      onToast?.(err.message || 'Roster refresh failed', 'error');
-    } finally {
-      setRosterLoading(false);
-    }
-  }
   const selectedPlayer = players.find(p => p.id === selectedId) ?? null;
 
   const groupTotals = useMemo(() => {
@@ -63,17 +31,6 @@ export default function OverviewTab({ group, goals, players, groupId, onRefresh,
     [players]
   );
   const hasWeeklyData = players.some(p => p.weekly_xp_gain != null);
-
-  async function syncOnePlayer(player) {
-    try {
-      await api.syncPlayer(player.id);
-      onToast(`${player.rsn} synced`, 'success');
-      onRefresh();
-    } catch (err) {
-      onToast(err.message || 'Sync failed', 'error');
-      onRefresh(); // refresh anyway to show updated sync_error
-    }
-  }
 
   const selOverall = selectedPlayer?.skills?.find(s => s.skill_name === 'Overall');
   const selWeeklyXp = selectedPlayer?.weekly_xp_gain;
@@ -103,56 +60,6 @@ export default function OverviewTab({ group, goals, players, groupId, onRefresh,
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {/* Member cards — centered, with space below the tab bar */}
-      {(players.length > 0 || canWrite) && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {/* Manage members controls — shown when logged in (canWrite) */}
-          {canWrite && (
-            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8 }}>
-              {!isUnranked && (
-                <button
-                  className="btn btn-secondary btn-sm"
-                  onClick={handleRefreshRoster}
-                  disabled={rosterLoading}
-                  title="Re-fetch member list from RS3 hiscores and apply changes"
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-                  {rosterLoading
-                    ? <><span className="spinner" style={{ width: 10, height: 10 }} /> Refreshing…</>
-                    : '↻ Refresh Roster'}
-                </button>
-              )}
-              <button className="btn btn-primary btn-sm" onClick={onAddPlayer}>
-                ➕ Add Player
-              </button>
-            </div>
-          )}
-
-          {players.length === 0 && canWrite ? (
-            <div className="empty-state" style={{ marginTop: 8 }}>
-              <div className="icon">👤</div>
-              <p>No members yet. Add your first player to get started.</p>
-            </div>
-          ) : (
-            <div data-tour="members" style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center', marginTop: 4 }}>
-              {players.map((p, i) => (
-                <MemberCard
-                  key={p.id}
-                  player={p}
-                  active={selectedId === p.id}
-                  color={MEMBER_COLORS[i % MEMBER_COLORS.length]}
-                  onClick={() => { setSelectedId(selectedId === p.id ? null : p.id); setPlayerView('skills'); }}
-                  isMe={!!myRsn && normRsn(p.rsn) === normRsn(myRsn)}
-                  canWrite={canWrite}
-                  onEditRsn={setEditRsnPlayer}
-                  onSync={syncOnePlayer}
-                  onRemove={canWrite ? handleRemovePlayer : undefined}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
       {/* Stat boxes */}
       <div className="grid-4">
         {statBoxes.map(b => (
@@ -260,15 +167,6 @@ export default function OverviewTab({ group, goals, players, groupId, onRefresh,
         </div>
       )}
 
-      {/* Edit RSN modal */}
-      {editRsnPlayer && (
-        <EditRsnModal
-          player={editRsnPlayer}
-          onClose={() => setEditRsnPlayer(null)}
-          onSaved={() => { setEditRsnPlayer(null); onRefresh(); }}
-          onToast={onToast}
-        />
-      )}
     </div>
   );
 }

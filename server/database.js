@@ -294,6 +294,10 @@ db.exec(`
   );
 `);
 
+// The group's shared storage contents (the same for every member; the newest snapshot from any member wins).
+try { db.exec('ALTER TABLE player_live_state ADD COLUMN group_storage_json TEXT'); } catch {}
+try { db.exec('ALTER TABLE player_live_state ADD COLUMN group_storage_at TEXT'); } catch {}
+
 // Drops reported by the plugin carry a dedupe signature so a retried request never logs a drop twice.
 try { db.exec('ALTER TABLE drops ADD COLUMN source TEXT'); } catch {}
 try { db.exec('ALTER TABLE drops ADD COLUMN sig TEXT'); } catch {}

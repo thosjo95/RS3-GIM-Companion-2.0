@@ -88,6 +88,7 @@ function cleanPayload(b) {
   if (b.inventory !== undefined) out.inventory = cleanItems(b.inventory, MAX.inventory, 'inventory');
   if (b.equipment !== undefined) out.equipment = cleanItems(b.equipment, MAX.equipment, 'equipment');
   if (b.bank      !== undefined) out.bank      = cleanItems(b.bank,      MAX.bank,      'bank');
+  if (b.group_storage !== undefined) out.groupStorage = cleanItems(b.group_storage, MAX.bank, 'group_storage');
 
   if (b.storage_changes !== undefined) {
     if (!Array.isArray(b.storage_changes)) throw new Error('storage_changes must be an array');
@@ -212,16 +213,18 @@ router.post('/ingest', ingestLimiter, express.json({ limit: '1mb' }), (req, res)
   const applied = {};
   db.runTransaction(() => {
     db.prepare(`
-      INSERT INTO player_live_state (player_id, updated_at, world, position_json, skills_json, inventory_json, equipment_json, bank_json)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO player_live_state (player_id, updated_at, world, position_json, skills_json, inventory_json, equipment_json, bank_json, group_storage_json, group_storage_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(player_id) DO UPDATE SET
         updated_at = excluded.updated_at, world = excluded.world, position_json = excluded.position_json,
         skills_json = excluded.skills_json, inventory_json = excluded.inventory_json,
-        equipment_json = excluded.equipment_json, bank_json = excluded.bank_json
+        equipment_json = excluded.equipment_json, bank_json = excluded.bank_json,
+        group_storage_json = excluded.group_storage_json, group_storage_at = excluded.group_storage_at
     `).run(
       playerId, now, data.world ?? prev.world ?? null,
       j(data.position, prev.position_json), j(data.skills, prev.skills_json),
       j(data.inventory, prev.inventory_json), j(data.equipment, prev.equipment_json), j(data.bank, prev.bank_json),
+      j(data.groupStorage, prev.group_storage_json), data.groupStorage !== undefined ? now : (prev.group_storage_at ?? null),
     );
 
     const ins = db.prepare(`
@@ -252,7 +255,7 @@ router.get('/state', (req, res) => {
 
   const rows = db.prepare(`
     SELECT p.id AS player_id, p.rsn,
-           s.updated_at, s.world, s.position_json, s.skills_json, s.inventory_json, s.equipment_json, s.bank_json,
+           s.updated_at, s.world, s.position_json, s.skills_json, s.inventory_json, s.equipment_json, s.bank_json, s.group_storage_json, s.group_storage_at,
            (SELECT MAX(last_used_at) FROM plugin_tokens t WHERE t.player_id = p.id AND t.revoked = 0) AS token_last_used,
            EXISTS (SELECT 1 FROM plugin_tokens t WHERE t.player_id = p.id AND t.revoked = 0) AS has_token
     FROM players p
@@ -266,6 +269,7 @@ router.get('/state', (req, res) => {
     updated_at: r.updated_at, world: r.world,
     position: parse(r.position_json), skills: parse(r.skills_json),
     inventory: parse(r.inventory_json) ?? [], equipment: parse(r.equipment_json) ?? [], bank: parse(r.bank_json) ?? [],
+    group_storage: parse(r.group_storage_json) ?? [], group_storage_at: r.group_storage_at,
   })));
 });
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { api } from '../api/client';
 import GearLoadouts from './GearLoadouts';
+import ItemsTab from './ItemsTab';
 
 // ── Item icon map — name → wiki icon URL ──────────────────────────────────────
 function useItemIconMap() {
@@ -458,12 +459,13 @@ function AddItemModal({ players, groupId, onClose, onAdded, onToast }) {
 
 // ── Group Vault panel ─────────────────────────────────────────────────────────
 
-function VaultPanel({ players, groupId, goals, onToast, myRsn, canWrite, groupEquipment, onReloadDrops, iconMap }) {
+function VaultPanel({ players, groupId, goals, onToast, myRsn, canWrite, groupEquipment, onReloadDrops, iconMap, selectedPlayerId = null }) {
   const [drops, setDrops]               = useState([]);
   const [loading, setLoading]           = useState(true);
   const [sortBy, setSortBy]             = useState('recent');
   const [filterBoss, setFilterBoss]     = useState('all');
-  const [filterPlayer, setFilterPlayer] = useState('all');
+  // The player filter is the pinned player bar at the top of the page; there is no filter chip row here.
+  const filterPlayer = players.find(p => p.id === selectedPlayerId)?.rsn ?? 'all';
   const [searchQuery, setSearchQuery]   = useState('');
   const [showAddItem, setShowAddItem]   = useState(false);
 
@@ -591,26 +593,8 @@ function VaultPanel({ players, groupId, goals, onToast, myRsn, canWrite, groupEq
         )}
       </div>
 
-      {/* Player chips */}
+      {/* Boss filter (the player filter is the pinned player bar) */}
       <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'center' }}>
-        <button
-          className={`chip${filterPlayer === 'all' ? ' active' : ''}`}
-          onClick={() => setFilterPlayer('all')}>
-          All members
-        </button>
-
-        {players.map(p => {
-          const active = filterPlayer === p.rsn;
-          return (
-            <button
-              key={p.id}
-              className={`chip${active ? ' active' : ''}`}
-              onClick={() => setFilterPlayer(active ? 'all' : p.rsn)}>
-              {p.rsn}
-            </button>
-          );
-        })}
-
         {bosses.length > 0 && (
           <select
             className="form-select"
@@ -662,9 +646,12 @@ function VaultPanel({ players, groupId, goals, onToast, myRsn, canWrite, groupEq
 
 // ── Root VaultTab ─────────────────────────────────────────────────────────────
 
-export default function VaultTab({ players, groupId, goals = [], onToast, canWrite, myRsn }) {
+export default function VaultTab({ players, groupId, goals = [], onToast, canWrite, myRsn, selectedPlayerId = null }) {
   const iconMap        = useItemIconMap();
   const [groupEquipment, setGroupEquip] = useState([]);
+  // 'vault' = drops + gear loadouts (as before); the rest is the plugin's live data
+  const [section, setSection] = useState('vault');
+  const SECTIONS = [['vault', '🏆 Drops & Gear'], ['items', '🎒 Items'], ['ledger', '📒 Bank ledger'], ['setup', '🔌 Plugin setup']];
 
   const loadEquipment = useCallback(async () => {
     try { setGroupEquip(await api.getGroupEquipment(groupId)); }
@@ -675,7 +662,20 @@ export default function VaultTab({ players, groupId, goals = [], onToast, canWri
 
   return (
     <div style={{ position: 'relative' }}>
-      <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
+        {SECTIONS.map(([id, label]) => (
+          <button key={id} onClick={() => setSection(id)} className={`chip${section === id ? ' active' : ''}`}>{label}</button>
+        ))}
+      </div>
+
+      {section !== 'vault' && (
+        <div style={{ background: 'var(--bg-panel)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '20px 18px' }}>
+          <ItemsTab players={players} groupId={groupId} canWrite={canWrite} onToast={onToast}
+            selectedPlayerId={selectedPlayerId} view={section} />
+        </div>
+      )}
+
+      {section === 'vault' && <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start', flexWrap: 'wrap' }}>
 
         {/* LEFT — Group Vault */}
         <div data-tour="vault-panel" style={{
@@ -696,6 +696,7 @@ export default function VaultTab({ players, groupId, goals = [], onToast, canWri
                 groupEquipment={groupEquipment}
                 onReloadDrops={loadEquipment}
                 iconMap={iconMap}
+                selectedPlayerId={selectedPlayerId}
               />
             : (
               <div className="empty-state">
@@ -722,6 +723,7 @@ export default function VaultTab({ players, groupId, goals = [], onToast, canWri
                 onToast={onToast}
                 myRsn={myRsn}
                 onEquipmentChanged={loadEquipment}
+                selectedPlayerId={selectedPlayerId}
               />
             : (
               <div className="empty-state">
@@ -731,7 +733,7 @@ export default function VaultTab({ players, groupId, goals = [], onToast, canWri
           }
         </div>
 
-      </div>
+      </div>}
     </div>
   );
 }

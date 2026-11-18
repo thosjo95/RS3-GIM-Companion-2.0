@@ -41,13 +41,16 @@ const states = [
   { inventory: [ITEMS.rune(200)], equipment: [ITEMS.amulet(1)], bank: [ITEMS.coins(95_000), ITEMS.logs(150), ITEMS.whip(1)] },
 ];
 
-const live = db.prepare(`INSERT INTO player_live_state (player_id, updated_at, world, position_json, inventory_json, equipment_json, bank_json) VALUES (?, ?, ?, ?, ?, ?, ?)`);
+const live = db.prepare(`INSERT INTO player_live_state (player_id, updated_at, world, position_json, inventory_json, equipment_json, bank_json, group_storage_json, group_storage_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+// The group's shared storage (same for everyone; the newest snapshot wins).
+const GROUP_STORAGE = [ITEMS.whip(1), ITEMS.rune(3000), ITEMS.logs(900), ITEMS.shark(450), ITEMS.crystal(5), ITEMS.coins(2_500_000)];
 const ledger = db.prepare(`INSERT INTO storage_ledger (player_id, store, item_id, item_name, delta, value_each, occurred_at) VALUES (?, ?, ?, ?, ?, ?, ?)`);
 const tokens = [];
 players.forEach((p, i) => {
   const ago = [1, 4, 90][i] * 60_000;                           // minutes since last update: live, live, stale
   live.run(p.id, new Date(Date.now() - ago).toISOString(), [12, 12, 88][i], JSON.stringify({ x: 3200 + i * 7, y: 3200, z: 0 }),
-    JSON.stringify(states[i].inventory), JSON.stringify(states[i].equipment), JSON.stringify(states[i].bank));
+    JSON.stringify(states[i].inventory), JSON.stringify(states[i].equipment), JSON.stringify(states[i].bank),
+    i === 0 ? JSON.stringify(GROUP_STORAGE) : null, i === 0 ? new Date(Date.now() - ago).toISOString() : null);
   const token = 'gimp_' + crypto.randomBytes(32).toString('base64url');
   db.prepare('INSERT INTO plugin_tokens (player_id, token_hash, last_used_at) VALUES (?, ?, ?)').run(p.id, crypto.createHash('sha256').update(token).digest('hex'), new Date(Date.now() - ago).toISOString());
   tokens.push({ rsn: p.rsn, token });

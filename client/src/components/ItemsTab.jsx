@@ -5,15 +5,29 @@ import { MEMBER_COLORS, fmtNum } from '../lib/rs3';
 // GIM 2.0 — live group items, bank ledger and plugin setup.
 // All data is pushed by the in-game RS3 plugin (see /plugin) and is private to the group.
 
+// What each filter shows. "Storage" (the default) is what a group vault is about: the shared group storage
+// plus everyone's bank. Backpack and equipped are the live items on the characters themselves.
 const SOURCES = [
-  { id: 'all',       label: 'All' },
-  { id: 'bank',      label: 'Bank' },
-  { id: 'inventory', label: 'Backpack' },
-  { id: 'equipment', label: 'Equipped' },
+  { id: 'storage',   label: '🏦 Storage',    holds: ['group', 'bank'] },
+  { id: 'group',     label: 'Group storage', holds: ['group'] },
+  { id: 'bank',      label: 'Banks',         holds: ['bank'] },
+  { id: 'inventory', label: 'Backpacks',     holds: ['inventory'] },
+  { id: 'equipment', label: 'Equipped',      holds: ['equipment'] },
+  { id: 'all',       label: 'Everything',    holds: ['group', 'bank', 'inventory', 'equipment'] },
 ];
+const SRC_LABEL = { group: 'group storage', bank: 'bank', inventory: 'backpack', equipment: 'equipped' };
 
 // Server timestamps are ISO strings with a trailing Z; SQLite CURRENT_TIMESTAMP values have none.
 const toMs = iso => new Date(/(Z|[+-]\d{2}:?\d{2})$/.test(iso) ? iso : iso + 'Z').getTime();
+
+// The group storage is shared, so every member's plugin sees the same contents: use the newest snapshot.
+function newestGroupStorage(state) {
+  let best = null;
+  for (const p of state) {
+    if (p.group_storage_at && (!best || toMs(p.group_storage_at) > toMs(best.group_storage_at))) best = p;
+  }
+  return best ? { items: best.group_storage, at: best.group_storage_at, by: best.rsn } : null;
+}
 
 function timeAgo(iso) {
   if (!iso) return 'never';
@@ -35,26 +49,32 @@ function pillStyle(active) {
 
 // ── Items ─────────────────────────────────────────────────────────────────────
 
-function ItemsView({ state, colorOf }) {
+function ItemsView({ state, colorOf, selectedPlayerId }) {
   const [search, setSearch] = useState('');
-  const [source, setSource] = useState('all');
-  const [playerId, setPlayerId] = useState(null);
+  const [source, setSource] = useState('storage');
   const [sort, setSort] = useState('count');
+  const groupStorage = useMemo(() => newestGroupStorage(state), [state]);
+  const holds = SOURCES.find(s => s.id === source).holds;
 
   const items = useMemo(() => {
     const byItem = new Map();
+    const add = (it, holder) => {
+      const row = byItem.get(it.id) ?? { id: it.id, name: it.name || `Item ${it.id}`, value: it.value, total: 0, holders: [] };
+      row.total += it.count;
+      row.value = row.value ?? it.value;
+      row.holders.push({ ...holder, count: it.count });
+      byItem.set(it.id, row);
+    };
+    // The group storage belongs to the whole group, so it is never narrowed by the selected player.
+    if (holds.includes('group') && groupStorage) {
+      for (const it of groupStorage.items) add(it, { rsn: 'Group storage', src: 'group', playerId: null });
+    }
+    // Everything else belongs to one character, so the player cards at the top filter it.
     for (const p of state) {
-      if (playerId && p.player_id !== playerId) continue;
+      if (selectedPlayerId != null && p.player_id !== selectedPlayerId) continue;
       for (const src of ['bank', 'inventory', 'equipment']) {
-        if (source !== 'all' && source !== src) continue;
-        for (const it of p[src]) {
-          const key = it.id;
-          const row = byItem.get(key) ?? { id: it.id, name: it.name || `Item ${it.id}`, value: it.value, total: 0, holders: [] };
-          row.total += it.count;
-          row.value = row.value ?? it.value;
-          row.holders.push({ rsn: p.rsn, playerId: p.player_id, src, count: it.count });
-          byItem.set(key, row);
-        }
+        if (!holds.includes(src)) continue;
+        for (const it of p[src]) add(it, { rsn: p.rsn, playerId: p.player_id, src });
       }
     }
     const q = search.trim().toLowerCase();
@@ -62,7 +82,7 @@ function ItemsView({ state, colorOf }) {
     const worth = r => (r.value ?? 0) * r.total;
     list.sort((a, b) => sort === 'name' ? a.name.localeCompare(b.name) : sort === 'value' ? worth(b) - worth(a) : b.total - a.total);
     return list;
-  }, [state, search, source, playerId, sort]);
+  }, [state, search, holds, selectedPlayerId, sort, groupStorage]);
 
   const totalValue = items.reduce((n, r) => n + (r.value ?? 0) * r.total, 0);
   const withData = state.filter(p => p.updated_at).length;
@@ -79,7 +99,7 @@ function ItemsView({ state, colorOf }) {
 
   return (
     <div>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 12 }}>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 10 }}>
         <input className="form-input" style={{ maxWidth: 240 }} placeholder="Search items…" value={search} onChange={e => setSearch(e.target.value)} />
         {SOURCES.map(s => <button key={s.id} style={pillStyle(source === s.id)} onClick={() => setSource(s.id)}>{s.label}</button>)}
         <select className="form-select" style={{ maxWidth: 160 }} value={sort} onChange={e => setSort(e.target.value)}>
@@ -91,12 +111,11 @@ function ItemsView({ state, colorOf }) {
           {items.length} items · base value {fmtNum(totalValue)} gp
         </span>
       </div>
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
-        <button style={pillStyle(!playerId)} onClick={() => setPlayerId(null)}>All players</button>
-        {state.map(p => (
-          <button key={p.player_id} style={{ ...pillStyle(playerId === p.player_id), color: playerId === p.player_id ? colorOf(p.player_id) : undefined }}
-            onClick={() => setPlayerId(playerId === p.player_id ? null : p.player_id)}>{p.rsn}</button>
-        ))}
+      <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 12, display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+        {holds.includes('group') && (groupStorage
+          ? <span>Group storage: {groupStorage.items.length} items, last seen {timeAgo(groupStorage.at)} (opened by {groupStorage.by})</span>
+          : <span>Group storage: not seen yet — a member with the plugin running needs to open it in-game once.</span>)}
+        {selectedPlayerId != null && <span>Banks, backpacks and equipment are filtered to the selected player. The group storage is always the whole group's.</span>}
       </div>
       {items.length === 0
         ? <div style={{ color: 'var(--text-dim)', fontSize: 13, padding: 20, textAlign: 'center' }}>No items match.</div>
@@ -112,7 +131,10 @@ function ItemsView({ state, colorOf }) {
                 <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 2 }}>
                   {r.holders.map((h, i) => (
                     <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
-                      <span style={{ color: colorOf(h.playerId) }}>{h.rsn} <span style={{ color: 'var(--text-dim)' }}>· {h.src === 'inventory' ? 'backpack' : h.src === 'equipment' ? 'equipped' : 'bank'}</span></span>
+                      <span style={{ color: h.src === 'group' ? 'var(--gold)' : colorOf(h.playerId) }}>
+                        {h.src === 'group' ? '🏦 Group storage' : h.rsn}
+                        {h.src !== 'group' && <span style={{ color: 'var(--text-dim)' }}> · {SRC_LABEL[h.src]}</span>}
+                      </span>
                       <span style={{ color: 'var(--text)' }}>{fmtNum(h.count)}</span>
                     </div>
                   ))}
@@ -128,11 +150,12 @@ function ItemsView({ state, colorOf }) {
 
 // ── Ledger ────────────────────────────────────────────────────────────────────
 
-function LedgerView({ ledger, colorOf }) {
-  const [playerId, setPlayerId] = useState(null);
+function LedgerView({ ledger, colorOf, selectedPlayerId }) {
   const [op, setOp] = useState('all');
-  const rows = ledger.filter(r => (!playerId || r.player_id === playerId) && (op === 'all' || (op === 'in' ? r.delta > 0 : r.delta < 0)));
-  const players = [...new Map(ledger.map(r => [r.player_id, r.rsn])).entries()];
+  const [store, setStore] = useState('all');
+  const rows = ledger.filter(r => (selectedPlayerId == null || r.player_id === selectedPlayerId)
+    && (op === 'all' || (op === 'in' ? r.delta > 0 : r.delta < 0))
+    && (store === 'all' || r.store === store));
 
   if (ledger.length === 0) {
     return (
@@ -148,8 +171,7 @@ function LedgerView({ ledger, colorOf }) {
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
         {[['all', 'All movements'], ['in', 'Deposits'], ['out', 'Withdrawals']].map(([id, label]) => <button key={id} style={pillStyle(op === id)} onClick={() => setOp(id)}>{label}</button>)}
         <span style={{ width: 12 }} />
-        <button style={pillStyle(!playerId)} onClick={() => setPlayerId(null)}>All members</button>
-        {players.map(([id, rsn]) => <button key={id} style={{ ...pillStyle(playerId === id), color: playerId === id ? colorOf(id) : undefined }} onClick={() => setPlayerId(playerId === id ? null : id)}>{rsn}</button>)}
+        {[['all', 'Banks + group storage'], ['group', 'Group storage'], ['bank', 'Banks']].map(([id, label]) => <button key={id} style={pillStyle(store === id)} onClick={() => setStore(id)}>{label}</button>)}
       </div>
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
@@ -234,8 +256,8 @@ function SetupView({ state, canWrite, onToast, reload }) {
 
 // ── Tab ───────────────────────────────────────────────────────────────────────
 
-export default function ItemsTab({ players, groupId, canWrite, onToast }) {
-  const [view, setView] = useState('items');
+// `view` is chosen by the Group Vault's section buttons: 'items' | 'ledger' | 'setup'.
+export default function ItemsTab({ players, groupId, canWrite, onToast, selectedPlayerId = null, view = 'items' }) {
   const [state, setState] = useState([]);
   const [ledger, setLedger] = useState([]);
   const [error, setError] = useState(null);
@@ -262,25 +284,18 @@ export default function ItemsTab({ players, groupId, canWrite, onToast }) {
     return (
       <div className="empty-state">
         <div className="icon">🔒</div>
-        <p>Live items and the bank ledger are private to the group.</p>
+        <p>The group's items and bank ledger are private to the group.</p>
         <p style={{ fontSize: 12, color: 'var(--text-dim)' }}>Unlock the group with its secret to view them.</p>
       </div>
     );
   }
 
   return (
-    <div className="panel">
-      <div className="panel-body">
-        <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
-          {[['items', '🎒 Items'], ['ledger', '📒 Bank ledger'], ['setup', '🔌 Plugin setup']].map(([id, label]) => (
-            <button key={id} style={pillStyle(view === id)} onClick={() => setView(id)}>{label}</button>
-          ))}
-        </div>
-        {error && <div style={{ color: 'var(--red-bright)', fontSize: 12, marginBottom: 10 }}>Couldn't load plugin data: {error}</div>}
-        {view === 'items'  && <ItemsView  state={state} colorOf={colorOf} />}
-        {view === 'ledger' && <LedgerView ledger={ledger} colorOf={colorOf} />}
-        {view === 'setup'  && <SetupView  state={state} canWrite={canWrite} onToast={onToast} reload={load} />}
-      </div>
+    <div>
+      {error && <div style={{ color: 'var(--red-bright)', fontSize: 12, marginBottom: 10 }}>Couldn't load plugin data: {error}</div>}
+      {view === 'items'  && <ItemsView  state={state} colorOf={colorOf} selectedPlayerId={selectedPlayerId} />}
+      {view === 'ledger' && <LedgerView ledger={ledger} colorOf={colorOf} selectedPlayerId={selectedPlayerId} />}
+      {view === 'setup'  && <SetupView  state={state} canWrite={canWrite} onToast={onToast} reload={load} />}
     </div>
   );
 }

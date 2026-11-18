@@ -1277,7 +1277,10 @@ function ClueScrolls({ players, colorMap }) {
 
 // ── Main export ───────────────────────────────────────────────────────────────
 
-export default function LeaderboardsTab({ players, groupId, canWrite, onToast }) {
+// `selectedPlayerId` comes from the pinned player bar. Firsts compare the whole group (a "first" means first of
+// everyone), so they ignore it; the per-player tables below narrow to the selected player.
+export default function LeaderboardsTab({ players, groupId, canWrite, onToast, selectedPlayerId = null }) {
+  const shown = selectedPlayerId != null ? players.filter(p => p.id === selectedPlayerId) : players;
   const [section, setSection] = useState('bosses');
   const colorMap = Object.fromEntries(players.map((p, i) => [p.id, MEMBER_COLORS[i % MEMBER_COLORS.length]]));
 
@@ -1315,10 +1318,10 @@ export default function LeaderboardsTab({ players, groupId, canWrite, onToast })
       <div data-tour="leaderboards-panel" className="panel">
         <div className="panel-body">
           {section === 'firsts'     && <FirstsBoard    players={players} colorMap={colorMap} groupId={groupId} canWrite={canWrite} onToast={onToast} />}
-          {section === 'milestones' && <MilestonesFeed players={players} colorMap={colorMap} />}
-          {section === 'bosses'     && <BossKills      players={players} colorMap={colorMap} groupId={groupId} />}
-          {section === 'clues'      && <ClueScrolls    players={players} colorMap={colorMap} />}
-          {section === 'mastery'    && <SkillMastery   players={players} colorMap={colorMap} groupId={groupId} canWrite={canWrite} onToast={onToast} />}
+          {section === 'milestones' && <MilestonesFeed players={shown} colorMap={colorMap} />}
+          {section === 'bosses'     && <BossKills      players={shown} colorMap={colorMap} groupId={groupId} />}
+          {section === 'clues'      && <ClueScrolls    players={shown} colorMap={colorMap} />}
+          {section === 'mastery'    && <SkillMastery   players={shown} colorMap={colorMap} groupId={groupId} canWrite={canWrite} onToast={onToast} />}
         </div>
       </div>
 

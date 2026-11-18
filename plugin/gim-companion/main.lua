@@ -210,7 +210,7 @@ local changeBatch = nil      -- { ref, changes, seen } formed and sent, waiting 
 local changeBatchCounter = 0
 local STORES = {
     { key = "bank",  field = "bank", window = id.Interface.BANK,                    inv = id.Inv.BANK,                          held = nil },
-    { key = "group", field = nil,    window = id.Interface.GROUP_IRONMAN_STORAGE,   inv = id.Inv.GROUP_IRONMAN_STORAGE_CLAN_TEMP, held = nil },
+    { key = "group", field = "group_storage", window = id.Interface.GROUP_IRONMAN_STORAGE,   inv = id.Inv.GROUP_IRONMAN_STORAGE_CLAN_TEMP, held = nil },
 }
 
 -- The game's Lua has NO `os` library (no clock), so the plugin cannot stamp times itself: it sends no time and

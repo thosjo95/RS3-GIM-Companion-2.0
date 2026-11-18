@@ -159,6 +159,7 @@ const check = (c, m) => { console.log((c ? 'PASS' : 'FAIL') + '  ' + m); if (!c)
   check(accepted === captured.length, `server accepted all ${captured.length} snapshots`);
   const state = (await (await fetch(`${base}/plugin/state?group_id=${gid}`, { headers: gh })).json())[0];
   check(state.skills.Attack.level === 10 && state.inventory.length >= 2 && state.position.y === 3201, 'live state stored (skills, backpack, position)');
+  check(state.group_storage.length === 1 && state.group_storage[0].name === 'Death rune' && state.group_storage[0].count === 150 && !!state.group_storage_at, 'group storage contents stored and returned (not just its changes)');
   const ledger = await (await fetch(`${base}/plugin/ledger?group_id=${gid}`, { headers: gh })).json();
   check(ledger.some(l => l.item_name === 'Shark' && l.delta === 10 && l.store === 'bank') && ledger.some(l => l.item_name === 'Abyssal whip' && l.delta === -1)
     && ledger.some(l => l.store === 'group' && l.item_name === 'Death rune' && l.delta === 50), 'ledger rows stored with names, signs and store');

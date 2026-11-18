@@ -32,7 +32,7 @@ function CustomGroupBanner({ groupId }) {
 import VaultTab from './VaultTab';
 import OverviewTab from './OverviewTab';
 import LeaderboardsTab from './LeaderboardsTab';
-import ItemsTab from './ItemsTab';
+import PlayerBar from './PlayerBar';
 import AchievementsTab from './AchievementsTab';
 import GoalsTab from './GoalsTab';
 import TourOverlay from './TourOverlay';
@@ -133,6 +133,14 @@ export default function Dashboard({ group, goals, pendingRequests, onRefresh, on
 
   const [tabTour, setTabTour]       = useState(null); // null | 'goals' | 'vault' | ...
   const [goalsJumpKey, setGoalsJumpKey] = useState(0); // incremented to force GoalsTab → Active Goals
+
+  // The ONE player filter for the whole dashboard: the cards pinned at the top (PlayerBar). null = everyone.
+  const [selectedPlayerId, setSelectedPlayerId] = useState(null);
+  useEffect(() => {   // forget the selection if that player is removed or the group changes
+    if (selectedPlayerId != null && !players.some(p => p.id === selectedPlayerId)) setSelectedPlayerId(null);
+  }, [players, selectedPlayerId]);
+  // Pages that list players side by side (Area Tasks, Leaderboards) simply receive only the selected player.
+  const visiblePlayers = selectedPlayerId != null ? players.filter(p => p.id === selectedPlayerId) : players;
   const shownRef                    = useRef({});      // tracks which tours have fired this session
   const prevReplayKey               = useRef(0);
 
@@ -142,7 +150,6 @@ export default function Dashboard({ group, goals, pendingRequests, onRefresh, on
     { id: 'vault',         label: '🏆 Group Vault',         tour: 'tab-vault' },
     { id: 'achievements',  label: '📋 Area Tasks', tour: 'tab-achievements' },
     { id: 'leaderboards',  label: '🏅 Leaderboards',        tour: 'tab-leaderboards' },
-    { id: 'items',         label: '🎒 Items' },
   ];
 
   // Auto-trigger per-tab tour on first visit
@@ -172,6 +179,20 @@ export default function Dashboard({ group, goals, pendingRequests, onRefresh, on
 
   return (
     <div>
+      {/* Player cards — pinned above every page; they are the player filter */}
+      <PlayerBar
+        group={group}
+        players={players}
+        groupId={groupId}
+        canWrite={canWrite}
+        myRsn={myRsn}
+        selectedId={selectedPlayerId}
+        onSelect={setSelectedPlayerId}
+        onRefresh={onRefresh}
+        onToast={onToast}
+        onAddPlayer={onAddPlayer}
+      />
+
       {/* Tab bar */}
       <div className="flex gap-8 mb-20 tab-bar-scroll" style={{ borderBottom: '1px solid var(--border)', paddingBottom: 1 }}>
         {TABS.map(t => (
@@ -210,9 +231,9 @@ export default function Dashboard({ group, goals, pendingRequests, onRefresh, on
           onToast={onToast}
           canWrite={canWrite}
           myRsn={myRsn}
+          selectedId={selectedPlayerId}
           pendingRequests={pendingRequests ?? []}
           onGoToRequests={() => { onTabChange('goals'); setGoalsJumpKey(k => k + 1); }}
-          onAddPlayer={onAddPlayer}
         />
       )}
 
@@ -228,13 +249,14 @@ export default function Dashboard({ group, goals, pendingRequests, onRefresh, on
           canWrite={canWrite}
           myRsn={myRsn}
           jumpToActiveKey={goalsJumpKey}
+          selectedPlayerId={selectedPlayerId}
         />
       )}
 
       {/* VAULT TAB */}
       {activeTab === 'vault' && (
         players.length > 0
-          ? <VaultTab players={players} groupId={groupId} goals={goals} onToast={onToast} canWrite={canWrite} myRsn={myRsn} />
+          ? <VaultTab players={players} groupId={groupId} goals={goals} onToast={onToast} canWrite={canWrite} myRsn={myRsn} selectedPlayerId={selectedPlayerId} />
           : <div className="empty-state">
               <div className="icon">🏆</div>
               <p>Add players first to use the vault.</p>
@@ -244,21 +266,16 @@ export default function Dashboard({ group, goals, pendingRequests, onRefresh, on
       {/* ACHIEVEMENTS TAB */}
       {activeTab === 'achievements' && (
         <AchievementsTab
-          players={players}
+          players={visiblePlayers}
           groupId={groupId}
           canWrite={canWrite}
           onToast={onToast}
         />
       )}
 
-      {/* ITEMS TAB (GIM 2.0 — fed by the in-game plugin) */}
-      {activeTab === 'items' && (
-        <ItemsTab players={players} groupId={groupId} canWrite={canWrite} onToast={onToast} />
-      )}
-
       {/* LEADERBOARDS TAB */}
       {activeTab === 'leaderboards' && (
-        <LeaderboardsTab players={players} groupId={groupId} canWrite={canWrite} onToast={onToast} />
+        <LeaderboardsTab players={players} selectedPlayerId={selectedPlayerId} groupId={groupId} canWrite={canWrite} onToast={onToast} />
       )}
 
       </div>{/* end tab content */}

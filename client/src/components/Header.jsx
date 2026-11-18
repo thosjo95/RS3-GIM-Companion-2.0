@@ -4,12 +4,14 @@ import GroupNotesOverlay from './GroupNotesOverlay';
 import PluginSetupModal from './PluginSetupModal';
 import GroupHeaderInfo from './GroupHeaderInfo';
 import HeaderStats from './HeaderStats';
+import ManageGroupModal from './ManageGroupModal';
 import RsIcon from './RsIcon';
 
 export default function Header({ group, onSynced, onToast, isUnlocked, isClaimed, myRsn, onLockClick, onClaimClick, onSetRsnClick, onWebhookClick, onMenuToggle, mobileMenuOpen, onTourClick, onAddPlayer }) {
   const [syncing, setSyncing] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
   const [pluginOpen, setPluginOpen] = useState(false);
+  const [manageOpen, setManageOpen] = useState(false);
 
   async function syncAll() {
     if (!group?.id) return;
@@ -182,8 +184,20 @@ export default function Header({ group, onSynced, onToast, isUnlocked, isClaimed
 
         {/* Add a character to the group by hand (unlocked groups) */}
         {group && isUnlocked && onAddPlayer && (
-          <button data-tour="add-player" onClick={onAddPlayer} title="Add a player to this group" className="sync-btn" style={{ background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-bright)', padding: '0 12px', fontSize: 12, fontWeight: 600 }}>
-            + Add player
+          <button
+            data-tour="add-player"
+            className="sync-btn"
+            onClick={() => setManageOpen(true)}
+            title="Manage group: add players, correct names, remove members"
+            style={{
+              width: 32, height: 32, padding: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0, fontSize: 18, fontWeight: 700,
+              background: 'transparent',
+              border: '1px solid var(--border)',
+              color: 'var(--text-dim)',
+            }}>
+            +
           </button>
         )}
 
@@ -256,6 +270,7 @@ export default function Header({ group, onSynced, onToast, isUnlocked, isClaimed
           </button>
         )}
       </div>
+      {manageOpen && group && <ManageGroupModal group={group} onClose={() => setManageOpen(false)} onAddPlayer={() => onAddPlayer?.()} onChanged={() => onSynced?.()} onToast={onToast} />}
       {pluginOpen && group?.id && (
         <PluginSetupModal group={group} canWrite={isUnlocked} onToast={onToast} onClose={() => setPluginOpen(false)} />
       )}

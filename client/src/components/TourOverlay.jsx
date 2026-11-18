@@ -43,7 +43,7 @@ const TOUR_STEPS = [
   {
     target: '[data-tour="members"]',
     title: 'Player cards and the roster',
-    body: 'Click a card to focus every page on that player, click the same card again to see everyone. This is the one player filter for the whole app. Your own card has the YOU badge. For a Group Ironman the member list follows the official hiscores and new members are added automatically every night. Add player in the top bar (unlocked groups) adds a character by hand, which is how you build a custom group; the red cross on a selected card removes a member.',
+    body: 'Click a card to focus every page on that player, click the same card again to see everyone. This is the one player filter for the whole app. Your own card has the YOU badge. For a Group Ironman the member list follows the official hiscores and new members are added automatically every night. The + button in the top bar (unlocked groups) opens Manage group: add a character by hand (how you build a custom group), correct a character name, or remove a member.',
   },
   {
     target: '[data-tour="inspect"]',

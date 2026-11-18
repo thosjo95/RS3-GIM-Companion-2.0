@@ -20,7 +20,7 @@ export default function MemberCard({ player, active, color, onClick, isMe, onEdi
   return (
     <div onClick={onClick} style={{
       cursor: 'pointer', width: 140, position: 'relative',
-      padding: active && onRemove ? '14px 16px 24px' : '14px 16px',
+      padding: '14px 16px',
       background: active ? 'var(--bg-panel)' : 'var(--bg-panel-alt)',
       border: `2px solid ${borderColor}`,
       borderRadius: 'var(--radius-lg)',
@@ -64,10 +64,6 @@ export default function MemberCard({ player, active, color, onClick, isMe, onEdi
           {player.rsn}
         </span>
         {/* edit: next to the name, shown when the card is selected (or has a sync error); needs an unlocked group. Hiscores sync by themselves. */}
-        {(hasSyncError || active) && canWrite && onEditRsn && (
-          <button title="Edit RSN" onClick={e => { e.stopPropagation(); onEditRsn(player); }}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: hasSyncError ? 'var(--red-bright)' : 'var(--text-dim)', padding: '0 2px', lineHeight: 1, flexShrink: 0 }}>✎</button>
-        )}
       </div>
       {overall
         ? <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, marginTop: 1, flexWrap: 'wrap' }}>
@@ -121,11 +117,6 @@ export default function MemberCard({ player, active, color, onClick, isMe, onEdi
         }}><RsIcon name="search" fallback="🔍" size={18} /></button>
       )}
 
-      {/* Remove: bottom right, only on the selected card and only for an unlocked group */}
-      {active && onRemove && (
-        <button title={`Remove ${player.rsn} from group`} onClick={e => { e.stopPropagation(); onRemove(player); }}
-          style={{ position: 'absolute', bottom: 5, right: 7, background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--red-bright)', padding: '2px 4px', borderRadius: 4, lineHeight: 1 }}>✕</button>
-      )}
     </div>
   );
 }

@@ -2,8 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import { useConfig } from './PreviewBanner';
 
-// The group's own settings, in the Plugin window. They appear once the group is claimed and at least one member's plugin
-// is connected (that is when they matter: they decide what the plugin's data shows). Saved at once, one setting at a time.
+// The group's own settings, in the Plugin window (claimed and unlocked groups). They decide what the plugin's data shows.
+// Saved at once, one setting at a time.
 
 const gp = n => (n >= 1e6 ? `${n / 1e6}M` : n >= 1e3 ? `${n / 1e3}K` : String(n));
 const DROP_STEPS = [[0, 'Every drop'], [50_000, '50K'], [100_000, '100K'], [250_000, '250K'], [500_000, '500K'], [1_000_000, '1M'], [2_500_000, '2.5M'], [5_000_000, '5M'], [10_000_000, '10M']];
@@ -36,16 +36,10 @@ function Pick({ value, steps, onChange, unit = '' }) {
 export default function GroupSettings({ group, onChanged, onToast, onOpenWebhook }) {
   const config = useConfig();
   const defaultMin = config?.drop_default_min ?? 100_000;
-  const [connected, setConnected] = useState(null);                 // null = not known yet
   const [dropMin, setDropMin] = useState(group?.drop_min_value ?? defaultMin);
   const [s, setS] = useState(group?.settings || {});
   useEffect(() => { setDropMin(group?.drop_min_value ?? defaultMin); }, [group?.drop_min_value, defaultMin]);
   useEffect(() => { setS(group?.settings || {}); }, [group?.settings]);
-
-  useEffect(() => {
-    if (!group?.id) return;
-    api.getPluginState(group.id, { include: '' }).then(r => setConnected(Array.isArray(r) && r.some(p => p.has_token))).catch(() => setConnected(false));
-  }, [group?.id]);
 
   async function save(patch, message) {
     const prev = s;
@@ -60,16 +54,8 @@ export default function GroupSettings({ group, onChanged, onToast, onOpenWebhook
     catch (e) { setDropMin(prev); onToast?.(e.message, 'error'); }
   }
 
-  if (connected === null || !s.clue_tiers) return null;
+  if (!s.clue_tiers) return null;
   const head = <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Group settings</div>;
-  if (!connected) {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {head}
-        <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>Settings for what the plugin's data shows appear here once a member's plugin is connected.</div>
-      </div>
-    );
-  }
   const toggleTier = t => {
     const next = s.clue_tiers.includes(t) ? s.clue_tiers.filter(x => x !== t) : [...s.clue_tiers, t];
     save({ clue_tiers: TIERS.filter(x => next.includes(x)) }, 'Clue log tiers saved');

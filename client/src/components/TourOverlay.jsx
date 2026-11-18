@@ -21,12 +21,12 @@ const WELCOME_STEP = {
 const PLUGIN_STEPS = [
   {
     target: null,
-    title: '4 · Install GIM Companion and type the secret',
+    title: 'Install GIM Companion and type the secret',
     body: 'The plugin reads what the web cannot: bank, group storage, backpack, worn gear, quests, achievements, boss and slayer kills, drops. In the RuneScape client open the plugin browser, search for "GIM Companion", install it and enable it, and allow network access when the game asks. Log in: a GIM Companion window asks for your group secret, the same one that unlocks this website. Type it and press Connect. Every member does this once per computer. The plugin only sends your own character, and only if your character is a member of this group.',
   },
   {
     target: '[data-tour="plugin"]',
-    title: '5 · Check who is connected',
+    title: 'Check who is connected',
     body: 'Plugin shows the same steps, the group secret (to copy or show to a member), and a dot per member that turns green once their plugin sends data. Disconnect stops one member\'s plugin; it asks for the secret again at their next login.',
     action: 'Open Plugin now',
   },
@@ -36,20 +36,20 @@ const SETUP_STEPS = {
   new: [
     {
       target: '[data-tour="groups"]',
-      title: '1 · Find or create your group',
+      title: 'Find or create your group',
       body: 'Open "Find or Manage Groups". Search for your Group Ironman by its name or one of its members to add it to this list, or create a custom group by typing the RuneScape names of your players. Groups you add appear in this menu and are remembered in this browser.',
       action: 'Find my group now',
     },
     {
       target: '[data-tour="lock"]',
-      title: '2 · Claim the group and share the secret',
+      title: 'Claim the group and share the secret',
       body: 'Claim the group to protect it. You get a secret code that is shown once, so save it and share it with your members (on Discord, for example). The secret does two things: everyone unlocks the website with it, and everyone types it into the plugin in the game. Without the secret the group is read-only, and private things (bank, storage, quests from the game) stay hidden.',
       action: 'Claim now',
       missing: 'Pick your group first (previous step). If the group is already unlocked in this browser, there is nothing to do here.',
     },
     {
       target: '[data-tour="rsn"]',
-      title: '3 · Tell the app which character is yours',
+      title: 'Tell the app which character is yours',
       body: 'Set your character name here. Your player card gets the gold YOU badge, and new goals default to you.',
       action: 'Set my character now',
       missing: 'This button appears once the group is unlocked.',
@@ -59,20 +59,20 @@ const SETUP_STEPS = {
   existing: [
     {
       target: '[data-tour="groups"]',
-      title: '1 · Open your group',
+      title: 'Open your group',
       body: 'Your group and its history (skills, activity, goals, drops, notes) came along from the old site. If it is not in the list on the left yet, open "Find or Manage Groups" and search for its name or one of its members.',
       action: 'Find my group now',
     },
     {
       target: '[data-tour="lock"]',
-      title: '2 · Unlock with your group secret',
+      title: 'Unlock with your group secret',
       body: 'If your group was claimed before, press Unlock and enter the secret you already have; it still works, and it is also what you type into the plugin. If nobody ever claimed it, press Claim group now: you get a new secret, shown once, to save and share with your members. Without the secret the group is read-only and private things stay hidden.',
       action: 'Claim or unlock now',
       missing: 'Pick your group first (previous step). If the group is already unlocked in this browser, there is nothing to do here.',
     },
     {
       target: '[data-tour="rsn"]',
-      title: '3 · Tell the app which character is yours',
+      title: 'Tell the app which character is yours',
       body: 'Set your character name here if you have not already. Your player card gets the gold YOU badge, and new goals default to you.',
       action: 'Set my character now',
       missing: 'This button appears once the group is unlocked.',
@@ -146,8 +146,14 @@ const FEATURE_STEPS = [
   },
 ];
 
-function mainTour(path) {
-  return [WELCOME_STEP, ...(SETUP_STEPS[path] || []), ...FEATURE_STEPS];
+// The tour usually opens with a group already on screen (the claim/unlock or character button shows that): then the
+// "find your group" step is skipped and the setup starts at claiming or unlocking.
+function groupIsOpen() {
+  return !!document.querySelector('[data-tour="lock"], [data-tour="rsn"]');
+}
+function mainTour(path, groupOpen) {
+  const setup = (SETUP_STEPS[path] || []).filter(s => !(groupOpen && s.target === '[data-tour="groups"]'));
+  return [WELCOME_STEP, ...setup, ...FEATURE_STEPS];
 }
 
 const PAD  = 10;
@@ -156,7 +162,8 @@ const TT_H = 230; // conservative tooltip height for placement math
 
 export default function TourOverlay({ steps: stepsProp, onComplete }) {
   const [path, setPath]           = useState(null);    // 'new' | 'existing' | null (main tour only)
-  const steps = stepsProp ?? mainTour(path);
+  const [groupOpen, setGroupOpen] = useState(false);  // decided once, when the answer is chosen, so the list never shifts mid-tour
+  const steps = stepsProp ?? mainTour(path, groupOpen);
   const [stepIndex, setStepIndex] = useState(0);
   const [rect, setRect]           = useState(null);
   const [paused, setPaused]       = useState(false);   // true while a window opened by an action button is in use
@@ -221,6 +228,7 @@ export default function TourOverlay({ steps: stepsProp, onComplete }) {
   const targetExists = !!(step.target && document.querySelector(step.target));
 
   function choose(choice) {
+    setGroupOpen(groupIsOpen());
     setPath(choice);
     setStepIndex(1);
   }

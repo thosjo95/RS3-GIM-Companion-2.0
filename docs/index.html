@@ -246,7 +246,6 @@
       <a href="#plugin-data">What it reads</a>
       <a href="#plugin-privacy">Privacy &amp; safety</a>
       <a href="#plugin-config">Settings &amp; debug</a>
-      <a href="#plugin-api">Lessons from the game API</a>
       <a href="#plugin-tracker">Kill tracker discovery</a>
       <a href="#plugin-trouble">Troubleshooting</a>
       <a href="#plugin-submit">Submitting to mod.io</a>
@@ -646,31 +645,6 @@ pon gim-companion                     # enable it</code></pre></li>
       The store is the SQLite file <code>RuneScape-BETA\plugins\PluginData.db</code>.
     </p>
 
-    <h2 id="plugin-api">Lessons from the game API</h2>
-    <p>Things that are not obvious from the documentation, found by testing in the beta client:</p>
-    <table>
-      <tr><th>Gotcha</th><th>What to do</th></tr>
-      <tr><td>There is no global <code>log</code></td><td>Use <code>print</code>; output appears in the console with a <code>&gt;&gt;</code> prefix.</td></tr>
-      <tr><td>There is no <code>os</code> library</td><td>No clock, no timestamps: let the server stamp events.</td></tr>
-      <tr><td><code>pcall(HTTPRequest.new, …)</code> <strong>crashes the client</strong></td><td>Create requests from inside a Lua function: <code>pcall(function() return HTTPRequest.new(base, path) end)</code>. The game seems to identify the calling plugin from the Lua caller.</td></tr>
-      <tr><td><code>Post</code>/<code>Get</code> second callback is <em>progress</em></td><td>Pass only the completion callback; it fires on success and on failure.</td></tr>
-      <tr><td><code>prf</code> resets permissions</td><td>Run <code>ppe &lt;plugin&gt; httpAccess</code> again, then <code>prl</code>.</td></tr>
-      <tr><td><code>HasPermission</code> must be checked</td><td>Without it, network calls raise an error instead of running.</td></tr>
-      <tr><td>Plain <code>http://localhost</code> works</td><td>For development. Production must use https.</td></tr>
-      <tr><td><code>invalid ValueType (16)</code> in the console</td><td>The game refuses to convert one kind of config value. Wrap reads in <code>pcall</code>; it is harmless.</td></tr>
-      <tr><td>Heavy scans freeze the client if done at once</td><td>Spread scans over ticks (the plugin reads 25–200 ids per tick).</td></tr>
-      <tr><td>Names with spaces in the RSN</td><td>RuneScape treats spaces, underscores and non-breaking spaces alike; the server compares them normalised.</td></tr>
-      <tr><td>Window must be open to read bank / storage</td><td>Inventories of closed windows are unreliable, so the plugin never treats "empty" as "withdrawn".</td></tr>
-    </table>
-    <h4>Useful API facts</h4>
-    <ul>
-      <li>Skills: <code>SkillType.HITPOINTS</code> (not Constitution), <code>SkillType.RUNECRAFTING</code>.</li>
-      <li>Inventories: <code>Inventory.Find(id.Inv.INV | WORN | BANK | GROUP_IRONMAN_STORAGE_CLAN_TEMP)</code>, windows: <code>ui.Interfaces:GetInterface(id.Interface.BANK)</code>.</li>
-      <li>Position: <code>x = mapSquareX*64 + localX</code>, <code>y = mapSquareZ*64 + localZ</code>, plane = <code>level</code>.</li>
-      <li>Definitions: <code>config.Quest</code>, <code>config.Achievement</code>, <code>config.Struct</code>, <code>config.Param</code>, <code>config.Enum</code>, <code>config.DBTable</code>, <code>config.Obj.FromID(id).name / .cost</code>.</li>
-      <li>Events used: <code>ServerLogic</code> (about 0.6 s), <code>InventoryUpdated/Added/Removed</code>, <code>SkillTransmit</code>, <code>NPCEntityRemoved</code>, <code>ObjStackEntityAdded</code>, <code>GameStateChanged</code>.</li>
-    </ul>
-
     <h2 id="plugin-tracker">Kill tracker discovery</h2>
     <p>How the exact boss kill counts were found, because the same approach finds more:</p>
     <ol>
@@ -700,7 +674,7 @@ pon gim-companion                     # enable it</code></pre></li>
     <h3>"the server no longer accepts this character's key"</h3>
     <p>Someone pressed <strong>Disconnect</strong> for this member, or the member was removed. The window asks for the secret again.</p>
     <h3>The game closes when the plugin starts</h3>
-    <p>Create requests with the wrapped form (see <a href="#plugin-api">Lessons</a>). If it still happens, set <code>dryRun = true</code> to see whether reading is safe, then <code>probe = "local"</code> for the network, and report the last <code>[GIM] &gt;</code> line (or read <code>gim_last_step</code> from <code>PluginData.db</code>).</p>
+    <p>If it happens, set <code>dryRun = true</code> to see whether reading is safe, then <code>probe = "local"</code> for the network, and report the last <code>[GIM] &gt;</code> line (or read <code>gim_last_step</code> from <code>PluginData.db</code>).</p>
     <h3>Nothing appears on the dashboard</h3>
     <ul>
       <li>Is the dev server running and the URL in <code>plugin.json</code> right?</li>

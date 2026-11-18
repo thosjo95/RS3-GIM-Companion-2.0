@@ -24,3 +24,6 @@ Thumbs.db
 # Plugin dev
 plugin/gim-companion/config.lua
 plugin/node_modules/
+
+# plugin release zips
+plugin/dist/

@@ -1,14 +1,11 @@
--- Copy this file to config.lua (same folder) and paste YOUR token.
--- Get a token in the GIM dashboard: Plugin button in the top bar -> Connect (next to your name).
--- config.lua is git-ignored; never share your token (it lets anyone write data as you).
+-- Copy this file to config.lua (same folder) and paste YOUR token between the quotes.
+-- Get your token on the GIM Companion website: top bar -> Plugin -> Connect (next to your name).
+-- Never share your token: anyone who has it can send data as you. If it leaks, press Connect again for a new one.
 return {
     token = "gimp_PASTE_YOUR_TOKEN_HERE",
 
-    -- Optional, for testing. Turn a feature off if it causes trouble:
-    -- features = { quests = true, kills = true, drops = true },
-    -- dryRun = true,   -- read the game and print what would be sent, without any network request
-    -- probe = "local",   -- beta debugging: one test GET ("local" = this dev server, "https" = a public site)
-    -- trackerProbe = "structs",   -- beta debugging: print how the game's kill tracker structs are laid out (once, ~6 minutes)
-    -- trackerProbe = true,   -- beta debugging: print the layout of the game's kill tracker tables (once, takes ~6 minutes)
-    -- debug = false,   -- true (default) prints a "[GIM] >" line before each step
+    -- Optional, for testing only:
+    -- debug = true,     -- print a line before each step (and remember the last step in the game's data store)
+    -- dryRun = true,    -- read the game and print what WOULD be sent, without any network request
+    -- features = { quests = true, kills = true, drops = true, achievements = true, killtracker = true, bosses = true },
 }

@@ -1,10 +1,10 @@
 {
     "name": "GIM Companion",
-    "version": "0.1.0-dev",
-    "contactEmailAddress": "CHANGE-ME@example.com",
+    "version": "1.0.0",
+    "contactEmailAddress": "rs3groupiron@pm.me",
     "requiredDependencies": {},
     "optionalDependencies": {},
     "requiredPermissions": [],
     "optionalPermissions": [ "httpAccess" ],
-    "urls": { "gim": "http://localhost:3001", "probe": "https://api.github.com" }
+    "urls": { "gim": "https://api.groupiron.com" }
 }

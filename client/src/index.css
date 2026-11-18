@@ -633,6 +633,7 @@ a:hover { color: var(--gold-light); }
   .last-sync { display: none; }
   .sync-btn { padding: 5px 9px; font-size: 11px; }
   .header-right { gap: 6px; }
+  .header-left-actions { gap: 6px !important; margin-left: 6px !important; }
 
   /* ── Content ── */
   .content { padding: 10px; }

@@ -83,7 +83,7 @@ export default function DropsPanel({ drops, players, selectedId, onClose }) {
   const list = drops.filter(d => selectedId == null || d.player_id === selectedId).slice(0, 40);
   const who = selectedId != null ? players.find(p => p.id === selectedId)?.rsn : null;
   return (
-    <div style={{ width: 460, maxWidth: '100%', background: 'var(--bg-panel)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+    <div style={{ width: '100%', background: 'var(--bg-panel)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderBottom: '1px solid var(--border)', background: 'var(--bg-root)' }}>
         <RsIcon name="vault" fallback="🧰" size={22} />
         <strong style={{ fontSize: 13, color: 'var(--text-bright)' }}>Recent drops{who ? ` · ${who}` : ''}</strong>

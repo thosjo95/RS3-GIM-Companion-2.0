@@ -67,7 +67,7 @@ export default function RightPanel({ goals, players, filteredPlayerId, groupId, 
     <div>
       {/* Drops chest + Goals: tiles that open as panels floating over the page (they do not push the activity down) */}
       <div style={{ position: 'relative', marginBottom: 18 }}>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
           <ChestButton drops={drops} fresh={freshDrops} open={open === 'drops'} onClick={() => toggle('drops')} />
           <ChestButton icon="goals" fallback="🎯" label="Goals" fresh={freshGoals} open={open === 'goals'} onClick={() => toggle('goals')}
             sub={`${active.length} active${done.length ? ` · ${done.length} done` : ''}`} />
@@ -76,7 +76,8 @@ export default function RightPanel({ goals, players, filteredPlayerId, groupId, 
         {open && (
           <>
             <div onClick={() => setOpen(null)} style={{ position: 'fixed', inset: 0, zIndex: 90 }} />
-            <div style={{ position: 'absolute', top: '100%', left: 0, marginTop: 6, zIndex: 91, width: 'min(520px, 100%)', boxShadow: '0 12px 36px rgba(0,0,0,0.65)', borderRadius: 'var(--radius-lg)' }}>
+            <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 6, zIndex: 91, display: 'flex', justifyContent: 'center', pointerEvents: 'none' }}>
+            <div style={{ pointerEvents: 'auto', width: 'min(520px, 100%)', boxShadow: '0 12px 36px rgba(0,0,0,0.65)', borderRadius: 'var(--radius-lg)' }}>
               {open === 'drops' && <DropsPanel drops={drops} players={players} selectedId={filteredPlayerId} onClose={() => setOpen(null)} />}
               {open === 'goals' && (
                 <div style={{ background: 'var(--bg-panel)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
@@ -106,6 +107,7 @@ export default function RightPanel({ goals, players, filteredPlayerId, groupId, 
                   </div>
                 </div>
               )}
+            </div>
             </div>
           </>
         )}

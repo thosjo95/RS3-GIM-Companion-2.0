@@ -7,6 +7,8 @@ const { hashPassword, verifyGroupPassword, checkGroupAuth } = require('../utils/
 const { sendTestWebhook, isValidDiscordWebhookUrl, DEFAULT_EVENTS } = require('../services/discord');
 const { createRateLimiter } = require('../utils/rateLimit');
 const { groupMin, MAX_MIN } = require('../utils/dropRules');
+const groupSettings = require('../utils/groupSettings');
+const LISTED = "COALESCE(json_extract(g.settings_json, '$.unlisted'), 0) = 0";      // a group can hide itself from Find groups
 
 // Lookup/refresh fan out to RS3 hiscores; keep them usable but not hammer-able.
 const lookupLimiter = createRateLimiter({ windowMs: 60_000, max: 15 });
@@ -36,7 +38,7 @@ router.get('/search', (req, res) => {
              COUNT(p.id) as member_count
       FROM groups g
       LEFT JOIN players p ON p.group_id = g.id
-      WHERE 1=1 ${devFilter}
+      WHERE 1=1 ${devFilter} AND ${LISTED}
       GROUP BY g.id
       ORDER BY g.is_demo DESC, g.last_activity DESC, member_count DESC, g.created_at DESC   -- the demo group always comes first
       LIMIT ?
@@ -51,7 +53,7 @@ router.get('/search', (req, res) => {
            COUNT(p.id) as member_count
     FROM groups g
     LEFT JOIN players p ON p.group_id = g.id
-    WHERE (g.name LIKE ? OR g.group_rsn LIKE ?) ${devFilter}
+    WHERE (g.name LIKE ? OR g.group_rsn LIKE ?) ${devFilter} AND ${LISTED}
     GROUP BY g.id
     ORDER BY g.is_demo DESC, member_count DESC, g.last_activity DESC, g.created_at DESC
     LIMIT ?
@@ -227,7 +229,9 @@ router.post('/:id/refresh-roster', lookupLimiter, async (req, res) => {
 });
 
 // GET /api/groups - list all groups
+// ?ids=1,2,3 names the groups this browser has saved: those are included even when they are unlisted.
 router.get('/', (req, res) => {
+  const ids = String(req.query.ids || '').split(',').map(Number).filter(Number.isInteger).slice(0, 200);
   const groups = db.prepare(`
     SELECT g.id, g.name, g.group_rsn, g.notes, g.gim_type, g.gim_size,
            g.created_at, g.last_activity,
@@ -235,9 +239,10 @@ router.get('/', (req, res) => {
            COUNT(p.id) as member_count
     FROM groups g
     LEFT JOIN players p ON p.group_id = g.id
+    WHERE ${LISTED} OR g.id IN (${ids.map(() => '?').join(',') || 'NULL'})
     GROUP BY g.id
     ORDER BY g.created_at DESC
-  `).all();
+  `).all(...ids);
   res.json(groups);
 });
 
@@ -256,6 +261,7 @@ router.get('/:id', (req, res) => {
     'SELECT id, name, group_rsn, notes, gim_type, gim_size, created_at, last_activity, (password_hash IS NOT NULL) as is_claimed, needs_rekey, is_demo, drop_min_value FROM groups WHERE id = ?'
   ).get(req.params.id);
   if (!group) return res.status(404).json({ error: 'Group not found' });
+  group.settings = groupSettings.getSettings(group.id);
 
   const players = db.prepare(`
     SELECT p.id, p.rsn, p.quest_points, p.rune_score, p.combat_level, p.group_id,
@@ -396,6 +402,14 @@ function newGroupSecret() {
   const seg = () => Array.from({ length: 4 }, () => chars[crypto.randomInt(chars.length)]).join('');
   return `${seg()}-${seg()}-${seg()}`;
 }
+
+// PUT /api/groups/:id/settings { ...any of the settings... } — the group's own settings (needs the secret). See utils/groupSettings.js.
+router.put('/:id/settings', (req, res) => {
+  if (!checkGroupAuth(req, res, req.params.id)) return;
+  const r = groupSettings.sanitize(req.body);
+  if (!r.ok) return res.status(400).json({ error: r.error });
+  res.json({ ok: true, settings: groupSettings.saveSettings(req.params.id, r.patch) });
+});
 
 // PUT /api/groups/:id/drop-min { value } — the smallest drop (total gp) the group wants in its Drops; null = the default
 router.put('/:id/drop-min', (req, res) => {

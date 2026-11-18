@@ -42,7 +42,12 @@ async function request(path, options = {}) {
 
 export const api = {
   // Groups
-  getGroups: () => request('/groups'),
+  // the groups this browser has saved are named, so a group that hides itself from Find groups still comes back for its own members
+  getGroups: () => {
+    let ids = [];
+    try { ids = [...JSON.parse(localStorage.getItem('myGroupIds') || '[]'), Number(localStorage.getItem('activeGroupId'))].filter(Number.isInteger); } catch { /* none */ }
+    return request(`/groups${ids.length ? `?ids=${ids.join(',')}` : ''}`);
+  },
   getGroupRank: (id) => request(`/groups/${id}/rank`),
   getGroup: (id) => request(`/groups/${id}`),
   searchGroups:  (name)          => request(`/groups/search?name=${encodeURIComponent(name)}`),
@@ -56,6 +61,7 @@ export const api = {
   claimGroupV2: (id, oldSecret) => request(`/groups/${id}/claim-v2`, { method: 'POST', body: { old_secret: oldSecret } }),
   claimGroup: (id) => request(`/groups/${id}/claim`, { method: 'POST', body: {} }),
   getWebhook:  (id)        => request(`/groups/${id}/webhook`),
+  setSettings: (id, patch) => request(`/groups/${id}/settings`, { method: 'PUT', body: patch }),
   setDropMin: (id, value)  => request(`/groups/${id}/drop-min`, { method: 'PUT', body: { value } }),
   saveWebhook: (id, body)  => request(`/groups/${id}/webhook`, { method: 'PUT', body }),
   testWebhook: (id, url)   => request(`/groups/${id}/webhook/test`, { method: 'POST', body: { webhook_url: url } }),

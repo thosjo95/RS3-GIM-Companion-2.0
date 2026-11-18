@@ -43,6 +43,7 @@ const ingestLimiter = createRateLimiter({ windowMs: 60_000, max: 60, message: 'T
 const MAX = { inventory: 100, equipment: 30, bank: 6000, changes: 500, quests: 900, kills: 200, drops: 50, achievements: 1500 };
 // gp; the plugin also reports any item named in a boss's drop table. GIM_DROP_THRESHOLD overrides it for testing.
 const { DEFAULT_MIN: DROP_THRESHOLD, groupMin } = require('../utils/dropRules');
+const { getSettings } = require('../utils/groupSettings');
 
 const isInt = (v, min, max) => Number.isInteger(v) && v >= min && v <= max;
 
@@ -441,9 +442,10 @@ router.get('/ledger', (req, res) => {
     SELECT l.id, l.player_id, p.rsn, l.store, l.item_id, l.item_name, l.delta, l.value_each, l.occurred_at
     FROM storage_ledger l JOIN players p ON p.id = l.player_id
     WHERE p.group_id = ? AND l.store = 'group'
+      AND (l.value_each IS NULL OR l.value_each = 0 OR l.value_each * ABS(l.delta) >= ?)     -- the group's own minimum for the journal
     ORDER BY l.occurred_at DESC, l.id DESC
     LIMIT ?
-  `).all(groupId, limit);
+  `).all(groupId, getSettings(groupId).journal_min, limit);
   res.json(rows);
 });
 
@@ -466,9 +468,10 @@ router.get('/presence', (req, res) => {
   if (!checkGroupAuth(req, res, groupId)) return;
   const rows = db.prepare(`SELECT p.id AS player_id, s.updated_at FROM players p JOIN player_live_state s ON s.player_id = p.id WHERE p.group_id = ?`).all(groupId);
   const now = Date.now();
+  const window = getSettings(groupId).online_minutes * 60 * 1000;           // the group chooses how long "online" lasts
   res.json(rows.map(r => {
     const t = Date.parse(r.updated_at);
-    return { player_id: r.player_id, last_seen: r.updated_at, online: Number.isFinite(t) && now - t < 3 * 60 * 1000 };
+    return { player_id: r.player_id, last_seen: r.updated_at, online: Number.isFinite(t) && now - t < window };
   }));
 });
 
@@ -482,7 +485,7 @@ router.get('/xp-drops', (req, res) => {
     : new Date(Date.now() - 86400000).toISOString();
   const limit = Math.min(500, Math.max(1, parseInt(req.query.limit, 10) || 200));
   res.json(db.prepare(`SELECT d.id, d.player_id, d.skill, d.xp, d.at FROM xp_drops d JOIN players p ON p.id = d.player_id
-    WHERE p.group_id = ? AND d.at > ? ORDER BY d.id DESC LIMIT ?`).all(groupId, since, limit));
+    WHERE p.group_id = ? AND d.at > ? AND d.xp >= ? ORDER BY d.id DESC LIMIT ?`).all(groupId, since, getSettings(groupId).xp_min, limit));
 });
 
 // The boss log or the clue log, newest first (?limit, max 500).
@@ -492,8 +495,15 @@ router.get('/progress-log', (req, res) => {
   if (!groupId) return res.status(400).json({ error: 'group_id required' });
   if (!checkGroupAuth(req, res, groupId)) return;
   const limit = Math.min(500, Math.max(1, parseInt(req.query.limit, 10) || 200));
-  res.json(db.prepare(`SELECT l.id, l.player_id, l.key, l.name, l.gain, l.total, l.at FROM progress_log l JOIN players p ON p.id = l.player_id
-    WHERE p.group_id = ? AND l.kind = ? ORDER BY l.id DESC LIMIT ?`).all(groupId, kind, limit));
+  const s = getSettings(groupId);
+  let rows = db.prepare(`SELECT l.id, l.player_id, l.key, l.name, l.gain, l.total, l.at FROM progress_log l JOIN players p ON p.id = l.player_id
+    WHERE p.group_id = ? AND l.kind = ? ORDER BY l.id DESC LIMIT 2000`).all(groupId, kind);
+  if (kind === 'clue') rows = rows.filter(r => s.clue_tiers.includes(r.key));                 // only the tiers the group wants
+  if (kind === 'boss' && s.boss_min_kills > 0) {                                          // a boss shows once the member has enough kills
+    const kills = new Map(db.prepare('SELECT player_id, key, kills FROM player_boss_kills WHERE player_id IN (SELECT id FROM players WHERE group_id = ?)').all(groupId).map(k => [k.player_id + '|' + k.key, k.kills]));
+    rows = rows.filter(r => (kills.get(r.player_id + '|' + r.key) ?? r.total) >= s.boss_min_kills);
+  }
+  res.json(rows.slice(0, limit));
 });
 
 router.get('/quests', (req, res) => {

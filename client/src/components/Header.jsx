@@ -256,7 +256,7 @@ export default function Header({ group, onSynced, onToast, isUnlocked, isClaimed
       </div>
       {manageOpen && group && <ManageGroupModal group={group} onClose={() => setManageOpen(false)} onAddPlayer={() => onAddPlayer?.()} onChanged={() => onSynced?.()} onToast={onToast} />}
       {pluginOpen && group?.id && (
-        <PluginSetupModal group={group} canWrite={isUnlocked} isClaimed={isClaimed} onClaim={onClaim} onClaimV2={onClaimV2} onUnlock={onLockClick} onToast={onToast} onChanged={onSynced} onClose={() => setPluginOpen(false)} />
+        <PluginSetupModal group={group} canWrite={isUnlocked} isClaimed={isClaimed} onClaim={onClaim} onClaimV2={onClaimV2} onUnlock={onLockClick} onToast={onToast} onChanged={onSynced} onOpenWebhook={onWebhookClick} onClose={() => setPluginOpen(false)} />
       )}
       {notesOpen && group?.id && (
         <GroupNotesOverlay

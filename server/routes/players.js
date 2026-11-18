@@ -51,6 +51,7 @@ function autoCompleteGoals(playerId, skillsMap) {
 
   // everything else the app knows (quests, area tasks, boss kills, the plugin's live skills)
   try { require('../services/goalTracker').reconcileGoals(groupId); } catch (e) { console.error('[goals] reconcile failed:', e.message); }
+  try { require('../services/metrics').snapshotPlayer(playerId); } catch (e) { console.error('[metrics] snapshot failed:', e.message); }
 }
 
 function getPlayerGroupId(playerId) {

@@ -43,6 +43,7 @@ app.use('/api', createRateLimiter({ windowMs: 60_000, max: 300 }));
 app.use('/api/groups',       require('./routes/groups'));
 app.use('/api/players',      require('./routes/players'));
 app.use('/api/goals',        require('./routes/goals'));
+app.use('/api/competitions', require('./routes/competitions'));
 app.use('/api/drops',        require('./routes/drops'));
 app.use('/api/achievements', require('./routes/achievements'));
 app.use('/api/boss-kills',   require('./routes/bossKills'));
@@ -209,6 +210,8 @@ process.on('unhandledRejection', err => console.error('[unhandledRejection]', er
 
 app.listen(PORT, () => {
   console.log(`RS3 GIM Companion server running on http://localhost:${PORT}`);
+  // Group leaderboard: snapshot everyone's metrics now and every 30 minutes
+  try { require('./services/metrics').snapshotAll(); setInterval(() => require('./services/metrics').snapshotAll(), 30 * 60 * 1000).unref(); } catch (e) { console.error('[metrics] startup failed:', e.message); }
   // Catch-up: complete goals the players have already achieved (quests, levels, area tasks, boss kills).
   try { require('./services/goalTracker').reconcileAllGroups(); } catch (e) { console.error('[goals] startup reconcile failed:', e.message); }
 });

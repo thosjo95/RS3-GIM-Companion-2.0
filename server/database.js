@@ -339,6 +339,29 @@ for (const col of ['description TEXT', 'reward TEXT', 'tally_progress INTEGER', 
   try { db.exec('ALTER TABLE player_achievements ADD COLUMN ' + col); } catch {}
 }
 
+// Group leaderboard: periodic snapshots of every player's metrics, and the competitions a group sets up.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS metric_snapshots (
+    player_id INTEGER NOT NULL,
+    taken_at  TEXT    NOT NULL,
+    data_json TEXT    NOT NULL,
+    FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
+  );
+  CREATE INDEX IF NOT EXISTS idx_metric_snapshots ON metric_snapshots(player_id, taken_at);
+  CREATE TABLE IF NOT EXISTS group_competitions (
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    group_id  INTEGER NOT NULL,
+    title     TEXT    NOT NULL,
+    metric    TEXT    NOT NULL,
+    target    TEXT,
+    starts_at TEXT    NOT NULL,
+    ends_at   TEXT,
+    goal      REAL,
+    created_at TEXT   DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE
+  );
+`);
+
 // Facts the dashboard uses for recommendations: "can this player start the quest now" and a boss's requirements.
 try { db.exec('ALTER TABLE player_quests ADD COLUMN can_start INTEGER'); } catch {}
 try { db.exec('ALTER TABLE player_boss_kills ADD COLUMN combat_req INTEGER'); } catch {}

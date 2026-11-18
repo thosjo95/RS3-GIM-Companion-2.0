@@ -4,6 +4,7 @@ import SkillTable from './overview/SkillTable';
 import SnapshotButton from './overview/SnapshotButton';
 import GroupStats from './overview/GroupStats';
 import RightPanel from './overview/RightPanel';
+import GroupLeaderboard from './GroupLeaderboard';
 
 // ── Main export ───────────────────────────────────────────────────────────────
 
@@ -96,6 +97,9 @@ export default function OverviewTab({ group, goals, players, groupId, onRefresh,
           <span style={{ fontSize: 12, color: 'var(--gold)', flexShrink: 0 }}>View in Active Goals →</span>
         </button>
       )}
+
+      {/* The group's own leaderboard and competitions */}
+      <GroupLeaderboard players={players} groupId={groupId} canWrite={canWrite} onToast={onToast} />
 
       {/* Two-column content */}
       <div className="grid-2">

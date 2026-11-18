@@ -652,7 +652,7 @@ export default function VaultTab({ players, groupId, goals = [], onToast, canWri
   const [groupEquipment, setGroupEquip] = useState([]);
   // 'vault' = drops + gear loadouts (as before); the rest is the plugin's live data
   const [section, setSection] = useState('vault');
-  const SECTIONS = [['vault', 'Drops & Gear', 'drops', '🏆'], ['items', 'Group Vault', 'vault', '🏦'], ['ledger', 'Bank Journal', 'journal', '📒'], ['setup', 'Plugin setup', 'setup', '🔌']];
+  const SECTIONS = [['vault', 'Drops & Gear', 'drops', '🏆'], ['items', 'Group Vault', 'vault', '🏦'], ['ledger', 'Bank Journal', 'journal', '📒']];
 
   const loadEquipment = useCallback(async () => {
     try { setGroupEquip(await api.getGroupEquipment(groupId)); }

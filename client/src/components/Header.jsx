@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
 import { api } from '../api/client';
 import GroupNotesOverlay from './GroupNotesOverlay';
+import PluginSetupModal from './PluginSetupModal';
+import RsIcon from './RsIcon';
 
 export default function Header({ group, onSynced, onToast, isUnlocked, isClaimed, myRsn, onLockClick, onClaimClick, onSetRsnClick, onWebhookClick, onMenuToggle, mobileMenuOpen, onTourClick }) {
   const [syncing, setSyncing] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
+  const [pluginOpen, setPluginOpen] = useState(false);
 
   async function syncAll() {
     if (!group?.id) return;
@@ -174,6 +177,24 @@ export default function Header({ group, onSynced, onToast, isUnlocked, isClaimed
           </button>
         )}
 
+        {/* Plugin setup — the group's connection to the game; needs the unlocked group to create tokens */}
+        {group && (
+          <button
+            data-tour="plugin"
+            onClick={() => setPluginOpen(true)}
+            title="Plugin setup — connect each member's in-game plugin"
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '0 10px', height: 32, borderRadius: 'var(--radius)', cursor: 'pointer',
+              background: pluginOpen ? 'rgba(200,168,75,0.22)' : 'rgba(200,168,75,0.10)',
+              border: '1px solid rgba(200,168,75,0.35)',
+              color: 'var(--gold)', fontSize: 12, fontWeight: 600, flexShrink: 0,
+            }}>
+            <RsIcon name="setup" fallback="🔌" size={16} />
+            Plugin
+          </button>
+        )}
+
         {/* Docs link */}
         <a
           href="https://thosjo95.github.io/RS3-GIM-Companion/"
@@ -225,6 +246,9 @@ export default function Header({ group, onSynced, onToast, isUnlocked, isClaimed
           </button>
         )}
       </div>
+      {pluginOpen && group?.id && (
+        <PluginSetupModal group={group} canWrite={isUnlocked} onToast={onToast} onClose={() => setPluginOpen(false)} />
+      )}
       {notesOpen && group?.id && (
         <GroupNotesOverlay
           groupId={group.id}

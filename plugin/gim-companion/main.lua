@@ -822,6 +822,26 @@ local function probe4Run()
     probeLog("finished")
 end
 
+-- ── 4h. Boss kill counters via the boss achievements (beta debugging; config.lua: trackerProbe = "tallies") ───────
+-- Each boss record links to an achievement (BSLAY_ACHIEVEMENT) whose progress counter may be the kill count. Prints, for
+-- every boss, its name and that counter so the numbers can be compared with the game's kill tracker.
+local probe5 = nil
+local function probe5Run()
+    probe5 = true
+    probeLog("tally probe started")
+    for _, name in ipairs(P4_ALL) do
+        local okS, st = pcall(function() return config.Struct[name] end)
+        if okS and st ~= nil then
+            local title = p3Value(st, "BSLAY_NAME")
+            local ach = p3Value(st, "BSLAY_ACHIEVEMENT")
+            local tp, tt, an
+            if ach ~= nil then pcall(function() tp = ach.tallyProgress; tt = ach.tallyTarget; an = ach.name end) end
+            probeLog(tostring(title) .. " => " .. tostring(tp) .. " / " .. tostring(tt) .. "  (" .. tostring(an) .. ")")
+        end
+    end
+    probeLog("finished")
+end
+
 -- ── 5. Kills ──────────────────────────────────────────────────────────────────
 -- The game announces "an NPC was removed" for deaths but also for NPCs that merely leave your view. So a
 -- removal only counts as YOUR kill when it is the monster named on your target display, its health moved
@@ -1252,6 +1272,7 @@ Event.ServerLogic.Subscribe("gim_tick", function()
     if settings.trackerProbe == true and Player.IsAvailable() then
         if probe == nil then probeStart() else probeStep() end
     end
+    if settings.trackerProbe == "tallies" and Player.IsAvailable() and probe5 == nil and ticks > 40 then probe5Run() end
     if settings.trackerProbe == "params" and Player.IsAvailable() and probe4 == nil and ticks > 40 then probe4Run() end
     if settings.trackerProbe == "bosses" and Player.IsAvailable() then
         if probe3 == nil then probe3Start() else probe3Step() end

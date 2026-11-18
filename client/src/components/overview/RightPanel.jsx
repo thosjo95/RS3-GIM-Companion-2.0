@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { IconLabel } from '../RsIcon';
 import { api } from '../../api/client';
 import { normRsn } from '../../lib/rs3';
@@ -14,6 +14,16 @@ import { STATUS_CYCLE } from './constants';
 export default function RightPanel({ goals, players, filteredPlayerId, groupId, onRefresh, onToast, canWrite, myRsn }) {
   const [open, setOpen] = useState(null);          // 'drops' | 'goals' | null: the floating panel that is open
   const drops = useRecentDrops(groupId);
+  // how many competitions are running right now (the Leaderboard tile says so)
+  const [liveCompetitions, setLiveCompetitions] = useState(0);
+  useEffect(() => {
+    if (!groupId) return undefined;
+    let alive = true;
+    const load = () => api.getCompetitions(groupId).then(r => { if (alive) setLiveCompetitions((Array.isArray(r) ? r : []).filter(x => x.status === 'live').length); }).catch(() => {});
+    load();
+    const t = setInterval(() => { if (!document.hidden) load(); }, 60000);
+    return () => { alive = false; clearInterval(t); };
+  }, [groupId, open]);
   const { fresh: freshDrops } = useUnseenDrops(groupId, drops, open === 'drops');
   const [showModal, setShowModal] = useState(false);
   const [prefill, setPrefill] = useState({});
@@ -70,7 +80,7 @@ export default function RightPanel({ goals, players, filteredPlayerId, groupId, 
       <div style={{ position: 'relative', marginBottom: 18 }}>
         <div data-tour="drops-chest" style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
           <ChestButton drops={drops} fresh={freshDrops} open={open === 'drops'} onClick={() => toggle('drops')} />
-          <ChestButton icon="leaderboards" fallback="🏆" label="Leaderboard" sub="Day · Week · Month" open={open === 'board'} onClick={() => toggle('board')} />
+          <ChestButton icon="leaderboards" fallback="🏆" label="Leaderboard" sub={`${liveCompetitions} active`} open={open === 'board'} onClick={() => toggle('board')} />
           <ChestButton icon="goals" fallback="🎯" label="Goals" fresh={freshGoals} open={open === 'goals'} onClick={() => toggle('goals')}
             sub={`${active.length} active${done.length ? ` · ${done.length} done` : ''}`} />
         </div>

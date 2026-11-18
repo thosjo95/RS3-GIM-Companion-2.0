@@ -143,7 +143,7 @@ function CompetitionModal({ groupId, initial, bosses, onClose, onSaved, onToast 
 }
 
 // ── The leaderboard ───────────────────────────────────────────────────────────
-export default function GroupLeaderboard({ players, groupId, canWrite, onToast }) {
+export default function GroupLeaderboard({ players, groupId, canWrite, onToast, embedded = false, onClose }) {
   const [period, setPeriod] = useState('week');
   const [data, setData] = useState(null);
   const [boardId, setBoardId] = useState('xp');
@@ -175,16 +175,17 @@ export default function GroupLeaderboard({ players, groupId, canWrite, onToast }
 
   return (
     <div className="panel" data-tour="group-leaderboard" style={{ width: '100%', maxWidth: 720, margin: '0 auto' }}>
-      <div className="panel-header" onClick={toggleCollapsed} title={collapsed ? 'Show the leaderboard' : 'Collapse'} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', cursor: 'pointer', padding: '8px 14px' }}>
-        <span style={{ color: 'var(--text-dim)', fontSize: 11, width: 12 }}>{collapsed ? '▸' : '▾'}</span>
+      <div className="panel-header" onClick={embedded ? undefined : toggleCollapsed} title={embedded ? undefined : collapsed ? 'Show the leaderboard' : 'Collapse'} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', cursor: embedded ? 'default' : 'pointer', padding: '8px 14px' }}>
+        {!embedded && <span style={{ color: 'var(--text-dim)', fontSize: 11, width: 12 }}>{collapsed ? '▸' : '▾'}</span>}
         <span className="panel-title" style={{ flex: 1 }}>Group Leaderboard</span>
-        {!collapsed && (
+        {(embedded || !collapsed) && (
           <div onClick={e => e.stopPropagation()} style={{ display: 'flex', gap: 2, background: 'var(--bg-panel-alt)', borderRadius: 'var(--radius)', padding: 3 }}>
             {PERIODS.map(([id, label]) => <button key={id} style={pill(period === id)} onClick={() => setPeriod(id)}>{label}</button>)}
           </div>
         )}
+        {embedded && onClose && <button type="button" onClick={onClose} title="Close" style={{ border: 'none', background: 'transparent', color: 'var(--text-dim)', cursor: 'pointer', fontSize: 16 }}>×</button>}
       </div>
-      {!collapsed && <div className="panel-body" style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: '12px 14px' }}>
+      {(embedded || !collapsed) && <div className="panel-body" style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: '12px 14px' }}>
         {/* default boards */}
         <div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>

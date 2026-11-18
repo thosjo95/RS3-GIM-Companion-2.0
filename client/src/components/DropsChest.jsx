@@ -59,7 +59,7 @@ export function ChestButton({ drops = [], open, onClick, fresh = [], icon = 'vau
     <div onClick={onClick} title={glowing ? `${fresh.length} ${freshWord}!` : label} style={{
       '--beam': beam,
       animation: glowing ? 'gimGlow 1.8s ease-in-out infinite' : undefined,
-      cursor: 'pointer', width: 150, position: 'relative', padding: '12px 14px', flexShrink: 0, userSelect: 'none',
+      cursor: 'pointer', width: 130, position: 'relative', padding: '12px 8px', flexShrink: 0, userSelect: 'none',
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, textAlign: 'center',
       background: open ? 'var(--bg-panel)' : 'var(--bg-panel-alt)', border: `2px solid ${glowing ? beam : open ? 'var(--gold)' : 'var(--border)'}`, borderRadius: 'var(--radius-lg)',
     }}>

@@ -56,9 +56,9 @@ const TOUR_STEPS = [
     body: 'The chest lists the group\'s recent big drops from the Adventurer\'s Log and the plugin. When a new drop arrives that you have not looked at, the chest glows like a loot beam. The Goals tile shows your active goals and lets you add one; it glows when someone adds a new goal.',
   },
   {
-    target: '[data-tour="group-leaderboard"]',
+    target: '[data-tour="drops-chest"]',
     title: 'Group Leaderboard and competitions',
-    body: 'Open it to see who gained the most XP, levels, quest points, boss kills, slayer kills or drops over the last day, week or month. Press + New competition to set up your own race: pick what to track (for example 50 Araxxi kills), when it starts and ends, and an optional goal. Ready-made presets help you start.',
+    body: 'The Leaderboard tile (trophy) opens a panel to see who gained the most XP, levels, quest points, boss kills, slayer kills or drops over the last day, week or month. Press + New competition to set up your own race: pick what to track (for example 50 Araxxi kills), when it starts and ends, and an optional goal. Ready-made presets help you start.',
   },
   // ── The tabs ─────────────────────────────────────────────────────────────
   {

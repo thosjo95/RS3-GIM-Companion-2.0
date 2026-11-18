@@ -79,12 +79,15 @@ for release (probes removed, debug off, manifest 1.0.0, `https://api.groupiron.c
 notice (`docs/privacy.html`); mod.io listing text; deploy files for a fresh server.
 
 **Open, in this order:**
-1. Server (Hetzner CPX12, Helsinki, 2.29.193.18): live. `https://api.groupiron.com/api/health` answers (owner checked
-   2026-11-18) and beta.groupiron.com is set up. Deploy the latest `main` there before submitting (the owner deploys).
-2. Test the in-game join window in the RS3 beta client (re-run `install-dev.ps1`, remove `token` from the beta
-   `config.lua`, `prl gim-companion`). Fix the UI code if the real Input Field differs. The beta folder held an old
-   pre-release copy (version "0.1.0-dev"), the likely cause of "Loading..." in the Plugin Hub; the current copy is installed.
-3. (done) listing image; (done) docs site.
+1. Server (Hetzner CPX12, Helsinki, 2.29.193.18): live and deployed by the owner on 2026-11-18
+   (`sudo -u gim bash /opt/gim2/deploy/deploy-gim2.sh`). Redeploy after later changes.
+2. Tested in the real RS3 beta client on 2026-11-18 (character Degree C, dev server): the join window with the group
+   secret, sending, kills and drops, money pouch (inventory 623, read 10,195,820 correctly), backpack slot by slot, and
+   noted items (note = id+1, same name, stackType ALWAYS) all work. The Plugin Hub shows "Loading..." / "by NOT
+   AVAILABLE" for dev plugins: the Hub fills those from the mod.io listing (`remoteID` in installed manifests).
+   The release zip `plugin/dist/gim-companion-100.zip` was built from this tested code.
+3. (done) listing image, docs site, listing text (Jagex's exact EULA statement, beta.groupiron.com link, Discord
+   https://discord.gg/xbB2T2Q6A everywhere).
 5. The owner must read through `main.lua` before submitting (AI policy); offer a section-by-section walkthrough.
 6. Submit on mod.io (steps in `listing.md`); do not change files while Jagex has a freeze on.
 7. The live 1.x site's announcement popup was changed on the LOCAL `main` branch of the old 1.x code (commit `275b135`,

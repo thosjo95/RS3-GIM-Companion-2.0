@@ -71,8 +71,8 @@ export default function Header({ group, onSynced, onToast, isUnlocked, isClaimed
       </div>
       {group && <GroupHeaderInfo group={group} />}
       {group && <HeaderStats group={group} />}
-      {/* group actions: next to the group name and stats */}
-      <div className="header-left-actions" style={{ display: 'flex', alignItems: 'center', gap: 10, marginLeft: 14, minWidth: 0 }}>
+      {/* everything on the right: group actions first, then the quiet site links */}
+      <div className="header-right">
         {lastSync && <span className="last-sync">Sync: {syncAgo}</span>}
 
         {/* ── Auth indicator ── */}
@@ -210,10 +210,7 @@ export default function Header({ group, onSynced, onToast, isUnlocked, isClaimed
           </button>
         )}
 
-      </div>
-
-      {/* site functions: help, documentation, community — on the right */}
-      <div className="header-right">
+        <span className="header-sep" style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 2px', flexShrink: 0 }} />
         {/* Tour replay button */}
         {group && onTourClick && (
           <button

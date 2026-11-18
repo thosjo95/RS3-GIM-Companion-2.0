@@ -150,6 +150,7 @@ export default function GroupLeaderboard({ players, groupId, canWrite, onToast }
   const [comps, setComps] = useState([]);
   const [bosses, setBosses] = useState([]);
   const [modal, setModal] = useState(null);                 // null | {} (new) | competition (edit)
+  const [openId, setOpenId] = useState(null);               // the competition whose standings float open
   const [collapsed, setCollapsed] = useState(() => { try { return localStorage.getItem('gim_leaderboard_collapsed') !== '0'; } catch { return true; } });
   const toggleCollapsed = () => setCollapsed(v => { try { localStorage.setItem('gim_leaderboard_collapsed', v ? '0' : '1'); } catch { /* not saved */ } return !v; });
   const colorOf = id => MEMBER_COLORS[Math.max(0, players.findIndex(p => p.id === id)) % MEMBER_COLORS.length];
@@ -204,26 +205,55 @@ export default function GroupLeaderboard({ players, groupId, canWrite, onToast }
               : <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>🔒 Unlock to create</span>}
           </div>
           {comps.length === 0 && <div style={{ color: 'var(--text-dim)', fontSize: 12, padding: '4px 0 2px' }}>No competitions yet. Create one to race for the most XP, quest points, boss kills and more.</div>}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 10 }}>
-            {comps.map(c => (
-              <div key={c.id} style={{ padding: '12px 14px', background: 'var(--bg-panel-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                  {c.metric === 'xp' && c.target && SKILL_ICON_URLS[c.target] && <img src={SKILL_ICON_URLS[c.target]} alt="" width={18} height={18} />}
-                  <strong style={{ fontSize: 13, color: 'var(--text-bright)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.title}</strong>
-                  <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: c.status === 'live' ? 'rgba(76,175,80,0.18)' : c.status === 'upcoming' ? 'rgba(200,168,75,0.18)' : 'var(--bg-root)', color: c.status === 'live' ? '#4caf50' : c.status === 'upcoming' ? 'var(--gold)' : 'var(--text-dim)' }}>
-                    {c.status === 'live' ? 'Live' : c.status === 'upcoming' ? 'Starts soon' : 'Ended'}
-                  </span>
-                  {canWrite && <button title="Edit" onClick={() => setModal({ ...c, starts_at: local(new Date(c.starts_at)), ends_at: c.ends_at ? local(new Date(c.ends_at)) : '', goal: c.goal ?? '' })} style={{ border: 'none', background: 'transparent', color: 'var(--text-dim)', cursor: 'pointer' }}>✎</button>}
-                  {canWrite && <button title="Delete" onClick={() => remove(c)} style={{ border: 'none', background: 'transparent', color: 'var(--text-dim)', cursor: 'pointer' }}>✕</button>}
-                </div>
-                <div style={{ fontSize: 10, color: 'var(--text-dim)', marginBottom: 8 }}>
-                  {METRIC_LABEL[c.metric]}{targetName(c) ? ` · ${targetName(c)}` : ''} · {fmtDate(c.starts_at)}{c.ends_at ? ` → ${fmtDate(c.ends_at)}` : ''}{c.goal ? ` · first to ${c.goal.toLocaleString()}` : ''}
-                </div>
-                {c.locked ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>Unlock the group to see the standings.</div>
-                  : c.status === 'upcoming' ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>Not started yet.</div>
-                  : <Ranking rows={c.rows} metric={c.metric} colorOf={colorOf} goal={c.goal} />}
-              </div>
-            ))}
+          {/* one compact chip per competition; the standings open as a floating box (nothing below moves) */}
+          <div style={{ position: 'relative' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {comps.map(c => {
+                const leader = !c.locked && c.status !== 'upcoming' ? c.rows.find(r => (r.value ?? 0) > 0) : null;
+                const tone = c.status === 'live' ? '#4caf50' : c.status === 'upcoming' ? 'var(--gold)' : 'var(--text-dim)';
+                const tip = [`${c.title}`, c.status === 'live' ? 'Live' : c.status === 'upcoming' ? 'Not started yet' : 'Ended',
+                  `${fmtDate(c.starts_at)}${c.ends_at ? ' → ' + fmtDate(c.ends_at) : ''}`, leader ? `Leading: ${leader.rsn} (${fmt(leader.value, c.metric)})` : ''].filter(Boolean).join('\n');
+                return (
+                  <button key={c.id} type="button" title={tip} onClick={() => setOpenId(id => (id === c.id ? null : c.id))} className={`chip${openId === c.id ? ' active' : ''}`}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: tone, flexShrink: 0 }} />
+                    {c.metric === 'xp' && c.target && SKILL_ICON_URLS[c.target] && <img src={SKILL_ICON_URLS[c.target]} alt="" width={14} height={14} />}
+                    <span>{c.title}</span>
+                    {leader && <span style={{ color: colorOf(leader.player_id), fontWeight: 700 }}>· {leader.rsn}</span>}
+                  </button>
+                );
+              })}
+            </div>
+
+            {(() => {
+              const c = comps.find(x => x.id === openId);
+              if (!c) return null;
+              return (
+                <>
+                  <div onClick={() => setOpenId(null)} style={{ position: 'fixed', inset: 0, zIndex: 90 }} />
+                  <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 6, zIndex: 91, display: 'flex', justifyContent: 'center', pointerEvents: 'none' }}>
+                    <div style={{ pointerEvents: 'auto', width: 'min(460px, 100%)', padding: '12px 14px', background: 'var(--bg-panel)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', boxShadow: '0 12px 36px rgba(0,0,0,0.65)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                        {c.metric === 'xp' && c.target && SKILL_ICON_URLS[c.target] && <img src={SKILL_ICON_URLS[c.target]} alt="" width={18} height={18} />}
+                        <strong style={{ fontSize: 13, color: 'var(--text-bright)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.title}</strong>
+                        <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: c.status === 'live' ? 'rgba(76,175,80,0.18)' : c.status === 'upcoming' ? 'rgba(200,168,75,0.18)' : 'var(--bg-root)', color: c.status === 'live' ? '#4caf50' : c.status === 'upcoming' ? 'var(--gold)' : 'var(--text-dim)' }}>
+                          {c.status === 'live' ? 'Live' : c.status === 'upcoming' ? 'Starts soon' : 'Ended'}
+                        </span>
+                        {canWrite && <button title="Edit" onClick={() => { setOpenId(null); setModal({ ...c, starts_at: local(new Date(c.starts_at)), ends_at: c.ends_at ? local(new Date(c.ends_at)) : '', goal: c.goal ?? '' }); }} style={{ border: 'none', background: 'transparent', color: 'var(--text-dim)', cursor: 'pointer' }}>✎</button>}
+                        {canWrite && <button title="Delete" onClick={() => { setOpenId(null); remove(c); }} style={{ border: 'none', background: 'transparent', color: 'var(--text-dim)', cursor: 'pointer' }}>✕</button>}
+                        <button title="Close" onClick={() => setOpenId(null)} style={{ border: 'none', background: 'transparent', color: 'var(--text-dim)', cursor: 'pointer', fontSize: 16 }}>×</button>
+                      </div>
+                      <div style={{ fontSize: 10, color: 'var(--text-dim)', marginBottom: 8 }}>
+                        {METRIC_LABEL[c.metric]}{targetName(c) ? ` · ${targetName(c)}` : ''} · {fmtDate(c.starts_at)}{c.ends_at ? ` → ${fmtDate(c.ends_at)}` : ''}{c.goal ? ` · first to ${c.goal.toLocaleString()}` : ''}
+                      </div>
+                      {c.locked ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>Unlock the group to see the standings.</div>
+                        : c.status === 'upcoming' ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>Not started yet.</div>
+                        : <Ranking rows={c.rows} metric={c.metric} colorOf={colorOf} goal={c.goal} />}
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
       </div>}

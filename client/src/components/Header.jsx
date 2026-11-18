@@ -111,7 +111,7 @@ export default function Header({ group, onSynced, onToast, isUnlocked, isClaimed
         {/* Already unlocked → show player badge (no action required) */}
         {group && isClaimed && isUnlocked && (
           <button
-            data-tour="lock"
+            data-tour="rsn"
             className="sync-btn"
             onClick={onSetRsnClick}
             title={myRsn ? `Logged in as ${myRsn} · Click to change character` : 'Set your character name'}

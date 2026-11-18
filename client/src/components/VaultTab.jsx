@@ -640,7 +640,7 @@ export default function VaultTab({ players, groupId, goals = [], onToast, canWri
       </div>
 
       {section !== 'vault' && (
-        <div style={{ background: 'var(--bg-panel)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '20px 18px' }}>
+        <div data-tour="vault-panel" style={{ background: 'var(--bg-panel)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '20px 18px' }}>
           <ItemsTab players={players} groupId={groupId} canWrite={canWrite} onToast={onToast}
             selectedPlayerId={selectedPlayerId} view={section} />
         </div>

@@ -67,7 +67,7 @@ export default function RightPanel({ goals, players, filteredPlayerId, groupId, 
     <div>
       {/* Drops chest + Goals: tiles that open as panels floating over the page (they do not push the activity down) */}
       <div style={{ position: 'relative', marginBottom: 18 }}>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
+        <div data-tour="drops-chest" style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
           <ChestButton drops={drops} fresh={freshDrops} open={open === 'drops'} onClick={() => toggle('drops')} />
           <ChestButton icon="goals" fallback="🎯" label="Goals" fresh={freshGoals} open={open === 'goals'} onClick={() => toggle('goals')}
             sub={`${active.length} active${done.length ? ` · ${done.length} done` : ''}`} />

@@ -3,50 +3,98 @@ import { createPortal } from 'react-dom';
 
 // ── Tour steps ────────────────────────────────────────────────────────────────
 const TOUR_STEPS = [
+  // ── Getting started ──────────────────────────────────────────────────────
   {
     target: null,
-    title: '👋 Welcome to RS3 GIM Companion!',
-    body: "Let's take a quick tour of the key features. Use Next → to walk through each one, or skip if you'd rather explore on your own. You can replay this tour any time from the ? button in the header.",
+    title: '👋 Welcome to GIM Companion 2.0',
+    body: 'This tour first shows how to set up your group and connect the game plugin (about five minutes), then walks through everything the dashboard can do. Use Next → to continue, or skip and replay it later with the ? button in the top bar.',
   },
   {
-    target: '[data-tour="sync"]',
-    title: '↻ Sync All',
-    body: 'Pulls the latest hiscores for every group member from RS3. Hit this after a grind session to update levels, XP, and skills for the whole group.',
+    target: '[data-tour="groups"]',
+    title: '1 · Find or create your group',
+    body: 'Open "Find or Manage Groups". Search for your Group Ironman by its name or one of its members to add it to this list, or create a custom group by typing the RuneScape names of your players. Groups you add appear in this menu and are remembered in this browser.',
   },
   {
     target: '[data-tour="lock"]',
-    title: '🔒 Claim & Unlock',
-    body: 'Claim your group to generate a one-time secret code. Share it with your teammates — anyone who enters it can edit goals, gear, and the vault. Everyone else gets read-only access.',
+    title: '2 · Claim the group and share the secret',
+    body: 'Click the lock to claim a group nobody has claimed yet. You get a secret code: it is shown once, so save it. Everyone in your group enters it with the same lock button to unlock editing. Without the secret the group is read-only, and private things (bank, storage, quests from the game) stay hidden.',
+  },
+  {
+    target: '[data-tour="rsn"]',
+    title: '3 · Tell the app which character is yours',
+    body: 'Set your character name here. Your player card gets the gold YOU badge, and new goals default to you.',
+  },
+  {
+    target: '[data-tour="plugin"]',
+    title: '4 · Plugin setup: get your token',
+    body: 'The plugin reads what the web APIs cannot give: bank, group storage, backpack, worn gear, quests, achievements, boss and slayer kills, drops. Open Plugin setup (the group must be unlocked), find your name and press Connect. A personal token appears ONCE: copy it right away. A token only lets the plugin send your own data, and a new token replaces the old one.',
+  },
+  {
+    target: null,
+    title: '5 · Install the plugin and paste the token',
+    body: '1) Install the GIM Companion plugin in the RuneScape client (until it is on mod.io, copy it with plugin\\install-dev.ps1 into the beta client\'s dev_plugins folder; the documentation site has the full guide). 2) Open its config.lua and paste the token you just copied between the quotes (token = \"gimp_...\"). While 2.0 is in development the plugin sends to the server on your own computer. 3) In the game press ALT + the key under Esc to open the console and run: prf, then ppe gim-companion httpAccess, then pon gim-companion. Your numbers appear here within a minute, and the Plugin setup dot turns green.',
+  },
+  // ── The front page ───────────────────────────────────────────────────────
+  {
+    target: '[data-tour="header-stats"]',
+    title: '📈 The group at a glance',
+    body: 'Members, total XP, total levels and how many members earned XP this week. Next to the group name you also see the rank of your group on the official Group Ironman hiscores.',
   },
   {
     target: '[data-tour="members"]',
-    title: '👤 Member Cards',
-    body: 'Click any member card to focus on that player — the Goals panel and Activity feed filter to their data. Your own card is highlighted in gold with a YOU badge.',
+    title: '👤 Player cards',
+    body: 'Click a card to focus every page on that player, click again (or All players) to see everyone. This is the one player filter for the whole app. Your own card has the YOU badge.',
+  },
+  {
+    target: '[data-tour="inspect"]',
+    title: '🔍 Inspect a player',
+    body: 'The magnifying glass opens a floating panel with the player\'s backpack, worn equipment and skills, live while they play and as last seen after logout. Hover a skill for its XP, the XP to the next level and the remainder.',
+  },
+  {
+    target: '[data-tour="drops-chest"]',
+    title: '🧰 Drops chest and Goals',
+    body: 'The chest lists the group\'s recent big drops from the Adventurer\'s Log and the plugin. When a new drop arrives that you have not looked at, the chest glows like a loot beam. The Goals tile shows your active goals and lets you add one; it glows when someone adds a new goal.',
+  },
+  {
+    target: '[data-tour="group-leaderboard"]',
+    title: '🏆 Group Leaderboard and competitions',
+    body: 'Open it to see who gained the most XP, levels, quest points, boss kills, slayer kills or drops over the last day, week or month. Press + New competition to set up your own race: pick what to track (for example 50 Araxxi kills), when it starts and ends, and an optional goal. Ready-made presets help you start.',
+  },
+  // ── The tabs ─────────────────────────────────────────────────────────────
+  {
+    target: '[data-tour="tab-vault"]',
+    title: '🏦 Group Vault',
+    body: 'Players banks shows every item with who has it banked and how many, with real item icons (cards, tiles or list). Group Storage shows the shared storage, and the Bank Journal lists everything put into or taken out of it, and by whom. Needs the plugin and an unlocked group.',
   },
   {
     target: '[data-tour="tab-goals"]',
     title: '🎯 Goals',
-    body: "Your group's planning board. Browse 220+ pre-built suggestions across quests, skill milestones, boss kills, and key items — or add fully custom goals. Track status, priority, and XP progress per player.",
-  },
-  {
-    target: '[data-tour="tab-vault"]',
-    title: '🏆 Group Vault & Gear Loadouts',
-    body: "Every drop your group has logged in one tile grid, with dupe indicators and worn-item badges. The Gear Loadouts panel tracks each player's equipment across 5 combat styles with wiki-verified requirements.",
+    body: 'A planning board with 280 suggestions plus your own goals. Goals the players already achieved are ticked off automatically from the game (levels, quests, area tasks, boss kills) and show live progress. "Recommended next" suggests what to do next based on what the game says you can start or have not tried.',
   },
   {
     target: '[data-tour="tab-achievements"]',
-    title: '📋 Area Tasks',
-    body: 'Track diary completion across all 13 RS3 regions × 4 tiers (Easy → Elite). Auto-detected from the Adventurer\'s Log activity feed, or toggle manually per player.',
+    title: '📜 Quests and Tasks',
+    body: 'Quests read live from the game, the area task grid filled in automatically, and the Group Ironman Journey: which tier your group is on and what is left in each step.',
   },
   {
     target: '[data-tour="tab-leaderboards"]',
     title: '🏅 Leaderboards',
-    body: "Boss kill counts, group 'firsts' (who hit a 99 or killed a boss first), skill mastery, XP milestones, and clue scroll ranks — all built automatically from the activity feed.",
+    body: 'Firsts (who did something first), milestones, exact boss kills from the game, slayer kills, clue scrolls and skill mastery per player.',
   },
   {
     target: '[data-tour="notes"]',
-    title: '📝 Group Notes',
-    body: 'A shared pinboard for your whole group. Jot down loot rules, strategy notes, or session plans — auto-saves as you type and is visible to everyone.',
+    title: '📝 Group notes',
+    body: 'A shared pinboard for the whole group: loot rules, plans, reminders. It saves as you type.',
+  },
+  {
+    target: '[data-tour="sync"]',
+    title: '↻ Sync All',
+    body: 'Fetches the latest hiscores for every member. The plugin sends its own data automatically while the game is running.',
+  },
+  {
+    target: null,
+    title: '🎉 You are set',
+    body: 'That is everything. If something looks empty, it usually just needs the plugin to run for a minute. The documentation site covers the plugin setup in detail, and the ? button replays this tour (or the tour of the page you are on).',
   },
 ];
 

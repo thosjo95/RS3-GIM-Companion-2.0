@@ -25,7 +25,7 @@ export default function HeaderStats({ group }) {
     { icon: 'fire',   fb: '🔥', value: s.hasWeekly ? `${s.active}/${players.length}` : '–', tip: 'Members who earned XP in the past 7 days' },
   ];
   return (
-    <div className="header-stats" style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 12 }}>
+    <div className="header-stats" data-tour="header-stats" style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 12 }}>
       {items.map(it => (
         <div key={it.tip} title={it.tip} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 999,
           background: 'var(--bg-panel-alt)', border: '1px solid var(--border)', fontSize: 12, fontWeight: 700, color: 'var(--gold-light)', whiteSpace: 'nowrap' }}>

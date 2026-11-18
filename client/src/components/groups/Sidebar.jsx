@@ -26,7 +26,7 @@ export default function Sidebar({ groups, activeGroupId, onSelect, onNewGroup, o
             </div>
           );
         })}
-        <div className="nav-item" onClick={onSearch} style={{marginTop:4}}>
+        <div className="nav-item" data-tour="groups" onClick={onSearch} style={{marginTop:4}}>
           <span className="icon">⚙️</span>
           <span>Find or Manage Groups</span>
         </div>

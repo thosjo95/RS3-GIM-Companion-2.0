@@ -44,41 +44,36 @@ const TAB_TOURS = {
   goals: [
     {
       target: null,
-      title: '🎯 Goals Tab',
-      body: "This is your group's planning board. Let's walk through the key parts — it only takes a moment!",
+      title: '🎯 Goals',
+      body: "Your group's planning board. It checks the game for you: goals the players have already achieved are completed automatically and open goals show live progress.",
     },
     {
       target: '[data-tour="goals-sections"]',
       title: '💡 Goal Browser vs Active Goals',
-      body: 'Switch between the Goal Browser (220+ pre-built suggestions across quests, skills, bosses, and items) and Active Goals (your group\'s live tracking board).',
+      body: 'Switch between the Goal Browser (280 suggestions across quests, skills, bosses and items, plus Recommended next) and Active Goals (your live board).',
     },
     {
       target: '[data-tour="goals-browser"]',
-      title: '📚 Goal Browser',
-      body: 'Browse pre-built suggestions filtered by category and priority. Each card shows XP requirements, wiki links, and player readiness. Hit Add to move any suggestion to your active board.',
+      title: '📚 Goal Browser and recommendations',
+      body: 'Recommended next suggests quests you can start now, bosses you have not killed yet, the next area task tier, journey steps and skills close to 99. Suggestions are checked against the player selected at the top. Hit Add to move one to your board.',
     },
     {
       target: '[data-tour="goals-filters"]',
-      title: '🔍 Filters & Views',
-      body: 'On the Active Goals board, filter by player, category, priority, or scope. Toggle between 📋 Board (Kanban columns) and ☰ List views to suit your style.',
+      title: '🔍 Filters and views',
+      body: 'On the Active Goals board, filter by player, category, priority or scope, and switch between Board and List.',
     },
   ],
 
   vault: [
     {
       target: null,
-      title: '🏆 Vault & Gear Loadouts',
-      body: "Two panels in one: the Group Vault for logging drops, and Gear Loadouts for tracking each player's equipment. Here's a quick tour.",
+      title: '🏦 Group Vault',
+      body: "Everything your group has stored, read from the game by the plugin: every member's bank and the shared group storage. Recent drops live in the chest on the front page.",
     },
     {
       target: '[data-tour="vault-panel"]',
-      title: '🏆 Group Vault',
-      body: 'Every drop your group has logged shown as an icon tile grid. Dupe indicators highlight when multiple members own the same item. Click any tile to see who has it, when they got it, and its GE value.',
-    },
-    {
-      target: '[data-tour="vault-gear"]',
-      title: '⚔️ Gear Loadouts',
-      body: "Track each player's equipped gear across 5 combat styles: Melee, Ranged, Magic, Necromancy, and Hybrid. Requirements are verified against the RS3 wiki so you can see who's ready to upgrade.",
+      title: 'Players banks and Group Storage',
+      body: 'Players banks (the default) lists each item once with every member who has it banked and how many, with bars showing each share. Group Storage shows the shared storage. Switch between Cards, Tiles and List, search, and sort by quantity, value or name. The Bank Journal button lists deposits and withdrawals of the group storage.',
     },
   ],
 
@@ -86,17 +81,17 @@ const TAB_TOURS = {
     {
       target: null,
       title: '📜 Quests and Tasks',
-      body: 'Everything your group completes, on one page: quest progress (read live from the game when the plugin is connected) and area tasks across all RS3 regions × 4 tiers.',
+      body: 'Quest progress read live from the game, the area task grid, and the Group Ironman Journey, all on one page.',
     },
     {
       target: '[data-tour="achievements-progress"]',
-      title: '📊 Player Progress',
-      body: "Each player gets a card with quests and area tasks side by side. Pick a player card at the top of the page to focus on one person.",
+      title: '📊 Player progress',
+      body: 'Pick a player card at the top to focus on one person, or compare everyone side by side.',
     },
     {
       target: '[data-tour="achievements-view"]',
-      title: '📜 Quests or 🗺️ Area Tasks',
-      body: 'Switch between the quest grid (filter by difficulty, free-to-play and who is still missing it) and the area task grid, where you can also mark tasks manually.',
+      title: '📜 Quests, area tasks and achievements',
+      body: 'Switch between the quest grid (filter by difficulty, free-to-play and who is still missing it), the area task grid, and the list of completed achievements.',
     },
   ],
 
@@ -104,17 +99,17 @@ const TAB_TOURS = {
     {
       target: null,
       title: '🏅 Leaderboards',
-      body: "Five automatic leaderboards built from your group's synced activity feeds and hiscores — no manual tracking needed.",
+      body: "Built from the game and your group's activity feeds: no manual tracking needed.",
     },
     {
       target: '[data-tour="leaderboards-nav"]',
-      title: '📑 Leaderboard Sections',
-      body: "Browse 5 categories: 🥇 Firsts (who hit a milestone first), 📈 Milestones (XP goals), ⚔️ Boss Kills, 🗺️ Clue Scrolls, and 🎓 Skill Mastery (99s/120s per player).",
+      title: '📑 Sections',
+      body: 'Firsts, Milestones, Boss Kills, Slayer Kills, Clue Scrolls and Skill Mastery. Pick a player card at the top to narrow the tables to one player.',
     },
     {
       target: '[data-tour="leaderboards-panel"]',
-      title: '🤖 Auto-Updated Data',
-      body: 'Firsts, Milestones and boss kills are detected from the Adventurer\'s Log feed (updates every ~2 hours). Clue counts and XP pull from RS3 hiscores every time you sync (~5 min delay).',
+      title: '🤖 Where the numbers come from',
+      body: 'Boss and slayer kills are the exact counts from the game (plugin). Firsts and milestones come from the Adventurer\'s Log feed, clue counts and XP from the hiscores.',
     },
   ],
 };

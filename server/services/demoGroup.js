@@ -10,6 +10,11 @@ const db = require('../database');
 const { hashPassword } = require('../utils/auth');
 
 const NAME = 'Misthalin Five (Demo)';
+// Only these (and items the real template backpack shows stacked) may have an amount above 1 in a backpack; ores, bones and
+// logs are not stackable unless noted.
+const STACKABLE = [995, 560, 561, 563, 565, 566, 9075, 314];
+// Bump this when the demo content changes: the server then rebuilds the group on its next start.
+const DEMO_VERSION = 2;
 const MEMBERS = ['Varrock Vee', 'Lumby Lou', 'Draynor Dee', 'Fally Finn', 'Ardy Tilly'];
 const MIN = 60_000, HOUR = 3_600_000, DAY = 86_400_000;
 const iso = msAgo => new Date(Date.now() - msAgo).toISOString();
@@ -80,7 +85,7 @@ players.forEach((p, i) => {
   for (let s = 0; s < 28; s++) {
     if (rnd() < 0.18) continue;                                          // a few empty slots
     const x = pick(pool);
-    inv.push({ ...x, count: x.count > 1 || [560, 565, 566, 561, 563, 9075, 314, 453].includes(x.id) ? Math.floor(50 + rnd() * 3000) : 1, slot: s });
+    inv.push({ ...x, count: x.count > 1 || STACKABLE.includes(x.id) ? Math.floor(50 + rnd() * 3000) : 1, slot: s });
   }
   const bank = BANK_POOL.map(x => ({ ...x, count: x.id === 995 ? Math.floor(2e6 + rnd() * 6e7 * p.factor) : Math.floor(1 + rnd() * 2500 * p.factor) })).filter(() => rnd() > 0.15);
   const storage = i === 0 ? [it(385, 'Shark', 420, 800), it(6685, 'Saradomin brew (4)', 64, 1500), it(2434, 'Prayer potion (4)', 120, 190), it(560, 'Death rune', 8000, 200),
@@ -200,6 +205,7 @@ logRows.sort((a, b) => b[6] - a[6]).forEach(r => plog.run(...r.slice(0, 6), iso(
 
 // area tasks are worked out from the completed achievements (as the server does after a plugin update)
 const areaTasks = require('./pluginSync').backfillAreaTasks();
+db.prepare('UPDATE groups SET settings_json = ? WHERE id = ?').run(JSON.stringify({ demo_version: DEMO_VERSION }), gid);
 return { gid, players: players.map(p => p.id), areaTasks };
 }
 
@@ -285,7 +291,9 @@ function feedOnce(now = new Date()) {
 /** Starts the demo on a server: builds the group if it is missing, then feeds it every 30 seconds. */
 function start() {
   try {
-    if (!db.prepare('SELECT 1 FROM groups WHERE is_demo = 1').get()) {
+    const have = db.prepare('SELECT settings_json FROM groups WHERE is_demo = 1').get();
+    let version = 0; try { version = JSON.parse(have?.settings_json || '{}').demo_version || 0; } catch { /* old */ }
+    if (!have || version < DEMO_VERSION) {
       const r = createDemoGroup(require('./demoTemplate.json'));
       console.log(`[demo] built "${NAME}" (group ${r.gid})`);
     }

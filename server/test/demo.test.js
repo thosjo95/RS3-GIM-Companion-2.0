@@ -77,3 +77,14 @@ test('the demo group comes first when browsing and when searching', async () => 
   const found = await (await call('GET', '/groups/search?name=Misthalin')).json();
   assert.equal(found[0].id, id);
 });
+
+test('backpacks hold only stackable items in amounts above 1, also after the feeder has been running', () => {
+  const STACK_OK = new Set([995, 560, 561, 563, 565, 566, 9075, 314]);
+  const template = require('../services/demoTemplate.json');
+  for (const x of template.inventory) if (x.count > 1) STACK_OK.add(x.id);          // the real template backpack shows these stacked
+  for (let i = 0; i < 100; i++) demo.feedOnce(new Date());
+  const rows = db.prepare('SELECT inventory_json FROM player_live_state WHERE player_id IN (SELECT id FROM players WHERE group_id IN (SELECT id FROM groups WHERE is_demo = 1))').all();
+  for (const r of rows) for (const x of JSON.parse(r.inventory_json)) {
+    if (x.count > 1 && !x.note_of) assert.ok(STACK_OK.has(x.id), `${x.name} (${x.id}) cannot stack ${x.count} in a backpack`);
+  }
+});

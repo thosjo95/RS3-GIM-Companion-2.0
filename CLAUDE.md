@@ -78,24 +78,47 @@ with back-off, slim `/plugin/state`, gzip, partial heartbeat writes, cached lead
 for release (probes removed, debug off, manifest 1.0.0, `https://api.groupiron.com`, contact rs3groupiron@pm.me); privacy
 notice (`docs/privacy.html`); mod.io listing text; deploy files for a fresh server.
 
+**Where things stand (handover, 2026-11-18 evening):**
+- GitHub `main` has everything. The release zip `plugin/dist/gim-companion-100.zip` (git-ignored, uploaded to mod.io by hand)
+  matches `plugin/gim-companion/` exactly; rebuild it (`plugin\build-release.ps1`) after ANY plugin change. The beta client's
+  dev copy is installed (`plugin\install-dev.ps1`, points at localhost:3001).
+- Live server (Hetzner, 2.29.193.18, beta.groupiron.com / api.groupiron.com): running, but one deploy behind `main` (it lacks the
+  admin "New Group Secret" and the Unlock window help). The owner deploys: `sudo -u gim bash /opt/gim2/deploy/deploy-gim2.sh`.
+  No admin login exists there yet: `cd /opt/gim2/server && sudo -u gim env GIM_DATA_DIR=/var/lib/gim2 node scripts/setAdminPassword.js`.
+- Real game test (2026-11-18, character Degree C, local dev server): joining with the group secret, sending, kills, drops,
+  money pouch (inventory 623), backpack slots and noted items all work. Dev plugins lose their permissions on a client
+  restart and the Plugin Hub cannot tick HTTP Access for them ("That permission could not be changed"): use `pon`, `ppr`,
+  `ppe gim-companion httpAccess` in the console. For mod.io installs the Hub shows a permissions screen with an HTTP Access
+  checkbox (optional, unticked by default); the plugin now waits and starts by itself once it is allowed (untested for a
+  real mod.io install until approval).
+- Owner decisions today: ONE group secret (OSRS style) used for the website and typed into the plugin; claiming happens in the
+  Plugin window; the tour asks New/Existing group; demo data must be clearly labelled "Demo"; existing 1.x groups must keep
+  their history and secret when they open the new site.
+
 **Open, in this order:**
-1. Server (Hetzner CPX12, Helsinki, 2.29.193.18): live and deployed by the owner on 2026-11-18
-   (`sudo -u gim bash /opt/gim2/deploy/deploy-gim2.sh`). Redeploy after later changes.
-2. Tested in the real RS3 beta client on 2026-11-18 (character Degree C, dev server): the join window with the group
-   secret, sending, kills and drops, money pouch (inventory 623, read 10,195,820 correctly), backpack slot by slot, and
-   noted items (note = id+1, same name, stackType ALWAYS) all work. The Plugin Hub shows "Loading..." / "by NOT
-   AVAILABLE" for dev plugins: the Hub fills those from the mod.io listing (`remoteID` in installed manifests).
-   The release zip `plugin/dist/gim-companion-100.zip` was built from this tested code.
-3. (done) listing image, docs site, listing text (Jagex's exact EULA statement, beta.groupiron.com link, Discord
-   https://discord.gg/xbB2T2Q6A everywhere).
-5. The owner must read through `main.lua` before submitting (AI policy); offer a section-by-section walkthrough.
-6. Submit on mod.io (steps in `listing.md`); do not change files while Jagex has a freeze on.
-7. The live 1.x site's announcement popup was changed on the LOCAL `main` branch of the old 1.x code (commit `275b135`,
-   worktree `../GIM-1x-announce`): it now promotes 2.0 at https://beta.groupiron.com instead of another tracker. It is **not pushed
-   and not deployed**: the owner decides when (push to `origin main`, then the owner runs the production deploy). The popup was
-   removed from the 2.0 code.
-8. Reconnect the owner's own character with the group secret (its plugin data were lost to an old refresh-roster bug, since fixed).
-9. Optional: more slayer creature counters (needs another beta probe), a "RuneScape 3 GIM" cross-group hiscore page.
+1. **Migration rehearsal.** The owner made a consistent snapshot of the 1.x production database on the old server
+   (root@178.104.126.158, Hetzner nbg1; app in /var/www/RS3-GIM-Companion, database server/data/gim.db) at /root/gim-1x-copy.db.
+   Next: owner downloads it (`scp root@178.104.126.158:/root/gim-1x-copy.db C:\Users\Thomas\GIM-2.0\server\data\gim-1x-copy.db`,
+   server/data is git-ignored) and deletes the server copy. Then rehearse on a COPY with `GIM_DATA_DIR` (never the dev database):
+   2.0 must start on it and upgrade it; every group opens; old secrets unlock (legacy SHA-256 rows are upgraded on first
+   unlock); history shows; clean names with non-breaking spaces and duplicate members. Delete the copy afterwards (player data).
+2. **Beta as a labelled preview** (agreed in principle, not built): copy of the 1.x database as beta's database, a banner
+   "Preview: a copy of your groupiron.com data from <date>; keep using groupiron.com until launch; changes here are not kept",
+   new groups claim on groupiron.com (the secret carries over). At launch a fresh copy replaces beta's data.
+3. **Live demo group on beta** (agreed, not built): "Misthalin Five" labelled Demo (name and banner), readable by everyone
+   without the secret but read-only (needs a demo flag: reads without auth, all writes and plugin joins refused), left out of
+   the hiscores sync and the 30-day cleanup, and a feeder in the server (switched on by a setting) that every ~30 s brings
+   members online, XP drops, backpack changes, and now and then a boss kill, drop, clue or activity line.
+   `server/scripts/devShowcase.js` already creates the group (refuses NODE_ENV=production: the demo variant must be allowed there).
+4. **Pre-launch note** in the Plugin window (not built): "The GIM Companion plugin is waiting for Jagex's approval. Claim your
+   group and save the secret now; you'll type it into the plugin on launch day."
+5. The owner must read through `main.lua` before submitting (AI policy); offer a section-by-section walkthrough. It changed
+   today (join window, permission wait, money pouch, slots, notes).
+6. Submit on mod.io (steps and picture list in `plugin/submission/listing.md`); do not change files while Jagex has a freeze on.
+7. The 1.x announcement popup change (old repo, local `main`, commit `275b135`, worktree `../GIM-1x-announce`) promotes
+   https://beta.groupiron.com. Not pushed, not deployed: the owner decides when.
+8. Optional: more slayer creature counters, a cross-group "RuneScape 3 GIM" hiscore page, casket rewards in the clue log
+   (needs a plugin change, so a later version).
 
 ## Migration (do not start before approval)
 

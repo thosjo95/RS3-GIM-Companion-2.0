@@ -18,9 +18,8 @@ Sends your own character's bank, quests, kills and drops to your Group Ironman's
 
 **Listing image:** `plugin/submission/listing-image.png` (16:9, 1280x720)
 
-**Media (step 2, up to 10 images at once):** `plugin/submission/gallery/` holds 13 screenshots (1600x900) of a made-up group
-("Misthalin Five", made with `node server/scripts/devShowcase.js`). Suggested ten: 01-overview, 02-backpack, 04-group-vault,
-05-bank-journal, 06-quests-journey, 08-boss-log, 09-clue-scrolls, 10-group-leaderboard, 11-live-xp, 13-plugin-setup.
+**Media (step 2, up to 10 images at once):** `plugin/submission/gallery/` holds 10 screenshots (1600x900) of a made-up group
+("Misthalin Five", made with `node server/scripts/devShowcase.js`): upload all ten.
 
 **Homepage:** https://github.com/thosjo95/RS3-GIM-Companion-2.0
 

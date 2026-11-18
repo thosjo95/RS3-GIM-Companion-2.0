@@ -130,6 +130,19 @@ database, rehearse on a copy (`GIM_DATA_DIR`), clean names containing non-breaki
 on the final copy and repoint `groupiron.com` at the new server (keep `api.groupiron.com` unchanged forever: it is in the plugin
 manifest). 2.0 has never been run against a real 1.x database.
 
+**Owner decision (2026-11-18): every group gets a NEW secret on 2.0, and adoption is tracked.** Design agreed (not built):
+- Add  (null after migration). It is set when a group is claimed or re-keyed on 2.0. The admin
+  group list shows it, so the owner can see which groups came over and when.
+- Group that had a 1.x secret: shown as "not claimed on the new version yet". Claiming (in the Plugin window) asks for the
+  OLD secret once, then creates a new secret at once (shown once, "save it and share it") and the old one stops working.
+  This keeps the history safe from strangers: clearing all secrets outright would let anyone claim a group with its history.
+- Group that never had a secret: open claim as today. Lost old secret: the owner checks membership and uses the admin
+  tool "New Group Secret" (that also sets ).
+- Claim window text for migrated groups: "Your group came over from groupiron.com with all its history. Enter your old
+  secret once; you get a new one for the new version and the plugin."
+- Until the group is claimed on 2.0, the old secret should still unlock the website for viewing? Owner to decide; default:
+  no, the old secret is only accepted by the one-time claim step.
+
 ## Working with the owner
 
 - Wants things that look polished and consistent; **official RuneScape icons/images**, no emoji icons in the UI or docs; panels

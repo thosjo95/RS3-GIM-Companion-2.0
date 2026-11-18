@@ -4,7 +4,7 @@
  * ingest transaction, so a request is applied completely or not at all.
  */
 const db = require('../database');
-const { BOSS_KILL_PATTERNS, completeQuestGoals } = require('./activitySync');
+const { BOSS_KILL_PATTERNS, completeQuestGoals, diaryRegionKey } = require('./activitySync');
 
 // Bosses whose fight has several NPCs or phases. The plugin counts every NPC that dies, so for these the
 // plugin number can run higher than real kills and is shown next to (not instead of) the feed number.
@@ -60,6 +60,48 @@ function claimBatch(playerId, ref) {
   return db.prepare('INSERT OR IGNORE INTO plugin_kill_batches (player_id, ref, seen_at) VALUES (?, ?, CURRENT_TIMESTAMP)').run(playerId, ref).changes > 0;
 }
 
+// ── Area tasks ────────────────────────────────────────────────────────────────
+// The game lists each area task SET as an achievement named "<Region> Set Tasks - <Tier>" (for example
+// "Seers' Village Set Tasks - Hard"). Those are the rows of the dashboard's area task grid, whose keys look like
+// diary_<region>_<tier>. The game says "Lumbridge"; the grid's row is "Lumbridge & Draynor".
+// The region may not contain a colon: "Journey Tier 2: Lumbridge Set Tasks - Easy" is a Group Ironman journey step, not the set.
+const SET_TASKS = /^([^:]+?) Set Tasks - (Beginner|Easy|Medium|Hard|Elite)$/i;
+const REGION_ALIASES = { lumbridge: 'lumbridge_draynor' };
+
+/** { key, region, tier } for an achievement name that is an area task set, else null. */
+function areaTaskOf(name) {
+  const m = SET_TASKS.exec(name || '');
+  if (!m) return null;
+  const region = diaryRegionKey(m[1]);
+  return { key: `diary_${REGION_ALIASES[region] ?? region}_${m[2].toLowerCase()}`, region: m[1], tier: m[2] };
+}
+
+/** Mark the player's completed area task sets in the area task grid (never un-marks anything). */
+function syncAreaTasks(playerId, announce) {
+  const rows = db.prepare("SELECT name, completed_at FROM player_achievements WHERE player_id = ? AND name LIKE '% Set Tasks - %'").all(playerId);
+  const mark = db.prepare(`
+    INSERT INTO achievements (player_id, type, key, achieved, achieved_at, manual) VALUES (?, 'diary', ?, 1, ?, 0)
+    ON CONFLICT(player_id, key) DO UPDATE SET achieved = 1, achieved_at = COALESCE(achieved_at, excluded.achieved_at) WHERE achieved = 0
+  `);
+  const added = [];
+  for (const r of rows) {
+    const t = areaTaskOf(r.name);
+    if (!t) continue;
+    if (mark.run(playerId, t.key, r.completed_at).changes > 0) added.push(t);
+  }
+  if (announce) for (const t of added) { try { require('./discord').notifyDiary(playerId, t.tier, t.region); } catch { /* webhook problems must not break ingest */ } }
+  return added.length;
+}
+
+/** Run once at server start so achievements stored before this mapping existed also fill the grid. */
+function backfillAreaTasks() {
+  // Rows an earlier version of the mapping created from "Journey Tier N: …" achievements were wrong.
+  db.prepare("DELETE FROM achievements WHERE type = 'diary' AND key LIKE 'diary_journey_%' AND manual = 0").run();
+  let n = 0;
+  for (const { player_id } of db.prepare('SELECT DISTINCT player_id FROM player_achievements').all()) n += syncAreaTasks(player_id, false);
+  return n;
+}
+
 /**
  * Completed achievements. Once completed they stay completed, so rows are only ever added. `full` is the plugin's
  * first scan after login: those were done at some unknown time, so they get no completed_at (and no announcement).
@@ -75,7 +117,8 @@ function applyAchievements(playerId, list, full, now) {
     const n = insert.run(playerId, a.id, a.name, a.category, a.sub, a.members, a.score, full ? null : now, now).changes;
     if (n) { added++; if (!full) fresh.push(a.name); }
   }
-  return { received: list.length, added, new_completions: fresh };
+  const areaTasks = syncAreaTasks(playerId, !full);
+  return { received: list.length, added, new_completions: fresh, area_tasks_marked: areaTasks };
 }
 
 function applyKills(playerId, kills, ref, now) {
@@ -124,4 +167,4 @@ function rareItemNames() {
   return [...names].sort();
 }
 
-module.exports = { claimBatch, applyAchievements, applyQuests, applyKills, applyDrops, rareItemNames, bossKeyForNpc, MULTI_NPC_BOSSES };
+module.exports = { backfillAreaTasks, areaTaskOf, claimBatch, applyAchievements, applyQuests, applyKills, applyDrops, rareItemNames, bossKeyForNpc, MULTI_NPC_BOSSES };

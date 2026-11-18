@@ -152,6 +152,11 @@ function QuestGrid({ players, colorMap, questData }) {
 
 // ── Achievements: everything the plugin has seen completed ───────────────────
 
+// Category numbers come from the game. These three are confirmed from real data (quest names, "<Region> Set Tasks - <Tier>",
+// "Journey Tier N"); the rest are shown by number until they are identified.
+const CATEGORY_NAMES = { 4746: 'Quests', 4766: 'Area Tasks', 5483: 'Group Ironman Journey' };
+const categoryLabel = c => CATEGORY_NAMES[c] ?? `Category ${c ?? '?'}`;
+
 function AchievementList({ rows, colorMap, players }) {
   const [search, setSearch] = useState('');
   const [cat, setCat] = useState('all');
@@ -220,7 +225,7 @@ function AchievementList({ rows, colorMap, players }) {
       {categories.length > 1 && (
         <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 12 }}>
           <button style={chip(cat === 'all')} onClick={() => setCat('all')}>All categories</button>
-          {categories.map(([c, n]) => <button key={c} style={chip(cat === String(c))} onClick={() => setCat(String(c))}>Category {c ?? '?'} · {n}</button>)}
+          {categories.map(([c, n]) => <button key={c} style={chip(cat === String(c))} onClick={() => setCat(String(c))}>{categoryLabel(c)} · {n}</button>)}
         </div>
       )}
 

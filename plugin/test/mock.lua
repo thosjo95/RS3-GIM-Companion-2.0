@@ -55,9 +55,9 @@ QUESTS = {
 }
 -- Achievements / area tasks (ACHS is changed by the harness to simulate completing one). progress -2 = complete.
 ACHS = {
-  [10] = { name = "Varrock Easy Tasks",  category = 5, subCategory = 1, isMembers = false, runeScore = 1, progress = -2 },
-  [11] = { name = "Varrock Medium Tasks", category = 5, subCategory = 2, isMembers = false, runeScore = 2, progress = 0 },
-  [12] = { name = "Falador Easy Tasks",  category = 6, subCategory = 1, isMembers = false, runeScore = 1, progress = -2 },
+  [10] = { name = "Varrock Set Tasks - Easy",  category = 4766, subCategory = 1, isMembers = false, runeScore = 1, progress = -2 },
+  [11] = { name = "Varrock Set Tasks - Medium", category = 4766, subCategory = 2, isMembers = false, runeScore = 2, progress = 0 },
+  [12] = { name = "Falador Set Tasks - Easy",  category = 4766, subCategory = 1, isMembers = false, runeScore = 1, progress = -2 },
 }
 config.Achievement = { FromID = function(i) return ACHS[i] end }
 config.Quest = { FromID = function(i) return QUESTS[i] end }

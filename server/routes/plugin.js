@@ -25,6 +25,7 @@ const { checkGroupAuth } = require('../utils/auth');
 const { createRateLimiter } = require('../utils/rateLimit');
 const { SKILLS } = require('../services/runescape');
 const sync = require('../services/pluginSync');
+sync.backfillAreaTasks();   // achievements stored before the area task mapping existed
 
 const TOKEN_PREFIX = 'gimp_';
 const hashToken = t => crypto.createHash('sha256').update(t).digest('hex');

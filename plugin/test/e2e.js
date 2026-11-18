@@ -102,7 +102,7 @@ const check = (c, m) => { console.log((c ? 'PASS' : 'FAIL') + '  ' + m); if (!c)
   // 5b. achievements / area tasks: the baseline sends only COMPLETED ones; a later completion is sent on its own
   const achBaseline = captured.map(c => JSON.parse(c.body)).find(b => b.achievements);
   check(achBaseline && achBaseline.achievements_full === true && achBaseline.achievements.length === 2
-    && achBaseline.achievements.every(a => a.id === 10 || a.id === 12) && achBaseline.achievements[0].name.includes('Tasks'),
+    && achBaseline.achievements.every(a => a.id === 10 || a.id === 12) && achBaseline.achievements[0].name.includes('Set Tasks'),
     'achievement baseline: only completed achievements, with names and categories');
   dostr('ACHS[11].progress = -2; TICK(620)');
   const achLater = captured.map(c => JSON.parse(c.body)).filter(b => b.achievements).pop();
@@ -193,8 +193,17 @@ const check = (c, m) => { console.log((c ? 'PASS' : 'FAIL') + '  ' + m); if (!c)
 
   const achRows = await (await fetch(`${base}/plugin/achievements?group_id=${gid}`, { headers: gh })).json();
   const byId = Object.fromEntries(achRows.map(a => [a.achievement_id, a]));
-  check(achRows.length === 3 && byId[10].completed_at === null && byId[12].completed_at === null && byId[11].completed_at !== null && byId[11].category === 5,
+  check(achRows.length === 3 && byId[10].completed_at === null && byId[12].completed_at === null && byId[11].completed_at !== null && byId[11].category === 4766,
     'achievements stored: baseline ones have no completion time, the later one does');
+  const diaryRows = db.prepare("SELECT key, achieved, achieved_at FROM achievements WHERE player_id = ? AND type = 'diary'").all(pid);
+  const dk = Object.fromEntries(diaryRows.map(r => [r.key, r]));
+  check(dk.diary_varrock_easy?.achieved === 1 && dk.diary_falador_easy?.achieved === 1 && dk.diary_varrock_medium?.achieved === 1
+    && dk.diary_varrock_easy.achieved_at === null && dk.diary_varrock_medium.achieved_at !== null,
+    'area task sets completed in the game fill the area task grid (diary_<region>_<tier>), dated only when completed while playing');
+  check(require(REPO + 'server/services/pluginSync').areaTaskOf('Journey Tier 2: Lumbridge Set Tasks - Easy') === null
+    && require(REPO + 'server/services/pluginSync').areaTaskOf("Seers' Village Set Tasks - Hard").key === 'diary_seers_village_hard'
+    && require(REPO + 'server/services/pluginSync').areaTaskOf('Lumbridge Set Tasks - Beginner').key === 'diary_lumbridge_draynor_beginner',
+    'journey steps are not mistaken for area task sets; names map onto the grid keys');
 
   const npcKills = await (await fetch(`${base}/plugin/kills?group_id=${gid}`, { headers: gh })).json();
   check(npcKills.length === 1 && npcKills[0].npc === 'Araxxor' && npcKills[0].kills === 3, 'kills counted once per real kill (replay of retried sends does not double them)');

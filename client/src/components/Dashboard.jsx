@@ -44,22 +44,22 @@ const TAB_TOURS = {
   goals: [
     {
       target: null,
-      title: '🎯 Goals',
+      title: 'Goals',
       body: "Your group's planning board. It checks the game for you: goals the players have already achieved are completed automatically and open goals show live progress.",
     },
     {
       target: '[data-tour="goals-sections"]',
-      title: '💡 Goal Browser vs Active Goals',
+      title: 'Goal Browser vs Active Goals',
       body: 'Switch between the Goal Browser (280 suggestions across quests, skills, bosses and items, plus Recommended next) and Active Goals (your live board).',
     },
     {
       target: '[data-tour="goals-browser"]',
-      title: '📚 Goal Browser and recommendations',
+      title: 'Goal Browser and recommendations',
       body: 'Recommended next suggests quests you can start now, bosses you have not killed yet, the next area task tier, journey steps and skills close to 99. Suggestions are checked against the player selected at the top. Hit Add to move one to your board.',
     },
     {
       target: '[data-tour="goals-filters"]',
-      title: '🔍 Filters and views',
+      title: 'Filters and views',
       body: 'On the Active Goals board, filter by player, category, priority or scope, and switch between Board and List.',
     },
   ],
@@ -67,7 +67,7 @@ const TAB_TOURS = {
   vault: [
     {
       target: null,
-      title: '🏦 Group Vault',
+      title: 'Group Vault',
       body: "Everything your group has stored, read from the game by the plugin: every member's bank and the shared group storage. Recent drops live in the chest on the front page.",
     },
     {
@@ -80,17 +80,17 @@ const TAB_TOURS = {
   achievements: [
     {
       target: null,
-      title: '📜 Quests and Tasks',
+      title: 'Quests and Tasks',
       body: 'Quest progress read live from the game, the area task grid, and the Group Ironman Journey, all on one page.',
     },
     {
       target: '[data-tour="achievements-progress"]',
-      title: '📊 Player progress',
+      title: 'Player progress',
       body: 'Pick a player card at the top to focus on one person, or compare everyone side by side.',
     },
     {
       target: '[data-tour="achievements-view"]',
-      title: '📜 Quests, area tasks and achievements',
+      title: 'Quests, area tasks and achievements',
       body: 'Switch between the quest grid (filter by difficulty, free-to-play and who is still missing it), the area task grid, and the list of completed achievements.',
     },
   ],
@@ -98,17 +98,17 @@ const TAB_TOURS = {
   leaderboards: [
     {
       target: null,
-      title: '🏅 Leaderboards',
+      title: 'Leaderboards',
       body: "Built from the game and your group's activity feeds: no manual tracking needed.",
     },
     {
       target: '[data-tour="leaderboards-nav"]',
-      title: '📑 Sections',
+      title: 'Sections',
       body: 'Firsts, Milestones, Boss Kills, Slayer Kills, Clue Scrolls and Skill Mastery. Pick a player card at the top to narrow the tables to one player.',
     },
     {
       target: '[data-tour="leaderboards-panel"]',
-      title: '🤖 Where the numbers come from',
+      title: 'Where the numbers come from',
       body: 'Boss and slayer kills are the exact counts from the game (plugin). Firsts and milestones come from the Adventurer\'s Log feed, clue counts and XP from the hiscores.',
     },
   ],

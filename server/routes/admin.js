@@ -246,6 +246,8 @@ router.get('/groups', requireAdmin, (req, res) => {
       g.gim_type,
       g.gim_size,
       CASE WHEN g.password_hash IS NOT NULL THEN 1 ELSE 0 END AS claimed,
+      g.claimed_v2_at,
+      g.needs_rekey,
       CASE WHEN g.discord_webhook_url IS NOT NULL THEN 1 ELSE 0 END AS has_webhook,
       g.last_activity,
       g.created_at,
@@ -308,7 +310,7 @@ router.post('/maintenance/reset-secret', requireAdmin, (req, res) => {
   const gid = Number(group_id);
   const group = db.prepare('SELECT id, name FROM groups WHERE id = ?').get(gid);
   if (!group) return res.status(404).json({ error: `Group ${gid} not found` });
-  db.prepare('UPDATE groups SET password_hash = NULL, password_salt = NULL WHERE id = ?').run(gid);
+  db.prepare('UPDATE groups SET password_hash = NULL, password_salt = NULL, needs_rekey = 0, claimed_v2_at = NULL WHERE id = ?').run(gid);
   res.json({ success: true, message: `Secret cleared for "${group.name}" (id ${gid}). They can now re-claim.` });
 });
 
@@ -324,7 +326,7 @@ router.post('/maintenance/new-secret', requireAdmin, (req, res) => {
   const { hashPassword } = require('../utils/auth');
   const secret = newGroupSecret();
   const pw = hashPassword(secret);
-  db.prepare('UPDATE groups SET password_hash = ?, password_salt = ? WHERE id = ?').run(pw.hash, pw.salt, gid);
+  db.prepare('UPDATE groups SET password_hash = ?, password_salt = ?, needs_rekey = 0, claimed_v2_at = CURRENT_TIMESTAMP WHERE id = ?').run(pw.hash, pw.salt, gid);
   res.json({ success: true, secret, message: `New secret for "${group.name}" (id ${gid}): ${secret}  (shown once: pass it to the group; the old one no longer works)` });
 });
 

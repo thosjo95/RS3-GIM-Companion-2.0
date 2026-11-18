@@ -31,7 +31,7 @@ router.get('/search', (req, res) => {
     const groups = db.prepare(`
       SELECT g.id, g.name, g.group_rsn, g.gim_type, g.gim_size,
              g.created_at, g.last_activity,
-             (g.password_hash IS NOT NULL) as is_claimed,
+             (g.password_hash IS NOT NULL) as is_claimed, g.needs_rekey,
              COUNT(p.id) as member_count
       FROM groups g
       LEFT JOIN players p ON p.group_id = g.id
@@ -46,7 +46,7 @@ router.get('/search', (req, res) => {
   const groups = db.prepare(`
     SELECT g.id, g.name, g.group_rsn, g.gim_type, g.gim_size,
            g.created_at, g.last_activity,
-           (g.password_hash IS NOT NULL) as is_claimed,
+           (g.password_hash IS NOT NULL) as is_claimed, g.needs_rekey,
            COUNT(p.id) as member_count
     FROM groups g
     LEFT JOIN players p ON p.group_id = g.id
@@ -230,7 +230,7 @@ router.get('/', (req, res) => {
   const groups = db.prepare(`
     SELECT g.id, g.name, g.group_rsn, g.notes, g.gim_type, g.gim_size,
            g.created_at, g.last_activity,
-           (g.password_hash IS NOT NULL) as is_claimed,
+           (g.password_hash IS NOT NULL) as is_claimed, g.needs_rekey,
            COUNT(p.id) as member_count
     FROM groups g
     LEFT JOIN players p ON p.group_id = g.id
@@ -252,7 +252,7 @@ router.get('/:id/rank', async (req, res) => {
 
 router.get('/:id', (req, res) => {
   const group = db.prepare(
-    'SELECT id, name, group_rsn, notes, gim_type, gim_size, created_at, last_activity, (password_hash IS NOT NULL) as is_claimed FROM groups WHERE id = ?'
+    'SELECT id, name, group_rsn, notes, gim_type, gim_size, created_at, last_activity, (password_hash IS NOT NULL) as is_claimed, needs_rekey FROM groups WHERE id = ?'
   ).get(req.params.id);
   if (!group) return res.status(404).json({ error: 'Group not found' });
 
@@ -300,9 +300,10 @@ router.get('/:id', (req, res) => {
 
 // POST /api/groups/:id/verify - check password without performing a write
 router.post('/:id/verify', (req, res) => {
-  const group = db.prepare('SELECT id, password_hash, password_salt FROM groups WHERE id = ?').get(req.params.id);
+  const group = db.prepare('SELECT id, password_hash, password_salt, needs_rekey FROM groups WHERE id = ?').get(req.params.id);
   if (!group) return res.status(404).json({ error: 'Group not found' });
   if (!group.password_hash) return res.json({ ok: true });
+  if (group.needs_rekey) return res.status(409).json({ error: 'This group has not been claimed on the new version yet.', needs_rekey: true });
   const password = req.headers['x-group-password'];
   if (!password) return res.status(401).json({ error: 'Password required' });
   if (!verifyGroupPassword(password, group)) return res.status(401).json({ error: 'Incorrect password' });
@@ -324,6 +325,7 @@ router.post('/setup', async (req, res) => {
     pw?.hash ?? null, pw?.salt ?? null, isDevOnly);
 
   const groupId = groupResult.lastInsertRowid;
+  if (pw) db.prepare('UPDATE groups SET claimed_v2_at = CURRENT_TIMESTAMP WHERE id = ?').run(groupId);
 
   const addStmt = db.prepare('INSERT OR IGNORE INTO players (rsn, group_id) VALUES (?, ?)');
   for (const rsn of member_rsns) {
@@ -402,9 +404,29 @@ router.post('/:id/claim', (req, res) => {
   const secret = newGroupSecret();
 
   const pw = hashPassword(secret);
-  db.prepare('UPDATE groups SET password_hash = ?, password_salt = ?, last_activity = CURRENT_TIMESTAMP WHERE id = ?')
+  db.prepare('UPDATE groups SET password_hash = ?, password_salt = ?, claimed_v2_at = CURRENT_TIMESTAMP, last_activity = CURRENT_TIMESTAMP WHERE id = ?')
     .run(pw.hash, pw.salt, group.id);
 
+  res.json({ ok: true, secret });
+});
+
+// POST /api/groups/:id/claim-v2 { old_secret } — a group that came over from 1.x claims itself on the new version once:
+// the OLD secret proves it is the group's own people, and they get a NEW secret at once (shown once). The old one stops
+// working immediately. This keeps the group's history away from strangers: nobody can claim it without the old secret.
+const claimV2Limiter = createRateLimiter({ windowMs: 60_000, max: 10, message: 'Too many attempts. Wait a minute.' });
+router.post('/:id/claim-v2', claimV2Limiter, (req, res) => {
+  const group = db.prepare('SELECT id, password_hash, password_salt, needs_rekey FROM groups WHERE id = ?').get(req.params.id);
+  if (!group) return res.status(404).json({ error: 'Group not found' });
+  if (!group.needs_rekey || !group.password_hash) return res.status(409).json({ error: 'This group does not need to be claimed again.' });
+  const typed = String(req.body?.old_secret ?? '');
+  if (!typed.trim() || typed.length > 200) return res.status(400).json({ error: 'The old secret is required' });
+  const forms = [...new Set([typed, typed.trim(), typed.trim().toUpperCase(), typed.trim().toLowerCase()])];
+  if (!forms.some(f => verifyGroupPassword(f, group))) return res.status(401).json({ error: 'That is not the old secret of this group.' });
+
+  const secret = newGroupSecret();
+  const pw = hashPassword(secret);
+  db.prepare('UPDATE groups SET password_hash = ?, password_salt = ?, needs_rekey = 0, claimed_v2_at = CURRENT_TIMESTAMP, last_activity = CURRENT_TIMESTAMP WHERE id = ?')
+    .run(pw.hash, pw.salt, group.id);
   res.json({ ok: true, secret });
 });
 

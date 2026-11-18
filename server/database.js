@@ -9,6 +9,9 @@ if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
 const db = new DatabaseSync(path.join(dataDir, 'gim.db'));
 
+// A database that already has the plugin tables was used by a 2.0 server before (its groups are claimed on 2.0).
+const wasV2 = !!db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'player_live_state'").get();
+
 db.exec('PRAGMA journal_mode = WAL');
 db.exec('PRAGMA foreign_keys = ON');
 
@@ -354,6 +357,16 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_plugin_pairings_code ON plugin_pairings(code);
   CREATE INDEX IF NOT EXISTS idx_plugin_pairings_device ON plugin_pairings(device_hash);
 `);
+
+// Adoption of 2.0. claimed_v2_at: when the group got its secret on the new version (the admin list shows it).
+// needs_rekey: a group that came over from 1.x with its OLD secret (set by server/scripts/migrate1x.js). Until that secret is
+// replaced by the one-time claim step (POST /api/groups/:id/claim-v2) the old secret unlocks nothing.
+{
+  let added = false;
+  try { db.exec('ALTER TABLE groups ADD COLUMN claimed_v2_at TEXT'); added = true; } catch { /* already there */ }
+  try { db.exec('ALTER TABLE groups ADD COLUMN needs_rekey INTEGER NOT NULL DEFAULT 0'); } catch { /* already there */ }
+  if (added && wasV2) db.exec('UPDATE groups SET claimed_v2_at = CURRENT_TIMESTAMP WHERE password_hash IS NOT NULL');
+}
 
 // Group leaderboard: periodic snapshots of every player's metrics, and the competitions a group sets up.
 db.exec(`

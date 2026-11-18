@@ -21,8 +21,8 @@ const DEFAULT_BOARDS = [
 // A read is "unlocked" when the group has no secret or the request carries the right one. Plugin-based numbers are
 // only shown to those; the hiscores-based ones are public like the rest of the hiscores data.
 function unlocked(req, groupId) {
-  const g = db.prepare('SELECT id, password_hash, password_salt FROM groups WHERE id = ?').get(groupId);
-  if (!g) return false;
+  const g = db.prepare('SELECT id, password_hash, password_salt, needs_rekey FROM groups WHERE id = ?').get(groupId);
+  if (!g || g.needs_rekey) return false;
   if (!g.password_hash) return true;
   const pw = req.headers['x-group-password'];
   return !!pw && verifyGroupPassword(pw, g);

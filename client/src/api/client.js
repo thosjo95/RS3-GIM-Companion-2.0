@@ -51,6 +51,7 @@ export const api = {
   lookupGroup: (name, type, size) => request(`/groups/lookup?name=${encodeURIComponent(name)}&type=${type}&size=${size}`),
   setupGroup: (body) => request('/groups/setup', { method: 'POST', body }),
   verifyGroup: (id) => request(`/groups/${id}/verify`, { method: 'POST' }),
+  claimGroupV2: (id, oldSecret) => request(`/groups/${id}/claim-v2`, { method: 'POST', body: { old_secret: oldSecret } }),
   claimGroup: (id) => request(`/groups/${id}/claim`, { method: 'POST', body: {} }),
   getWebhook:  (id)        => request(`/groups/${id}/webhook`),
   saveWebhook: (id, body)  => request(`/groups/${id}/webhook`, { method: 'PUT', body }),

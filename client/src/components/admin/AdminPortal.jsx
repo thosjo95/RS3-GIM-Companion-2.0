@@ -426,6 +426,8 @@ function GroupsTab({ pushToast }) {
     { label: 'Total groups',    value: total,        color: 'var(--gold)' },
     { label: 'Claimed',         value: claimed,      color: 'var(--green-bright)' },
     { label: 'Unclaimed',       value: unclaimed,    color: 'var(--text-dim)' },
+    { label: 'Claimed on 2.0',  value: groups.filter(g => g.claimed_v2_at).length, color: 'var(--green-bright)' },
+    { label: 'Waiting to claim', value: groups.filter(g => g.needs_rekey).length, color: 'var(--gold)' },
     { label: 'Total players',   value: totalPlayers, color: 'var(--text-bright)' },
     { label: 'Avg players/group', value: avgPlayers, color: 'var(--text-bright)' },
     { label: '⚠ Sync errors',   value: withErrors,   color: withErrors > 0 ? 'var(--red-bright)' : 'var(--text-dim)' },
@@ -482,7 +484,7 @@ function GroupsTab({ pushToast }) {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
             <thead>
               <tr style={{ background: 'var(--bg-panel-alt)' }}>
-                {['ID','Name','Group RSN','Type','Size','Players','Claimed','Errors','Discord','Last Activity','Created',''].map(h => (
+                {['ID','Name','Group RSN','Type','Size','Players','Claimed','On 2.0','Errors','Discord','Last Activity','Created',''].map(h => (
                   <th key={h} style={{ textAlign: 'left', padding: '8px 10px', color: 'var(--text-dim)', fontWeight: 600, whiteSpace: 'nowrap', borderBottom: '1px solid var(--border)' }}>{h}</th>
                 ))}
               </tr>
@@ -506,6 +508,13 @@ function GroupsTab({ pushToast }) {
                         ? <span style={{ color: 'var(--green-bright)', fontWeight: 700 }}>✓</span>
                         : <span style={{ color: 'var(--text-dim)', opacity: 0.4 }}>—</span>}
                     </td>
+                    <td style={{ padding: '7px 10px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                      {g.claimed_v2_at
+                        ? <span title={'Claimed on 2.0: ' + g.claimed_v2_at} style={{ color: 'var(--green-bright)', fontWeight: 700 }}>{fmtDate(g.claimed_v2_at)}</span>
+                        : g.needs_rekey
+                          ? <span title="Came over from 1.x, old secret not replaced yet" style={{ color: 'var(--gold)' }}>waiting</span>
+                          : <span style={{ color: 'var(--text-dim)', opacity: 0.4 }}>—</span>}
+                    </td>
                     <td style={{ padding: '7px 10px', textAlign: 'center' }}>
                       {g.error_count > 0
                         ? <span style={{ color: 'var(--red-bright)', fontWeight: 700 }}>{g.error_count}</span>
@@ -524,7 +533,7 @@ function GroupsTab({ pushToast }) {
                   {/* Expanded player list */}
                   {expandedId === g.id && (
                     <tr style={{ background: 'rgba(200,168,75,0.03)' }}>
-                      <td colSpan={12} style={{ padding: '0 0 8px 32px', borderBottom: '1px solid var(--border)' }}>
+                      <td colSpan={13} style={{ padding: '0 0 8px 32px', borderBottom: '1px solid var(--border)' }}>
                         {loadingPlayers ? (
                           <div style={{ padding: '12px 0', color: 'var(--text-dim)', fontSize: 11 }}>Loading players…</div>
                         ) : expandedPlayers.length === 0 ? (

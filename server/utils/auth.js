@@ -53,9 +53,15 @@ function checkGroupAuth(req, res, groupId) {
     return false;
   }
 
-  const group = db.prepare('SELECT id, password_hash, password_salt FROM groups WHERE id = ?').get(groupId);
+  const group = db.prepare('SELECT id, password_hash, password_salt, needs_rekey FROM groups WHERE id = ?').get(groupId);
   if (!group) {
     res.status(404).json({ error: 'Group not found' });
+    return false;
+  }
+
+  // Came over from 1.x and still has its old secret: that secret only works for the one-time claim step.
+  if (group.needs_rekey) {
+    res.status(401).json({ error: 'This group has not been claimed on the new version yet. Use "Claim group" in the Plugin window.', needs_rekey: true });
     return false;
   }
 

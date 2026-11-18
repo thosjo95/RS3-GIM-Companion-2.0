@@ -229,6 +229,17 @@ export default function App() {
     if (!rsn) setTimeout(() => setShowRsnModal(true), 300);
   }
 
+  // A group that came over from groupiron.com: the old secret once, a new secret back.
+  async function handleClaimV2Submit(oldSecret, rsn) {
+    const result = await api.claimGroupV2(activeGroupId, oldSecret);
+    saveGroupPassword(activeGroupId, result.secret);
+    pinGroup(activeGroupId);
+    if (rsn) setMyRsn(rsn);
+    await loadGroups();
+    await loadGroup(activeGroupId);
+    return result;
+  }
+
   async function handleClaimSubmit(rsn) {
     const result = await api.claimGroup(activeGroupId);
     saveGroupPassword(activeGroupId, result.secret);
@@ -279,10 +290,11 @@ export default function App() {
         onSynced={refresh}
         onToast={pushToast}
         isUnlocked={isUnlocked}
-        isClaimed={!!group?.is_claimed}
+        isClaimed={!!group?.is_claimed && !group?.needs_rekey}
         myRsn={myRsn}
         onLockClick={() => setShowPasswordModal(true)}
         onClaim={handleClaimSubmit}
+        onClaimV2={handleClaimV2Submit}
         onSetRsnClick={() => setShowRsnModal(true)}
         onWebhookClick={() => setShowWebhookModal(true)}
         onMenuToggle={() => setShowMobileSidebar(s => !s)}

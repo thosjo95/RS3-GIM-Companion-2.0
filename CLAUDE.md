@@ -153,3 +153,11 @@ manifest). 2.0 has never been run against a real 1.x database.
 - Shell tips on this Windows machine: heredocs with quotes or backslashes break; write patch scripts with the Write tool and run
   them with node. After server code changes restart the dev API server.
 - Names: RuneScape hiscores write names with a non-breaking space; always compare names after replacing `\s` with a normal space.
+
+## Migration rehearsal result (2026-11-18, on a COPY of the 1.x database)
+
+- 2.0 starts on the 1.x copy and upgrades it; every group opens, history intact (checked on a 5-member group: skills, snapshots, activities, goals identical before and after a claim).
+- `server/scripts/migrate1x.js` (dry run by default; `--apply`, `--assume-1x`, `--drop-loadouts`) removes orphan rows, writes names with plain spaces, flags groups that have a 1.x secret as `needs_rekey`. For the real migration run it on the final copy with `--assume-1x --apply`.
+- Built: `groups.claimed_v2_at` + `needs_rekey`, `POST /api/groups/:id/claim-v2` (old secret once, new secret back, old one dead), Plugin-window claim UI, admin "On 2.0" column and counters. Old secrets unlock nothing until claimed. 40 server tests.
+- NOT verified: real legacy SHA-256 secrets (only simulated ones); the claim UI in a browser on a migrated copy.
+- Open owner decision: the 30-day cleanup cron fails on a foreign key (players.group_id has no cascade), so stale groups (276 in the copy) are never deleted although the privacy notice and listing say 30 days. Decide: fix the cron or change the wording.

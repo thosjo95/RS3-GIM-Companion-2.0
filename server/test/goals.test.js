@@ -74,3 +74,19 @@ test('goals the tracker cannot judge (items, custom) stay open', () => {
   assert.equal(status(item), 'not_started');
   assert.equal(goalProgress(G)[item], undefined);
 });
+
+test('recommendations come from the game facts and skip goals already on the board', () => {
+  const { recommend } = require('../services/recommendations');
+  const now = new Date().toISOString();
+  db.prepare("INSERT INTO player_quests (player_id, quest_id, name, state, updated_at, can_start) VALUES (?, 50, 'Ready Quest', 'not_started', ?, 1)").run(B, now);
+  db.prepare("INSERT INTO player_quests (player_id, quest_id, name, state, updated_at, can_start) VALUES (?, 51, 'Locked Quest', 'not_started', ?, 0)").run(B, now);
+  db.prepare("INSERT INTO player_boss_kills (player_id, key, name, kills, updated_at, combat_req) VALUES (?, 'BSLAY_A', 'Easy Boss', 0, ?, 3)").run(B, now);
+  db.prepare("INSERT INTO player_boss_kills (player_id, key, name, kills, updated_at, combat_req) VALUES (?, 'BSLAY_B', 'Hard Boss', 0, ?, 138)").run(B, now);
+  const titles = () => recommend(G, B).map(r => r.goal.title);
+  assert.ok(titles().includes('Ready Quest'));
+  assert.ok(!titles().includes('Locked Quest'));
+  assert.ok(titles().includes('Easy Boss — 1 Kill'));
+  assert.ok(!titles().includes('Hard Boss — 1 Kill'), 'combat level too low');
+  goal(G, B, { title: 'Ready Quest', category: 'quest' });
+  assert.ok(!titles().includes('Ready Quest'));
+});

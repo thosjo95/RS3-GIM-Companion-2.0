@@ -100,6 +100,14 @@ router.get('/progress', (req, res) => {
   res.json(goalProgress(groupId));
 });
 
+// GET /api/goals/recommendations?group_id=X&player_id=Y — what to do next, from what the game reported
+router.get('/recommendations', (req, res) => {
+  const groupId = parseInt(req.query.group_id, 10);
+  if (!groupId) return res.status(400).json({ error: 'group_id required' });
+  if (!checkGroupAuth(req, res, groupId)) return;
+  res.json(require('../services/recommendations').recommend(groupId, parseInt(req.query.player_id, 10) || null));
+});
+
 // GET /api/goals?group_id=X
 router.get('/', (req, res) => {
   const { group_id } = req.query;

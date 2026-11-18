@@ -130,8 +130,12 @@ const check = (c, m) => { console.log((c ? 'PASS' : 'FAIL') + '  ' + m); if (!c)
 
   // 5d. lifetime boss kills from the game's boss records
   const bkSend = captured.map(c => JSON.parse(c.body)).find(b => b.boss_kills);
-  check(bkSend && bkSend.boss_kills.length === 2 && bkSend.boss_kills.find(b => b.key === 'BSLAY_BARROWS')?.kills === 142 && bkSend.boss_kills.find(b => b.key === 'BSLAY_KBD')?.name === 'King Black Dragon',
+  check(bkSend && bkSend.boss_kills.length === 3 && bkSend.boss_kills.find(b => b.key === 'BSLAY_BARROWS')?.kills === 142 && bkSend.boss_kills.find(b => b.key === 'BSLAY_KBD')?.name === 'King Black Dragon',
     'lifetime boss kills are read from the boss records (name + the achievement counter)');
+  check(bkSend.boss_kills.find(b => b.key === 'BSLAY_ARAXXI')?.kills === 0 && bkSend.boss_kills.find(b => b.key === 'BSLAY_BARROWS')?.combat_req === 85,
+    'bosses with no kills are reported once too, with their combat requirement');
+  check(s1.quests.find(q => q.name === 'Dragon Slayer').can_start === true && s1.quests.find(q => q.name === 'Demon Slayer').can_start === false,
+    'quests report whether the character can start them now');
   dostr('BOSS_ACH.BARROWS.tallyProgress = 150; TICK(320)');
   const bkLater = captured.map(c => JSON.parse(c.body)).filter(b => b.boss_kills).pop();
   check(bkLater.boss_kills.length === 1 && bkLater.boss_kills[0].key === 'BSLAY_BARROWS' && bkLater.boss_kills[0].kills === 150, 'only the changed boss count is sent again');

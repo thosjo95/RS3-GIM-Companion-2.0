@@ -50,7 +50,7 @@ id = {
 QUESTS = {
   [0] = { name = "Cook's Assistant", hasStartedQuest = true,  hasFinishedQuest = true,  isMembers = false, questPoints = 1 },
   [1] = { name = "Demon Slayer",     hasStartedQuest = true,  hasFinishedQuest = false, isMembers = false, questPoints = 3 },
-  [2] = { name = "Dragon Slayer",    hasStartedQuest = false, hasFinishedQuest = false, isMembers = true,  questPoints = 2 },
+  [2] = { name = "Dragon Slayer",    hasStartedQuest = false, hasFinishedQuest = false, isMembers = true,  questPoints = 2, canStartQuest = true },
   [3] = { name = "Old Cooking Quest", hasStartedQuest = false, hasFinishedQuest = false, isMembers = false, questPoints = 0, deprecated = true },
 }
 -- Achievements / area tasks (ACHS is changed by the harness to simulate completing one). progress -2 = complete.
@@ -70,9 +70,9 @@ VARS = { [9001] = 19, [9002] = 250, [9003] = 0 }
 var = { VarPlayer = { FromID = function(i) if VARS[i] == nil then return nil end return { value = VARS[i] } end } }
 -- Boss records (the game's tracker): a struct with BSLAY_NAME and a link to an achievement whose progress counter is the kill count
 BOSS_ACH = { BARROWS = { tallyProgress = 142, tallyTarget = 1 }, KBD = { tallyProgress = 3, tallyTarget = 1 } }
-local function bossStruct(name, ach) return { params = { BSLAY_NAME = name, BSLAY_ACHIEVEMENT = ach },
+local function bossStruct(name, ach, req) return { params = { BSLAY_NAME = name, BSLAY_ACHIEVEMENT = ach, BSLAY_COMBAT_REQ = req, BSLAY_GROUP_BOSS = false },
     HasParam = function(self, prm) return self.params[prm.name] ~= nil end, GetParamValue = function(self, prm) return self.params[prm.name] end } end
-config.Struct = { BSLAY_BARROWS = bossStruct("The Barrows Brothers", BOSS_ACH.BARROWS), BSLAY_KBD = bossStruct("King Black Dragon", BOSS_ACH.KBD) }
+config.Struct = { BSLAY_BARROWS = bossStruct("The Barrows Brothers", BOSS_ACH.BARROWS, 85), BSLAY_KBD = bossStruct("King Black Dragon", BOSS_ACH.KBD, 65), BSLAY_ARAXXI = bossStruct("Araxxi", { tallyProgress = 0, tallyTarget = 1 }, 90) }
 config.Param = setmetatable({}, { __index = function(t, k) return { name = k } end })
 config.Achievement = { FromID = function(i) return ACHS[i] end }
 config.Quest = { FromID = function(i) return QUESTS[i] end }

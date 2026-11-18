@@ -97,6 +97,7 @@ export const api = {
   // GIM 2.0 — data pushed by the in-game plugin
   getPluginState:    (groupId)          => request(`/plugin/state?group_id=${groupId}`),
   getPluginAchievements: (groupId) => request(`/plugin/achievements?group_id=${groupId}`),
+  getRecommendations: (groupId, playerId) => request(`/goals/recommendations?group_id=${groupId}${playerId ? `&player_id=${playerId}` : ''}`),
   getGoalProgress:   (groupId) => request(`/goals/progress?group_id=${groupId}`),
   getPluginQuests:   (groupId) => request(`/plugin/quests?group_id=${groupId}`),
   getPluginLedger:   (groupId, limit = 300) => request(`/plugin/ledger?group_id=${groupId}&limit=${limit}`),

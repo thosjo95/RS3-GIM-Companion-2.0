@@ -125,7 +125,8 @@ function cleanPayload(b) {
       if (!['not_started', 'started', 'finished'].includes(q.state)) throw new Error(`quests[${i}].state must be not_started, started or finished`);
       return { id: q.id, name: q.name.trim(), state: q.state,
         members: q.members === undefined ? null : (q.members ? 1 : 0),
-        points: isInt(q.points, 0, 1000) ? q.points : null };
+        points: isInt(q.points, 0, 1000) ? q.points : null,
+        canStart: q.can_start === undefined ? null : (q.can_start ? 1 : 0) };
     });
     out.questsFull = b.quests_full === true;
   }
@@ -154,7 +155,8 @@ function cleanPayload(b) {
       if (!k || typeof k.key !== 'string' || !/^[A-Z0-9_]{3,60}$/.test(k.key)) throw new Error(`boss_kills[${i}].key must be an upper-case record name`);
       if (typeof k.name !== 'string' || !k.name.trim() || k.name.length > 80) throw new Error(`boss_kills[${i}].name must be a string`);
       if (!isInt(k.kills, 0, 1e9)) throw new Error(`boss_kills[${i}].kills must be a non-negative integer`);
-      return { key: k.key, name: k.name.trim(), kills: k.kills };
+      return { key: k.key, name: k.name.trim(), kills: k.kills,
+        combatReq: isInt(k.combat_req, 0, 5000) ? k.combat_req : null, isGroup: k.group === undefined ? null : (k.group ? 1 : 0) };
     });
   }
 
@@ -281,8 +283,10 @@ router.post('/ingest', ingestLimiter, express.json({ limit: '1mb' }), (req, res)
 
     if (data.quests) applied.quests = sync.applyQuests(playerId, data.quests, data.questsFull, now);
     if (data.bossKills) {
-      const up = db.prepare('INSERT INTO player_boss_kills (player_id, key, name, kills, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(player_id, key) DO UPDATE SET name = excluded.name, kills = excluded.kills, updated_at = excluded.updated_at');
-      for (const k of data.bossKills) up.run(playerId, k.key, k.name, k.kills, now);
+      const up = db.prepare(`INSERT INTO player_boss_kills (player_id, key, name, kills, updated_at, combat_req, is_group) VALUES (?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(player_id, key) DO UPDATE SET name = excluded.name, kills = excluded.kills, updated_at = excluded.updated_at,
+          combat_req = COALESCE(excluded.combat_req, combat_req), is_group = COALESCE(excluded.is_group, is_group)`);
+      for (const k of data.bossKills) up.run(playerId, k.key, k.name, k.kills, now, k.combatReq, k.isGroup);
       applied.boss_kills = data.bossKills.length;
     }
     if (data.killVars) {

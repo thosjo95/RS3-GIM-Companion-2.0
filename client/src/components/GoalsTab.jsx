@@ -666,6 +666,48 @@ function SuggestionCard({ suggestion: s, selectedPlayers, alreadyAdded, onAdd, o
 
 // ── Goal Browser ──────────────────────────────────────────────────────────────
 
+// "Recommended next": suggestions built by the server from what the game reported (startable quests, untried bosses,
+// next area task, journey steps, skills near 99). New game content appears here by itself.
+function Recommended({ groupId, playerId, goals, canWrite, onAdded, onToast }) {
+  const [recs, setRecs] = useState([]);
+  const [busy, setBusy] = useState(null);
+  useEffect(() => {
+    if (!groupId) return;
+    api.getRecommendations(groupId, playerId).then(setRecs).catch(() => setRecs([]));
+  }, [groupId, playerId, goals.length]);
+  if (recs.length === 0) return null;
+  const KIND = { quest: 'quests', boss: 'bosses', 'area task': 'areaTasks', journey: 'journey', skill: 'skills' };
+  async function add(r) {
+    if (!canWrite) return onToast('Unlock group to add goals', 'error');
+    setBusy(r.goal.title);
+    try {
+      const g = r.goal;
+      const res = await api.createGoal({ type: 'group', owner_id: playerId || null, title: g.title, category: g.category,
+        skill: g.skill ?? null, target_value: g.target_value != null ? String(g.target_value) : null, priority: 'medium',
+        status: 'not_started', details_json: g.details ?? {} });
+      onToast(res?.alreadyDone ? `Already done: ${g.title}` : `Added: ${g.title}`, 'success');
+      onAdded();
+    } catch (e) { onToast(e.message, 'error'); } finally { setBusy(null); }
+  }
+  return (
+    <div className="card" style={{ padding: 12 }}>
+      <div className="section-title" style={{ marginBottom: 8 }}>Recommended next</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 8 }}>
+        {recs.slice(0, 12).map(r => (
+          <div key={r.kind + r.goal.title} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: 8, background: 'var(--bg-root)', borderRadius: 6 }}>
+            <RsIcon name={KIND[r.kind] || 'goals'} fallback="⭐" size={20} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.goal.title}</div>
+              <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>{r.reason}</div>
+            </div>
+            <button className="btn btn-sm" disabled={busy === r.goal.title} onClick={() => add(r)}>+ Add goal</button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function GoalBrowser({ players, goals, onAdd, canWrite, addingId, onCreateCustom, achievements, groupId, myPlayerId, focusPlayerId = null }) {
   const DISMISSED_KEY = `rs3gim_dismissed_suggestions_${groupId || 'default'}`;
   const autoStage = useMemo(() => detectStage(players), [players]);
@@ -1209,7 +1251,9 @@ export default function GoalsTab({ group, goals, players, groupId, onRefresh, on
 
       {/* ── Goal Browser ── */}
       {activeSection === 'browser' && (
-        <div data-tour="goals-browser"><GoalBrowser
+        <div data-tour="goals-browser" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <Recommended groupId={groupId} playerId={selectedPlayerId ?? myPlayerId} goals={goals} canWrite={canWrite} onAdded={onRefresh} onToast={onToast} />
+        <GoalBrowser
           players={players}
           goals={goals}
           onAdd={addSuggestion}

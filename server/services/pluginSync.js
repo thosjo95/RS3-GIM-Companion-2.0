@@ -28,9 +28,9 @@ function bossKeyForNpc(npcName) {
 function applyQuests(playerId, quests, full, now) {
   const prev = new Map(db.prepare('SELECT quest_id, state FROM player_quests WHERE player_id = ?').all(playerId).map(r => [r.quest_id, r.state]));
   const upsert = db.prepare(`
-    INSERT INTO player_quests (player_id, quest_id, name, state, members, points, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO player_quests (player_id, quest_id, name, state, members, points, updated_at, can_start) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(player_id, quest_id) DO UPDATE SET name = excluded.name, state = excluded.state,
-      members = excluded.members, points = excluded.points, updated_at = excluded.updated_at
+      members = excluded.members, points = excluded.points, updated_at = excluded.updated_at, can_start = excluded.can_start
   `);
   // A full list is the plugin's complete picture: anything stored earlier that it no longer lists (for example
   // quests it now knows are deprecated) is removed.
@@ -42,7 +42,7 @@ function applyQuests(playerId, quests, full, now) {
   const finished = [];
   for (const q of quests) {
     const before = prev.get(q.id);
-    upsert.run(playerId, q.id, q.name, q.state, q.members, q.points, now);
+    upsert.run(playerId, q.id, q.name, q.state, q.members, q.points, now, q.canStart);
     const becameFinished = q.state === 'finished' && before !== 'finished' && (before !== undefined || !full);
     if (becameFinished) finished.push(q.name);
   }

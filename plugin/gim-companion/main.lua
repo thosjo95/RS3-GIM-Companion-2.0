@@ -268,6 +268,9 @@ local function readQuest(questId)
     if okR and entry == false then return false end   -- deprecated: skip it, but it is not a gap in the id range
     if not okR or type(entry.name) ~= "string" or entry.name == "" then return nil end
     if type(entry.points) ~= "number" then entry.points = nil end
+    -- Can this character start the quest right now (all requirements met)? Used for "you can start this" suggestions.
+    local okS, canStart = pcall(function() return quest.canStartQuest end)
+    entry.can_start = okS and canStart == true
     return entry
 end
 
@@ -291,7 +294,7 @@ local function questScanStep()
         else
             scan.misses = 0
             scan.seen = scan.seen + 1
-            if questHeld[questId] ~= entry.state then scan.changed[#scan.changed + 1] = entry end
+            if questHeld[questId] ~= (entry.state .. (entry.can_start and "+" or "-")) then scan.changed[#scan.changed + 1] = entry end
         end
     end
     scan.next = last + 1
@@ -582,8 +585,12 @@ local function scanBosses()
                 found = found + 1
                 kills = math.max(0, math.floor(kills))
                 if kills > 0 then nonzero = nonzero + 1 end
-                if bossHeld[rec] ~= kills and (kills > 0 or bossHeld[rec] ~= nil) then
-                    changed[#changed + 1] = { key = rec, name = name, kills = kills }
+                -- Every boss is reported once (even with 0 kills) so the dashboard can suggest bosses you have not tried.
+                if bossHeld[rec] ~= kills then
+                    local req = structParam(st, "BSLAY_COMBAT_REQ")
+                    local grp = structParam(st, "BSLAY_GROUP_BOSS")
+                    changed[#changed + 1] = { key = rec, name = name, kills = kills,
+                                              combat_req = type(req) == "number" and math.floor(req) or nil, group = grp == 1 or grp == true }
                 end
             end
         end
@@ -1376,7 +1383,7 @@ local function send()
             if sentSkills then dirty.skills = false end
             dirty.items = false
             if sentQuests then
-                for _, q in ipairs(sentQuests) do questHeld[q.id] = q.state end
+                for _, q in ipairs(sentQuests) do questHeld[q.id] = q.state .. (q.can_start and "+" or "-") end
                 questBaselineDone = true
                 if questChanges == sentQuests then questChanges = nil end
             end

@@ -339,6 +339,11 @@ for (const col of ['description TEXT', 'reward TEXT', 'tally_progress INTEGER', 
   try { db.exec('ALTER TABLE player_achievements ADD COLUMN ' + col); } catch {}
 }
 
+// Facts the dashboard uses for recommendations: "can this player start the quest now" and a boss's requirements.
+try { db.exec('ALTER TABLE player_quests ADD COLUMN can_start INTEGER'); } catch {}
+try { db.exec('ALTER TABLE player_boss_kills ADD COLUMN combat_req INTEGER'); } catch {}
+try { db.exec('ALTER TABLE player_boss_kills ADD COLUMN is_group INTEGER'); } catch {}
+
 // The group's shared storage contents (the same for every member; the newest snapshot from any member wins).
 try { db.exec('ALTER TABLE player_live_state ADD COLUMN group_storage_json TEXT'); } catch {}
 try { db.exec('ALTER TABLE player_live_state ADD COLUMN group_storage_at TEXT'); } catch {}

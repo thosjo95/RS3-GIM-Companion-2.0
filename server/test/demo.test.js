@@ -69,3 +69,11 @@ test('building it again replaces the old demo group', () => {
   demo.createDemoGroup(require('../services/demoTemplate.json'));
   assert.equal(db.prepare('SELECT COUNT(*) n FROM groups WHERE is_demo = 1').get().n, 1);
 });
+
+test('the demo group comes first when browsing and when searching', async () => {
+  const id = db.prepare('SELECT id FROM groups WHERE is_demo = 1').get().id;
+  const browse = await (await call('GET', '/groups/search?limit=5')).json();
+  assert.equal(browse[0].id, id);
+  const found = await (await call('GET', '/groups/search?name=Misthalin')).json();
+  assert.equal(found[0].id, id);
+});

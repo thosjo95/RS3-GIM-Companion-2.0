@@ -37,7 +37,7 @@ router.get('/search', (req, res) => {
       LEFT JOIN players p ON p.group_id = g.id
       WHERE 1=1 ${devFilter}
       GROUP BY g.id
-      ORDER BY g.last_activity DESC, member_count DESC, g.created_at DESC
+      ORDER BY g.is_demo DESC, g.last_activity DESC, member_count DESC, g.created_at DESC   -- the demo group always comes first
       LIMIT ?
     `).all(cap);
     return res.json(groups);
@@ -52,7 +52,7 @@ router.get('/search', (req, res) => {
     LEFT JOIN players p ON p.group_id = g.id
     WHERE (g.name LIKE ? OR g.group_rsn LIKE ?) ${devFilter}
     GROUP BY g.id
-    ORDER BY member_count DESC, g.last_activity DESC, g.created_at DESC
+    ORDER BY g.is_demo DESC, member_count DESC, g.last_activity DESC, g.created_at DESC
     LIMIT ?
   `).all(`%${name.trim()}%`, `%${name.trim()}%`, cap);
   res.json(groups);

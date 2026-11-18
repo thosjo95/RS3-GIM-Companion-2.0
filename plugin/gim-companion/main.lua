@@ -43,7 +43,15 @@ local FEATURES = { quests = true, kills = true, drops = true }
 if type(settings.features) == "table" then
     for name in pairs(FEATURES) do if settings.features[name] == false then FEATURES[name] = false end end
 end
-local function trace(msg) if DEBUG then log("[GIM] > " .. msg) end end
+-- A breadcrumb is saved to the game's own data store, which survives a client crash: after a crash the
+-- last step reached can be read back from PluginData.db (key "gim_last_step").
+local function breadcrumb(msg)
+    pcall(function() PersistentDB:SetString("gim_last_step", msg) end)
+end
+local function trace(msg)
+    breadcrumb(msg)
+    if DEBUG then log("[GIM] > " .. msg) end
+end
 
 local PAYLOAD_VERSION    = 1
 local HEARTBEAT_TICKS    = 50    -- ServerLogic fires about every 0.6 s, so about 30 s
@@ -552,20 +560,22 @@ local function runProbe()
     if kind == "local" then base, path = Plugin.urls.gim, "/api/health"
     elseif kind == "https" then base, path = Plugin.urls.probe, "/zen" end
     if base == nil then log("[GIM] probe: unknown kind or missing url for " .. tostring(kind)); return end
+    trace("probe 1/4: about to check httpAccess")
     log("[GIM] probe 1/4: has httpAccess = " .. tostring(Plugin.HasPermission(PluginPermissions.httpAccess)))
-    log("[GIM] probe 2/4: creating request " .. tostring(kind) .. " " .. path)
+    trace("probe 2/4: about to create request " .. tostring(kind) .. " " .. path)
     local okReq, request = pcall(HTTPRequest.new, base, path)
     if not okReq or request == nil then log("[GIM] probe: could not create request: " .. tostring(request)); return end
-    log("[GIM] probe 3/4: sending GET")
+    trace("probe 3/4: request created, about to call Get")
     request:Get(function()
+        breadcrumb("probe 4/4: callback reached")
         log("[GIM] probe 4/4: finished. successful=" .. tostring(request.successful) .. " code=" .. tostring(request.responseCode)
             .. " error=" .. tostring(request.errorInfo) .. " data=" .. tostring(request.data):sub(1, 80))
     end)
-    log("[GIM] probe: GET handed to the game")
+    trace("probe: Get returned")
 end
 
 -- ── 8. Scheduling ─────────────────────────────────────────────────────────────
-local function onInventoryEvent() markItemsDirty(); packDirtyAt = ticks end
+local function onInventoryEvent() markItemsDirty(); if FEATURES.drops then packDirtyAt = ticks end end
 
 Event.SkillTransmit.Subscribe("gim_skill", function() dirty.skills = true end)
 Event.InventoryUpdated.Subscribe("gim_inv_updated", onInventoryEvent)

@@ -1002,6 +1002,53 @@ local function probe6Step()
     end
 end
 
+-- ── 4j. Slayer creature record dump (beta debugging; config.lua: trackerProbe = "creatures") ────────────────────
+-- Slayer creatures are structs with a SLAYER_NAME. This saves one compact line per creature (name, type, example npc,
+-- level requirements) so each can be matched to the tracker's packed kill counters. Uses the same saved-data keys
+-- as the boss record dump (gim_probe_1 ...).
+local probe7 = nil
+local function probe7Start()
+    probe7 = { next = 0, last = 80000, misses = 0, found = 0, lines = {}, done = false, savedAt = 0 }
+    probeLog("creature record dump started (about 5 minutes)")
+end
+local function probe7Step()
+    local p = probe7
+    if p == nil or p.done then return end
+    local last = math.min(p.next + 200 - 1, p.last)
+    for sid = p.next, last do
+        local okS, st = pcall(function() return config.Struct.FromID(sid) end)
+        if not okS or st == nil then
+            p.misses = p.misses + 1
+            if p.misses >= 4000 and p.found > 0 then last = p.last; break end
+        else
+            p.misses = 0
+            local name = p3Value(st, "SLAYER_NAME")
+            if type(name) == "string" then
+                p.found = p.found + 1
+                local okC, cname = pcall(function() return st.configName end)
+                local npc = p3Text(p3Value(st, "SLAYER_EXAMPLE_NPC")):gsub("config%.NPC%.", "")
+                local line = table.concat({
+                    sid, name,
+                    "type=" .. p3Text(p3Value(st, "SLAYER_TYPE")),
+                    "npc=" .. npc,
+                    "sl=" .. p3Text(p3Value(st, "SLAYER_SL_REQ")),
+                    "cl=" .. p3Text(p3Value(st, "SLAYER_CL_REQ")),
+                    (okC and cname or "")
+                }, "|")
+                p.lines[#p.lines + 1] = line
+                if p.found <= 4 then probeLog("creature " .. line) end
+                if p.found - p.savedAt >= 25 then p.savedAt = p.found; p3Save(p) end
+            end
+        end
+    end
+    p.next = last + 1
+    if p.next > p.last then
+        p.done = true
+        p3Save(p)
+        probeLog("creature dump finished: " .. p.found .. " creatures saved")
+    end
+end
+
 -- ── 5. Kills ──────────────────────────────────────────────────────────────────
 -- The game announces "an NPC was removed" for deaths but also for NPCs that merely leave your view. So a
 -- removal only counts as YOUR kill when it is the monster named on your target display, its health moved
@@ -1441,6 +1488,9 @@ Event.ServerLogic.Subscribe("gim_tick", function()
 
     if settings.trackerProbe == true and Player.IsAvailable() then
         if probe == nil then probeStart() else probeStep() end
+    end
+    if settings.trackerProbe == "creatures" and Player.IsAvailable() then
+        if probe7 == nil then probe7Start() else probe7Step() end
     end
     if settings.trackerProbe == "slayer" and Player.IsAvailable() then
         if probe6 == nil then probe6Start() else probe6Step() end

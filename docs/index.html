@@ -736,6 +736,7 @@ npm run build --prefix client</code></pre>
       <li>Exact lifetime boss kills from the game's boss records; raw kill tracker variables.</li>
       <li>Live kill counting and valuable drop detection (ground and auto-loot), with rules served by the server.</li>
       <li>Retry-safe sending: kill batches, ledger batches and drops carry references the server de-duplicates.</li>
+      <li>Quests report whether the character can start them now; every boss is reported once (even with no kills) with its combat requirement, so the dashboard can recommend what to try next.</li>
       <li>Hardening found in the beta: requests created from a Lua function (a direct <code>pcall</code> crashed the client), no <code>os</code>, completion-only callbacks, incremental scans, crash-safe breadcrumbs, dry-run and feature switches.</li>
     </ul>
     <h4>Server</h4>
@@ -743,6 +744,9 @@ npm run build --prefix client</code></pre>
       <li>Plugin API with per-player tokens, character check, strict validation, rate limit, group-authenticated reads.</li>
       <li>Quest goals complete from in-game progress; area task grid filled from the game; boss-kill view prefers the game's exact count.</li>
       <li>Bank Journal limited to the group storage; stored group storage contents.</li>
+      <li>Goal tracker: goals the players already achieved (skill levels incl. the plugin's live levels, quests, area tasks, boss kills) are completed automatically, with live progress ("Slayer 71 / 85", "Giant Mole 13 / 50").</li>
+      <li>Recommendations built from what the game reports (<code>GET /api/goals/recommendations</code>): quests you can start now, bosses you have not killed and are combat-ready for, next area task tier per region, next Journey steps, skills near 99. New game content shows up without a code change.</li>
+      <li>Slayer creature kills from the game's tracker variables (<code>GET /api/plugin/slayer-kills</code>).</li>
     </ul>
     <h4>Dashboard</h4>
     <ul>
@@ -750,7 +754,9 @@ npm run build --prefix client</code></pre>
       <li>Group Vault with the group storage and everyone's bank, plus the Bank Journal; Plugin setup moved to the top bar.</li>
       <li>Quests &amp; Area Tasks on one page with an always-visible Group Ironman Journey panel.</li>
       <li>Group name, type, members and rank in the top bar; official RuneScape icons in the navigation.</li>
-      <li>Firsts counts killed bosses when the Adventurer's Log feed has no entry.</li>
+      <li>Firsts counts killed bosses when the Adventurer's Log feed has no entry, and shows official RuneScape boss and item images.</li>
+      <li>Goals: official RuneScape icons everywhere, a "Recommended next" panel, live goal progress, quests finished in the game count as done, and the top player bar replaces the second player filter.</li>
+      <li>Leaderboards: a Slayer Kills tab (creatures matched to the game's counters so far).</li>
       <li>Items refresh by themselves every few seconds.</li>
     </ul>
 

@@ -56,6 +56,7 @@ export const api = {
   claimGroupV2: (id, oldSecret) => request(`/groups/${id}/claim-v2`, { method: 'POST', body: { old_secret: oldSecret } }),
   claimGroup: (id) => request(`/groups/${id}/claim`, { method: 'POST', body: {} }),
   getWebhook:  (id)        => request(`/groups/${id}/webhook`),
+  setDropMin: (id, value)  => request(`/groups/${id}/drop-min`, { method: 'PUT', body: { value } }),
   saveWebhook: (id, body)  => request(`/groups/${id}/webhook`, { method: 'PUT', body }),
   testWebhook: (id, url)   => request(`/groups/${id}/webhook/test`, { method: 'POST', body: { webhook_url: url } }),
 

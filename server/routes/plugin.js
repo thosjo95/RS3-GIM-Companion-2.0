@@ -42,7 +42,7 @@ const ingestLimiter = createRateLimiter({ windowMs: 60_000, max: 60, message: 'T
 // Limits per section — generous for real use, small enough to stop abuse.
 const MAX = { inventory: 100, equipment: 30, bank: 6000, changes: 500, quests: 900, kills: 200, drops: 50, achievements: 1500 };
 // gp; the plugin also reports any item named in a boss's drop table. GIM_DROP_THRESHOLD overrides it for testing.
-const DROP_THRESHOLD = Number(process.env.GIM_DROP_THRESHOLD) || 100_000;
+const { DEFAULT_MIN: DROP_THRESHOLD, groupMin } = require('../utils/dropRules');
 
 const isInt = (v, min, max) => Number.isInteger(v) && v >= min && v <= max;
 
@@ -453,7 +453,9 @@ router.get('/config', (req, res) => {
   const token = header.startsWith('Bearer ') ? header.slice(7).trim() : '';
   const ok = token.startsWith(TOKEN_PREFIX) && db.prepare('SELECT 1 FROM plugin_tokens WHERE token_hash = ? AND revoked = 0').get(hashToken(token));
   if (!ok) return res.status(401).json({ error: 'Missing or invalid plugin token' });
-  res.json({ drop_threshold: DROP_THRESHOLD, rare_names: sync.rareItemNames() });
+  // the group's own minimum, so the plugin reports less when the group wants fewer drops (read when the plugin starts)
+  const mine = db.prepare('SELECT p.group_id FROM plugin_tokens t JOIN players p ON p.id = t.player_id WHERE t.token_hash = ?').get(hashToken(token));
+  res.json({ drop_threshold: mine ? groupMin(mine.group_id) : DROP_THRESHOLD, rare_names: sync.rareItemNames() });
 });
 
 // GET /api/plugin/presence?group_id= — who is online and playing: the plugin has been heard from in the last 3 minutes.

@@ -368,6 +368,9 @@ db.exec(`
   if (added && wasV2) db.exec('UPDATE groups SET claimed_v2_at = CURRENT_TIMESTAMP WHERE password_hash IS NOT NULL');
 }
 
+// A group's own minimum value (gp) for a drop to show in its Drops. NULL = the server default (100K).
+try { db.exec('ALTER TABLE groups ADD COLUMN drop_min_value INTEGER'); } catch { /* already there */ }
+
 // The public demo group ("Misthalin Five (Demo)"): made-up players, readable by everyone, never writable, never synced
 // with the hiscores, kept by a feeder (services/demoGroup.js) so the page looks alive.
 try { db.exec('ALTER TABLE groups ADD COLUMN is_demo INTEGER NOT NULL DEFAULT 0'); } catch { /* already there */ }

@@ -6,6 +6,7 @@ const { fetchHiscores, calcCombatLevel } = require('../services/runescape');
 const { hashPassword, verifyGroupPassword, checkGroupAuth } = require('../utils/auth');
 const { sendTestWebhook, isValidDiscordWebhookUrl, DEFAULT_EVENTS } = require('../services/discord');
 const { createRateLimiter } = require('../utils/rateLimit');
+const { groupMin, MAX_MIN } = require('../utils/dropRules');
 
 // Lookup/refresh fan out to RS3 hiscores; keep them usable but not hammer-able.
 const lookupLimiter = createRateLimiter({ windowMs: 60_000, max: 15 });
@@ -252,7 +253,7 @@ router.get('/:id/rank', async (req, res) => {
 
 router.get('/:id', (req, res) => {
   const group = db.prepare(
-    'SELECT id, name, group_rsn, notes, gim_type, gim_size, created_at, last_activity, (password_hash IS NOT NULL) as is_claimed, needs_rekey, is_demo FROM groups WHERE id = ?'
+    'SELECT id, name, group_rsn, notes, gim_type, gim_size, created_at, last_activity, (password_hash IS NOT NULL) as is_claimed, needs_rekey, is_demo, drop_min_value FROM groups WHERE id = ?'
   ).get(req.params.id);
   if (!group) return res.status(404).json({ error: 'Group not found' });
 
@@ -395,6 +396,16 @@ function newGroupSecret() {
   const seg = () => Array.from({ length: 4 }, () => chars[crypto.randomInt(chars.length)]).join('');
   return `${seg()}-${seg()}-${seg()}`;
 }
+
+// PUT /api/groups/:id/drop-min { value } — the smallest drop (total gp) the group wants in its Drops; null = the default
+router.put('/:id/drop-min', (req, res) => {
+  if (!checkGroupAuth(req, res, req.params.id)) return;
+  const raw = req.body?.value;
+  const value = raw === null || raw === '' || raw === undefined ? null : Number(raw);
+  if (value !== null && !(Number.isInteger(value) && value >= 0 && value <= MAX_MIN)) return res.status(400).json({ error: 'value must be a whole number of gp, 0 or more' });
+  db.prepare('UPDATE groups SET drop_min_value = ? WHERE id = ?').run(value, req.params.id);
+  res.json({ ok: true, drop_min_value: value, effective: groupMin(req.params.id) });
+});
 
 // POST /api/groups/:id/claim - generate a secret and claim an unclaimed group
 router.post('/:id/claim', (req, res) => {

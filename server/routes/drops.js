@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../database');
 const { checkGroupAuth } = require('../utils/auth');
+const { groupMin } = require('../utils/dropRules');
 
 function playerGroupId(playerId) {
   return db.prepare('SELECT group_id FROM players WHERE id = ?').get(playerId)?.group_id;
@@ -18,8 +19,9 @@ router.get('/', (req, res) => {
       SELECT d.*, p.rsn FROM drops d
       JOIN players p ON p.id = d.player_id
       WHERE p.group_id = ?
+        AND (d.value_gp IS NULL OR d.value_gp = 0 OR d.value_gp * COALESCE(d.quantity, 1) >= ?)   -- the group's own minimum; drops of unknown value stay
       ORDER BY d.dropped_at DESC
-    `).all(group_id);
+    `).all(group_id, groupMin(group_id));
   } else {
     rows = db.prepare(`
       SELECT d.*, p.rsn FROM drops d

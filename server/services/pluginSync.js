@@ -145,6 +145,7 @@ const toSqlDate = iso => (iso ? iso.replace('T', ' ').replace(/\.\d+Z$|Z$/, '') 
 
 function applyDrops(playerId, drops) {
   let added = 0;
+  const minValue = require('../utils/dropRules').groupMin(db.prepare('SELECT group_id FROM players WHERE id = ?').get(playerId)?.group_id);   // the group's own minimum
   const insert = db.prepare(`
     INSERT OR IGNORE INTO drops (player_id, item_name, boss_name, quantity, value_gp, notes, dropped_at, source, sig)
     VALUES (?, ?, ?, ?, ?, 'Detected by the plugin', COALESCE(?, CURRENT_TIMESTAMP), 'plugin', ?)
@@ -161,7 +162,7 @@ function applyDrops(playerId, drops) {
     if (existing) { if (d.npc) learnBoss.run(d.npc, existing.id); continue; }
     const n = insert.run(playerId, d.name, d.npc, d.quantity, d.value, when, d.ref).changes;
     added += n;
-    if (n) { try { require('./discord').notifyDrop(playerId, d.name); } catch { /* a webhook problem must not break ingest */ } }
+    if (n && (!d.value || d.value * (d.quantity || 1) >= minValue)) { try { require('./discord').notifyDrop(playerId, d.name); } catch { /* a webhook problem must not break ingest */ } }
   }
   return added;
 }

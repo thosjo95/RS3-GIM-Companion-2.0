@@ -257,14 +257,14 @@ function feedOnce(now = new Date()) {
     db.prepare('UPDATE player_live_state SET updated_at = ?, skills_json = ?, inventory_json = ?, world = ? WHERE player_id = ?').run(at, JSON.stringify(skills), JSON.stringify(inv), 70 + i, p.id);
 
     // a boss kill
-    if (Math.random() < 0.05) {
+    if (Math.random() < 0.03) {
       const b = db.prepare('SELECT key, name, kills FROM player_boss_kills WHERE player_id = ? ORDER BY RANDOM() LIMIT 1').get(p.id);
       if (b) {
         const total = b.kills + 1;
         db.prepare('UPDATE player_boss_kills SET kills = ?, updated_at = ? WHERE player_id = ? AND key = ?').run(total, at, p.id, b.key);
         db.prepare("INSERT INTO progress_log (player_id, kind, key, name, gain, total, at) VALUES (?, 'boss', ?, ?, 1, ?, ?)").run(p.id, b.key, b.name, total, at);
         addActivity(p, `I killed ${b.name}.`, `I killed ${b.name}.`);
-        if (Math.random() < 0.3) {
+        if (Math.random() < 0.08) {
           const [item, val] = pickOne(KILL_DROPS);
           db.prepare("INSERT INTO drops (player_id, item_name, boss_name, quantity, value_gp, notes, dropped_at, source, sig) VALUES (?, ?, ?, 1, ?, 'Detected by the plugin', ?, 'plugin', ?)")
             .run(p.id, item, b.name, val, at, `demo-${p.id}-${now.getTime()}`);

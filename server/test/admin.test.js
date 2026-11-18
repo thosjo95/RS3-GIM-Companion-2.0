@@ -56,7 +56,7 @@ test('new secret: unlocks the group on 2.0 and records the adoption', async () =
 
 test('the dashboard can ask whether this is the preview server', async () => {
   const c = await (await fetch(`http://localhost:${PORT}/api/config`)).json();
-  assert.deepEqual(c, { preview: false, copied: null, plugin_live: false });
+  assert.deepEqual(c, { preview: false, copied: null, plugin_live: false, drop_default_min: 100000 });
 });
 
 test('the old 1.x review queue, audit log and wiki scan are gone', async () => {

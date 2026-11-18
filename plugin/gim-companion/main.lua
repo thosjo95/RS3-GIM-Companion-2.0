@@ -487,6 +487,86 @@ local function scanKillVars()
     if changed then killVarsChanged = changed; markItemsDirty() end
 end
 
+-- ── 4d. Kill tracker table probe (beta debugging, off unless config.lua sets trackerProbe = true) ──────────────
+-- The game's kill tracker (Adventures > Beasts) is drawn from data tables: one row per boss / slayer creature. This
+-- one-off probe finds the tables whose names look related and prints their layout and a few rows, so the mapping from
+-- creature name to the variable holding its count can be written down. It only reads; it prints at most ~70 lines.
+local probe = nil
+local probeLines = 0
+local function probeLog(msg)
+    if probeLines < 70 then probeLines = probeLines + 1; log("[GIM] tracker probe: " .. msg) end
+end
+local function probeDescribeValues(row, col)
+    local okV, vals = pcall(function() return row:GetColumnValues(col) end)
+    if not okV or type(vals) ~= "table" then return "?" end
+    local parts = {}
+    for i = 1, math.min(#vals, 4) do
+        local v = vals[i]
+        parts[#parts + 1] = type(v) == "string" and ('"' .. v:sub(1, 40) .. '"') or tostring(v)
+    end
+    if #vals == 0 then return "(none)" end
+    return table.concat(parts, ", ")
+end
+
+local function probeStart()
+    probe = { stage = "tables", next = 0, tableLast = 4000, rowLast = 90000, tables = {}, seenRows = {}, rowsPrinted = 0, tableMisses = 0 }
+    probeLog("started - looking for kill tracker tables, then their rows (about 5-6 minutes)")
+end
+
+local function probeStep()
+    if probe == nil or probe.stage == "done" then return end
+    if probe.stage == "tables" then
+        local last = math.min(probe.next + 80 - 1, probe.tableLast)
+        for tid = probe.next, last do
+            local okT, tbl = pcall(function() return config.DBTable.FromID(tid) end)
+            if okT and tbl ~= nil then
+                local okN, name = pcall(function() return tbl.configName end)
+                if okN and type(name) == "string" and name:lower():find("bslay") then
+                    local okC, cols = pcall(function() return tbl.columnCount end)
+                    probe.tables[tid] = name
+                    probeLog("table " .. name .. " (id " .. tid .. ", " .. tostring(okC and cols or "?") .. " columns)")
+                    if okC and type(cols) == "number" then
+                        for c = 1, math.min(cols, 12) do
+                            local okTy, types = pcall(function() return tbl:GetColumnValueTypes(c) end)
+                            local desc = {}
+                            if okTy and type(types) == "table" then for _, ty in ipairs(types) do desc[#desc + 1] = tostring(ty) end end
+                            probeLog("  column " .. c .. " types: " .. (#desc > 0 and table.concat(desc, ", ") or "(server only)"))
+                        end
+                    end
+                end
+            end
+        end
+        probe.next = last + 1
+        if probe.next > probe.tableLast then
+            local n = 0
+            for _ in pairs(probe.tables) do n = n + 1 end
+            probeLog("table scan finished: " .. n .. " matching table(s)")
+            if n == 0 then probe.stage = "done"; probeLog("no table with 'bslay' in its name; nothing more to scan") else probe.stage = "rows"; probe.next = 0 end
+        end
+        return
+    end
+    -- rows: ids are scanned in steps; only rows that belong to a matching table are looked at
+    local last = math.min(probe.next + 400 - 1, probe.rowLast)
+    for rid = probe.next, last do
+        local okR, row = pcall(function() return config.DBRow.FromID(rid) end)
+        if okR and row ~= nil then
+            local okO, owner = pcall(function() return row.ownerDBTable.id end)
+            if okO and probe.tables[owner] and (probe.seenRows[owner] or 0) < 6 then
+                probe.seenRows[owner] = (probe.seenRows[owner] or 0) + 1
+                local okN, rname = pcall(function() return row.configName end)
+                local okC, cols = pcall(function() return row.columnCount end)
+                local bits = {}
+                if okC and type(cols) == "number" then
+                    for c = 1, math.min(cols, 12) do bits[#bits + 1] = c .. "=" .. probeDescribeValues(row, c) end
+                end
+                probeLog("row " .. tostring(okN and rname or rid) .. " [" .. probe.tables[owner] .. "] " .. table.concat(bits, " | "))
+            end
+        end
+    end
+    probe.next = last + 1
+    if probe.next > probe.rowLast then probe.stage = "done"; probeLog("finished") end
+end
+
 -- ── 5. Kills ──────────────────────────────────────────────────────────────────
 -- The game announces "an NPC was removed" for deaths but also for NPCs that merely leave your view. So a
 -- removal only counts as YOUR kill when it is the monster named on your target display, its health moved
@@ -913,6 +993,10 @@ Event.ServerLogic.Subscribe("gim_tick", function()
 
     -- Drop rules: fetch when logged in and missing; retry about every 3 minutes if the server did not answer.
     if FEATURES.killtracker and Player.IsAvailable() and ticks - lastKillVarCheck >= KILLVAR_RECHECK then scanKillVars() end
+
+    if settings.trackerProbe == true and Player.IsAvailable() then
+        if probe == nil then probeStart() else probeStep() end
+    end
 
     if FEATURES.achievements and Player.IsAvailable() then
         if achScan ~= nil then achScanStep()

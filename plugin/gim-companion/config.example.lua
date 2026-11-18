@@ -8,5 +8,6 @@ return {
     -- features = { quests = true, kills = true, drops = true },
     -- dryRun = true,   -- read the game and print what would be sent, without any network request
     -- probe = "local",   -- beta debugging: one test GET ("local" = this dev server, "https" = a public site)
+    -- trackerProbe = true,   -- beta debugging: print the layout of the game's kill tracker tables (once, takes ~6 minutes)
     -- debug = false,   -- true (default) prints a "[GIM] >" line before each step
 }

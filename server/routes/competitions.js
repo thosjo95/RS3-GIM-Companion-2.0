@@ -5,7 +5,7 @@ const { checkGroupAuth, verifyGroupPassword } = require('../utils/auth');
 const { standings, snapshotPlayer, PLUGIN_METRICS } = require('../services/metrics');
 
 const PERIODS = { day: 24 * 3600 * 1000, week: 7 * 24 * 3600 * 1000, month: 30 * 24 * 3600 * 1000 };
-const METRICS = ['xp', 'quest_points', 'boss_kills', 'slayer_kills', 'total_level', 'drops'];
+const METRICS = ['xp', 'quest_points', 'boss_kills', 'slayer_kills', 'total_level', 'drops', 'clues'];
 
 // The boards every group has by default (group leaderboard on the front page).
 const DEFAULT_BOARDS = [
@@ -15,6 +15,7 @@ const DEFAULT_BOARDS = [
   { id: 'bosses',   title: 'Most boss kills',         metric: 'boss_kills',   target: 'all',     unit: 'kills' },
   { id: 'slayer',   title: 'Most slayer kills',       metric: 'slayer_kills', target: null,      unit: 'kills' },
   { id: 'drops',    title: 'Most drops',              metric: 'drops',        target: null,      unit: 'drops' },
+  { id: 'clues',    title: 'Most clues completed',    metric: 'clues',        target: 'all',     unit: 'clues' },
 ];
 
 // A read is "unlocked" when the group has no secret or the request carries the right one. Plugin-based numbers are

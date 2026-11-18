@@ -36,6 +36,7 @@ async function syncOne(player, { events }, svc) {
   let prevStats = {};
   try { prevStats = player.stats_json ? JSON.parse(player.stats_json) : {}; } catch { /* corrupt: ignore */ }
   const statsJson = JSON.stringify({ activities: data.activities, questsComplete: prevStats.questsComplete ?? null, questsStarted: prevStats.questsStarted ?? null });
+  try { require('./progressLog').logClueGains(player.id, prevStats.activities, data.activities); } catch (e) { console.error('[clue log]', e.message); }
   const activitiesJson = rm ? JSON.stringify(rm.activities) : null;
 
   db.prepare('UPDATE players SET last_synced = CURRENT_TIMESTAMP, combat_level = ?, stats_json = ?, activities_json = COALESCE(?, activities_json) WHERE id = ?')

@@ -14,6 +14,7 @@
  *   GET    /api/plugin/boss-kills?group_id    lifetime boss kills from the game       (group auth)
  *   GET    /api/plugin/kill-vars?group_id     the game's kill tracker values, raw    (group auth)
  *   GET    /api/plugin/xp-drops?group_id&since  XP gained per skill between updates (group auth)
+ *   GET    /api/plugin/progress-log?group_id&kind=boss|clue  the boss log / clue log (group auth)
  *
  * Design rules:
  *  - Players only ever use the group secret. The plugin trades it once for a key (token) that belongs to exactly one
@@ -353,6 +354,7 @@ router.post('/ingest', ingestLimiter, express.json({ limit: '1mb' }), (req, res)
 
     if (data.quests) applied.quests = sync.applyQuests(playerId, data.quests, data.questsFull, now);
     if (data.bossKills) {
+      require('../services/progressLog').logBossGains(playerId, data.bossKills);   // the boss log, before the new counts are stored
       const up = db.prepare(`INSERT INTO player_boss_kills (player_id, key, name, kills, updated_at, combat_req, is_group) VALUES (?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(player_id, key) DO UPDATE SET name = excluded.name, kills = excluded.kills, updated_at = excluded.updated_at,
           combat_req = COALESCE(excluded.combat_req, combat_req), is_group = COALESCE(excluded.is_group, is_group)`);
@@ -479,6 +481,17 @@ router.get('/xp-drops', (req, res) => {
   const limit = Math.min(500, Math.max(1, parseInt(req.query.limit, 10) || 200));
   res.json(db.prepare(`SELECT d.id, d.player_id, d.skill, d.xp, d.at FROM xp_drops d JOIN players p ON p.id = d.player_id
     WHERE p.group_id = ? AND d.at > ? ORDER BY d.id DESC LIMIT ?`).all(groupId, since, limit));
+});
+
+// The boss log or the clue log, newest first (?limit, max 500).
+router.get('/progress-log', (req, res) => {
+  const groupId = parseInt(req.query.group_id, 10);
+  const kind = req.query.kind === 'clue' ? 'clue' : 'boss';
+  if (!groupId) return res.status(400).json({ error: 'group_id required' });
+  if (!checkGroupAuth(req, res, groupId)) return;
+  const limit = Math.min(500, Math.max(1, parseInt(req.query.limit, 10) || 200));
+  res.json(db.prepare(`SELECT l.id, l.player_id, l.key, l.name, l.gain, l.total, l.at FROM progress_log l JOIN players p ON p.id = l.player_id
+    WHERE p.group_id = ? AND l.kind = ? ORDER BY l.id DESC LIMIT ?`).all(groupId, kind, limit));
 });
 
 router.get('/quests', (req, res) => {

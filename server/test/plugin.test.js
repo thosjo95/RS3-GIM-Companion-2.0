@@ -254,3 +254,28 @@ test('XP gained between two updates is logged per skill and listed for the group
   const other = await (await call('GET', `/plugin/xp-drops?group_id=${groupA}`, { headers: asGroup(groupA) })).json();
   assert.ok(other.every(d => d.player_id !== pB));                                    // another group never sees them
 });
+
+// ── boss log and clue log ────────────────────────────────────────────────────
+test('the boss log records each rise of the game boss counter, after a first starting point', async () => {
+  const token = await mint(pA, groupA);
+  const send = kills => call('POST', '/plugin/ingest', { headers: bearer(token), body: { v: 1, rsn: 'PlayerA', boss_kills: [{ key: 'BSLAY_HERMOD_BOSS', name: 'Hermod', kills }] } });
+  assert.equal((await send(69)).status, 200);          // starting point: nothing logged
+  assert.equal((await send(71)).status, 200);          // +2
+  assert.equal((await send(71)).status, 200);          // unchanged: nothing
+  const log = await (await call('GET', `/plugin/progress-log?group_id=${groupA}&kind=boss`, { headers: asGroup(groupA) })).json();
+  const mine = log.filter(l => l.player_id === pA);
+  assert.equal(mine.length, 1);
+  assert.equal(mine[0].gain, 2);
+  assert.equal(mine[0].total, 71);
+  assert.equal((await call('GET', `/plugin/progress-log?group_id=${groupA}&kind=boss`)).status, 401);
+});
+
+test('clue counts: logged per tier when the hiscores go up, and usable as a leaderboard metric', () => {
+  const { logClueGains, clueCounts } = require('../services/progressLog');
+  logClueGains(pA, { 'Clue Scrolls Hard': 40, 'Clue Scrolls Easy': -1 }, { 'Clue Scrolls Hard': 41, 'Clue Scrolls Easy': 3 });
+  const rows = db.prepare("SELECT key, gain, total FROM progress_log WHERE player_id = ? AND kind = 'clue'").all(pA);
+  assert.deepEqual(rows.map(r => ({ ...r })), [{ key: 'hard', gain: 1, total: 41 }]);   // easy had no starting point (-1)
+  const c = clueCounts(JSON.stringify({ activities: { 'Clue Scrolls Hard': 41, 'Clue Scrolls Master': 2, 'Clue Scrolls Easy': -1 } }));
+  assert.equal(c.hard, 41); assert.equal(c.master, 2); assert.equal(c._total, 43); assert.equal(c.easy, undefined);
+  assert.equal(require('../services/metrics').pick({ clues: c }, 'clues', 'hard'), 41);
+});

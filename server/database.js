@@ -401,6 +401,22 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_xp_drops_player_at ON xp_drops(player_id, at);
 `);
 
+// The boss log and the clue log (services/progressLog.js): one row each time a count goes up.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS progress_log (
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    player_id INTEGER NOT NULL,
+    kind      TEXT NOT NULL,          -- 'boss' | 'clue'
+    key       TEXT NOT NULL,          -- boss record key, or the clue tier
+    name      TEXT NOT NULL,
+    gain      INTEGER NOT NULL,
+    total     INTEGER NOT NULL,
+    at        TEXT NOT NULL,
+    FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
+  );
+  CREATE INDEX IF NOT EXISTS idx_progress_log_player ON progress_log(player_id, kind, at);
+`);
+
 // Drops reported by the plugin carry a dedupe signature so a retried request never logs a drop twice.
 try { db.exec('ALTER TABLE drops ADD COLUMN source TEXT'); } catch {}
 try { db.exec('ALTER TABLE drops ADD COLUMN sig TEXT'); } catch {}

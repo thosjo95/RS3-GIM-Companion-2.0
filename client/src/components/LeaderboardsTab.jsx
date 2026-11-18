@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { IconLabel } from './RsIcon';
-import { BossIcon } from './GameIcon';
+import { BossIcon, ItemIcon } from './GameIcon';
 import { api } from '../api/client';
 
 import { MEMBER_COLORS, parseRMDate } from '../lib/rs3';
@@ -12,11 +12,11 @@ const SKILL_ICON_URL = name =>
 
 // RS3 hiscores has no "All" row — only the 5 individual tiers
 const CLUE_TYPES = [
-  { key: 'Clue Scrolls Easy',   label: 'Easy',   icon: '🟢' },
-  { key: 'Clue Scrolls Medium', label: 'Medium', icon: '🔵' },
-  { key: 'Clue Scrolls Hard',   label: 'Hard',   icon: '🟠' },
-  { key: 'Clue Scrolls Elite',  label: 'Elite',  icon: '🟣' },
-  { key: 'Clue Scrolls Master', label: 'Master', icon: '🔴' },
+  { key: 'Clue Scrolls Easy',   label: 'Easy',   tier: 'easy' },
+  { key: 'Clue Scrolls Medium', label: 'Medium', tier: 'medium' },
+  { key: 'Clue Scrolls Hard',   label: 'Hard',   tier: 'hard' },
+  { key: 'Clue Scrolls Elite',  label: 'Elite',  tier: 'elite' },
+  { key: 'Clue Scrolls Master', label: 'Master', tier: 'master' },
 ];
 
 const ALL_SKILLS = [
@@ -1174,7 +1174,7 @@ function SlayerKills({ players, colorMap, groupId }) {
   );
 }
 
-function BossKills({ players, colorMap, groupId }) {
+function BossKills({ players, colorMap, groupId, canWrite }) {
   const [rawKills, setRawKills] = useState([]);
   const [loading, setLoading]   = useState(true);
   const [bossFilter, setBossFilter] = useState('All');
@@ -1310,13 +1310,121 @@ function BossKills({ players, colorMap, groupId }) {
       <div style={{ marginTop: 10, fontSize: 10, color: 'var(--text-dim)' }}>
         Counted from the Adventurer's Log feed — accumulates each sync (the game batches kills, e.g. “I killed 17 Hermods”). Only kills since a player was added are counted.
       </div>
+      <BossLog players={players} colorMap={colorMap} groupId={groupId} canWrite={canWrite}
+        bossName={bossFilter === 'All' ? null : activeBosses.find(b => b.key === bossFilter)?.label ?? null} />
     </div>
+  );
+}
+
+// ── Boss log ──────────────────────────────────────────────────────────────────
+// Every rise of the game's boss counters (from the plugin) and every drop with a known source, newest first.
+
+const logTime = iso => {
+  const d = new Date(/(Z|[+-]\d{2}:?\d{2})$/.test(iso || '') ? iso : `${iso}Z`);
+  return d.toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+};
+const sameBoss = (a, b) => !!a && !!b && a.toLowerCase().replace(/[^a-z]/g, '').startsWith(b.toLowerCase().replace(/[^a-z]/g, '').slice(0, 12));
+
+// Only for an unlocked group: the logs are private, and a locked request would open the unlock window.
+function useProgressLog(groupId, kind, enabled) {
+  const [rows, setRows] = useState(null);
+  useEffect(() => {
+    if (!groupId || !enabled) { setRows(null); return undefined; }
+    let alive = true;
+    const load = () => api.getProgressLog(groupId, kind).then(r => { if (alive) setRows(Array.isArray(r) ? r : []); }).catch(() => { if (alive) setRows([]); });
+    load();
+    const t = setInterval(() => { if (!document.hidden) load(); }, 30000);
+    return () => { alive = false; clearInterval(t); };
+  }, [groupId, kind, enabled]);
+  return rows;
+}
+
+function LogShell({ title, children, empty }) {
+  return (
+    <div style={{ marginTop: 22 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase', color: 'var(--text-dim)', marginBottom: 8 }}>{title}</div>
+      {empty
+        ? <div style={{ fontSize: 12, color: 'var(--text-dim)', padding: '10px 0', lineHeight: 1.6 }}>{empty}</div>
+        : <div style={{ maxHeight: 360, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}>{children}</div>}
+    </div>
+  );
+}
+
+const logRow = { display: 'flex', alignItems: 'center', gap: 10, padding: '6px 12px', fontSize: 12, borderBottom: '1px solid var(--border)' };
+
+function BossLog({ players, colorMap, groupId, bossName, canWrite }) {
+  const kills = useProgressLog(groupId, 'boss', canWrite);
+  const [drops, setDrops] = useState([]);
+  useEffect(() => { if (groupId && canWrite) api.getDrops(groupId).then(r => setDrops(Array.isArray(r) ? r : [])).catch(() => {}); }, [groupId, canWrite]);
+  const ids = new Set(players.map(p => p.id));
+  const nameOf = id => players.find(p => p.id === id)?.rsn ?? '?';
+  if (!canWrite) return <LogShell title="Boss log" empty="Unlock the group to see the boss log: every kill and drop from the plugin, newest first." />;
+  const items = [
+    ...(kills ?? []).filter(k => ids.has(k.player_id) && (!bossName || sameBoss(k.name, bossName)))
+      .map(k => ({ id: `k${k.id}`, at: k.at, player: k.player_id, kind: 'kill', boss: k.name, gain: k.gain, total: k.total })),
+    ...drops.filter(d => ids.has(d.player_id) && d.boss_name && (!bossName || sameBoss(d.boss_name, bossName)))
+      .map(d => ({ id: `d${d.id}`, at: d.dropped_at, player: d.player_id, kind: 'drop', boss: d.boss_name, item: d.item_name, qty: d.quantity || 1, value: d.value_gp })),
+  ].sort((a, b) => Date.parse(/Z$/.test(b.at) ? b.at : `${b.at}Z`) - Date.parse(/Z$/.test(a.at) ? a.at : `${a.at}Z`));
+
+  return (
+    <LogShell title={bossName ? `Boss log: ${bossName}` : 'Boss log'}
+      empty={kills === null ? null : items.length === 0 ? 'Nothing yet. Kills appear here as the plugin sees the game\'s boss counters go up, together with the drops the plugin links to a boss.' : null}>
+      {items.slice(0, 200).map(it => (
+        <div key={it.id} style={logRow}>
+          {it.kind === 'drop' ? <ItemIcon name={it.item} size={24} /> : <BossIcon name={it.boss} size={24} fallback={<span style={{ width: 24 }} />} />}
+          <span style={{ flex: 1, minWidth: 0 }}>
+            <strong style={{ color: colorMap[it.player] }}>{nameOf(it.player)}</strong>
+            {it.kind === 'kill'
+              ? <> killed <strong style={{ color: 'var(--text-bright)' }}>{it.boss}</strong>{it.gain > 1 ? <> ×{it.gain}</> : null}
+                  <span style={{ color: 'var(--text-dim)' }}> · now {it.total.toLocaleString()}</span></>
+              : <> received <strong style={{ color: 'var(--gold)' }}>{it.qty > 1 ? `${it.qty} × ` : ''}{it.item}</strong>
+                  <span style={{ color: 'var(--text-dim)' }}> from {it.boss}{it.value ? ` · ${(it.value * it.qty).toLocaleString()} gp` : ''}</span></>}
+          </span>
+          <span style={{ fontSize: 11, color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>{logTime(it.at)}</span>
+        </div>
+      ))}
+    </LogShell>
+  );
+}
+
+// ── Clue log ──────────────────────────────────────────────────────────────────
+// Every rise of a member's completed clues on the official hiscores (read about once an hour).
+
+const CLUE_IMG = { easy: 'Clue_scroll_%28easy%29.png', medium: 'Clue_scroll_%28medium%29.png', hard: 'Clue_scroll_%28hard%29.png',
+  elite: 'Sealed_clue_scroll_%28elite%29.png', master: 'Clue_scroll_%28master%29.png' };
+function ClueIcon({ tier, size = 20 }) {
+  const [failed, setFailed] = useState(false);
+  if (failed || !CLUE_IMG[tier]) return <span style={{ width: size }} />;
+  return <img src={`https://runescape.wiki/images/${CLUE_IMG[tier]}`} alt={`${tier} clue`} onError={() => setFailed(true)} style={{ width: size, height: size, objectFit: 'contain', flexShrink: 0 }} />;
+}
+
+function ClueLog({ players, colorMap, groupId, canWrite }) {
+  const rows = useProgressLog(groupId, 'clue', canWrite);
+  if (!canWrite) return <LogShell title="Clue log" empty="Unlock the group to see the clue log: every clue the hiscores show a member completed." />;
+  const ids = new Set(players.map(p => p.id));
+  const nameOf = id => players.find(p => p.id === id)?.rsn ?? '?';
+  const list = (rows ?? []).filter(r => ids.has(r.player_id));
+  return (
+    <LogShell title="Clue log"
+      empty={rows === null ? null : list.length === 0 ? 'Nothing yet. A line appears here each time the hiscores show a member completed more clues (checked about once an hour).' : null}>
+      {list.map(r => (
+        <div key={r.id} style={logRow}>
+          <ClueIcon tier={r.key} size={24} />
+          <span style={{ flex: 1, minWidth: 0 }}>
+            <strong style={{ color: colorMap[r.player_id] }}>{nameOf(r.player_id)}</strong> completed{' '}
+            <strong style={{ color: 'var(--text-bright)' }}>{r.gain} {r.key} clue{r.gain > 1 ? 's' : ''}</strong>
+            <span style={{ color: 'var(--text-dim)' }}> · now {r.total.toLocaleString()} {r.key}</span>
+          </span>
+          <span style={{ fontSize: 11, color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>{logTime(r.at)}</span>
+        </div>
+      ))}
+    </LogShell>
   );
 }
 
 // ── Clue Scrolls ──────────────────────────────────────────────────────────────
 
-function ClueScrolls({ players, colorMap }) {
+function ClueScrolls({ players, colorMap, groupId, canWrite }) {
   const rows = useMemo(() => {
     const mapped = players.map(p => {
       const stats = parseStats(p.stats_json);
@@ -1347,6 +1455,7 @@ function ClueScrolls({ players, colorMap }) {
   }
 
   return (
+    <div>
     <div style={{ overflowX: 'auto' }}>
       <table style={{ borderCollapse: 'collapse', fontSize: 12, width: '100%' }}>
         <thead>
@@ -1354,7 +1463,7 @@ function ClueScrolls({ players, colorMap }) {
             <th align="left" style={{ padding: '4px 8px 8px 4px', fontWeight: 600 }}>Player</th>
             {CLUE_TYPES.map(c => (
               <th key={c.key} align="center" style={{ padding: '4px 8px 8px', fontWeight: 600, whiteSpace: 'nowrap' }}>
-                {c.icon} {c.label}
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><ClueIcon tier={c.tier} size={18} />{c.label}</span>
               </th>
             ))}
           </tr>
@@ -1386,6 +1495,8 @@ function ClueScrolls({ players, colorMap }) {
           ))}
         </tbody>
       </table>
+    </div>
+    <ClueLog players={players} colorMap={colorMap} groupId={groupId} canWrite={canWrite} />
     </div>
   );
 }
@@ -1435,9 +1546,9 @@ export default function LeaderboardsTab({ players, groupId, canWrite, onToast, s
         <div className="panel-body">
           {section === 'firsts'     && <FirstsBoard    players={players} colorMap={colorMap} groupId={groupId} canWrite={canWrite} onToast={onToast} />}
           {section === 'milestones' && <MilestonesFeed players={shown} colorMap={colorMap} />}
-          {section === 'bosses'     && <BossKills      players={shown} colorMap={colorMap} groupId={groupId} />}
+          {section === 'bosses'     && <BossKills      players={shown} colorMap={colorMap} groupId={groupId} canWrite={canWrite} />}
           {section === 'slayer'     && <SlayerKills    players={shown} colorMap={colorMap} groupId={groupId} />}
-          {section === 'clues'      && <ClueScrolls    players={shown} colorMap={colorMap} />}
+          {section === 'clues'      && <ClueScrolls    players={shown} colorMap={colorMap} groupId={groupId} canWrite={canWrite} />}
           {section === 'mastery'    && <SkillMastery   players={shown} colorMap={colorMap} groupId={groupId} canWrite={canWrite} onToast={onToast} />}
         </div>
       </div>

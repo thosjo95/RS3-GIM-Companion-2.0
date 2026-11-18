@@ -7,7 +7,8 @@ import RsIcon from './RsIcon';
 // group sets up itself (what to track, when it starts and ends, an optional goal).
 
 const PERIODS = [['day', 'Day'], ['week', 'Week'], ['month', 'Month']];
-const METRIC_LABEL = { xp: 'XP gained', quest_points: 'Quest points', boss_kills: 'Boss kills', slayer_kills: 'Slayer kills', total_level: 'Levels gained', drops: 'Drops' };
+const METRIC_LABEL = { xp: 'XP gained', quest_points: 'Quest points', boss_kills: 'Boss kills', slayer_kills: 'Slayer kills', total_level: 'Levels gained', drops: 'Drops', clues: 'Clues completed' };
+const CLUE_TIER_LABEL = { all: 'all tiers', easy: 'easy', medium: 'medium', hard: 'hard', elite: 'elite', master: 'master' };
 const fmt = (n, metric) => (n == null ? '—' : metric === 'xp' ? (n >= 100_000 ? fmtXp(n) : n.toLocaleString()) : n.toLocaleString());
 const fmtDate = iso => new Date(iso).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
@@ -27,6 +28,8 @@ const PRESETS = () => {
     { label: 'First to 50 kills of a boss', title: 'First to 50 kills',           metric: 'boss_kills', target: '', goal: 50, starts: new Date(), ends: null, pickBoss: true },
     { label: 'Most slayer kills this month', title: 'Most slayer kills this month', metric: 'slayer_kills', starts: month, ends: nextMonth },
     { label: 'Most levels this month',      title: 'Most levels this month',      metric: 'total_level', starts: month, ends: nextMonth },
+    { label: 'Most clues this month',       title: 'Most clues this month',       metric: 'clues', target: 'all', starts: month, ends: nextMonth },
+    { label: 'First to 25 hard clues',      title: 'First to 25 hard clues',      metric: 'clues', target: 'hard', goal: 25, starts: new Date(), ends: null },
     { label: 'First to 10M XP in a skill',  title: 'First to 10M XP',             metric: 'xp', target: 'Mining', goal: 10_000_000, starts: new Date(), ends: null },
   ];
 };
@@ -96,7 +99,7 @@ function CompetitionModal({ groupId, initial, bosses, onClose, onSaved, onToast 
             <input className="form-input" style={input} value={f.title} onChange={e => set('title', e.target.value)} placeholder="Most XP this week" maxLength={80} />
           </label>
           <label style={{ fontSize: 12 }}>What is tracked
-            <select className="form-select" style={input} value={f.metric} onChange={e => setF(x => ({ ...x, metric: e.target.value, target: e.target.value === 'xp' ? 'Overall' : e.target.value === 'boss_kills' ? 'all' : '' }))}>
+            <select className="form-select" style={input} value={f.metric} onChange={e => setF(x => ({ ...x, metric: e.target.value, target: e.target.value === 'xp' ? 'Overall' : e.target.value === 'boss_kills' || e.target.value === 'clues' ? 'all' : '' }))}>
               {Object.entries(METRIC_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
           </label>
@@ -106,6 +109,14 @@ function CompetitionModal({ groupId, initial, bosses, onClose, onSaved, onToast 
                 <option value="Overall">All skills (total XP)</option>
                 {SKILLS.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
+            </label>
+          )}
+          {f.metric === 'clues' && (
+            <label style={{ fontSize: 12 }}>Clue tier
+              <select className="form-select" style={input} value={f.target || 'all'} onChange={e => set('target', e.target.value)}>
+                {Object.entries(CLUE_TIER_LABEL).map(([k, v]) => <option key={k} value={k}>{k === 'all' ? 'All tiers' : v[0].toUpperCase() + v.slice(1)}</option>)}
+              </select>
+              <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>Counted from the official hiscores, which update about once an hour.</span>
             </label>
           )}
           {f.metric === 'boss_kills' && (
@@ -171,7 +182,8 @@ export default function GroupLeaderboard({ players, groupId, canWrite, onToast, 
     if (!window.confirm(`Delete the competition "${c.title}"?`)) return;
     try { await api.deleteCompetition(c.id); load(); } catch (e) { onToast?.(e.message, 'error'); }
   }
-  const targetName = c => (c.metric === 'xp' ? (c.target && c.target !== 'Overall' ? c.target : 'all skills') : c.metric === 'boss_kills' && c.target && c.target !== 'all' ? (bosses.find(b => b.key === c.target)?.name ?? 'one boss') : '');
+  const targetName = c => (c.metric === 'xp' ? (c.target && c.target !== 'Overall' ? c.target : 'all skills') : c.metric === 'boss_kills' && c.target && c.target !== 'all' ? (bosses.find(b => b.key === c.target)?.name ?? 'one boss')
+    : c.metric === 'clues' ? (CLUE_TIER_LABEL[c.target || 'all'] ?? '') : '');
 
   return (
     <div className="panel" data-tour="group-leaderboard" style={{ width: '100%', maxWidth: 720, margin: '0 auto' }}>

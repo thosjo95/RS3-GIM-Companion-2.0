@@ -259,6 +259,7 @@ router.post('/:id/sync', syncOneLimiter, async (req, res) => {
 
     // activities_json (Adventurer's Log feed) is NOT touched here — cron keeps it fresh
     // Clear any previous sync_error on success
+    try { require('../services/progressLog').logClueGains(player.id, existing.activities, data.activities); } catch (e) { console.error('[clue log]', e.message); }
     const runeScore = data.activities?.['RuneScore'] ?? null;
     db.prepare(
       'UPDATE players SET last_synced = CURRENT_TIMESTAMP, combat_level = ?, stats_json = ?, rune_score = ?, sync_error = NULL, sync_error_at = NULL WHERE id = ?'
@@ -359,6 +360,7 @@ router.post('/sync-all/:groupId', syncAllLimiter, async (req, res) => {
 
       // activities_json (Adventurer's Log feed) NOT touched — cron keeps it fresh
       // Clear any previous sync_error on success
+      try { require('../services/progressLog').logClueGains(player.id, existing.activities, data.activities); } catch (e) { console.error('[clue log]', e.message); }
       const runeScore = data.activities?.['RuneScore'] ?? null;
       db.prepare(
         'UPDATE players SET last_synced = CURRENT_TIMESTAMP, combat_level = ?, stats_json = ?, rune_score = ?, sync_error = NULL, sync_error_at = NULL WHERE id = ?'

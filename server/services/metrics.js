@@ -5,7 +5,7 @@
  * total level). A snapshot of it is stored now and then (metric_snapshots); a gain over a period is "now minus the
  * latest snapshot at or before the period start". Competitions use the same thing with their own start / end.
  *
- * Snapshot data: { xp: { Overall, Attack, ... }, qp, boss: { BSLAY_X: kills, _total }, slayer, level }
+ * Snapshot data: { xp: { Overall, Attack, ... }, qp, boss: { BSLAY_X: kills, _total }, slayer, level, clues: { easy, medium, hard, elite, master, _total } }
  */
 const db = require('../database');
 const { SLAYER_COUNTERS } = require('./slayerKills');
@@ -16,7 +16,7 @@ const toMs = iso => { const t = Date.parse(/(Z|[+-]\d{2}:?\d{2})$/.test(iso || '
 
 /** The player's metrics as they are right now. */
 function collect(playerId) {
-  const data = { xp: {}, qp: null, boss: {}, slayer: null, level: null };
+  const data = { xp: {}, qp: null, boss: {}, slayer: null, level: null, clues: null };
 
   for (const r of db.prepare('SELECT skill_name, level, xp FROM skills WHERE player_id = ?').all(playerId)) {
     data.xp[r.skill_name] = r.xp ?? 0;
@@ -50,6 +50,7 @@ function collect(playerId) {
     slayer += c.half === 'high' ? Math.floor(vars[c.variable] / 65536) % 65536 : vars[c.variable] % 65536;
   }
   if (haveSlayer) data.slayer = slayer;
+  data.clues = require('./progressLog').clueCounts(db.prepare('SELECT stats_json FROM players WHERE id = ?').get(playerId)?.stats_json);
   return data;
 }
 
@@ -124,6 +125,7 @@ function pick(data, metric, target) {
     case 'boss_kills':   return data.boss?._total == null ? null : target && target !== 'all' ? (data.boss[target] ?? 0) : data.boss._total;
     case 'slayer_kills': return data.slayer ?? null;
     case 'total_level':  return data.level ?? null;
+    case 'clues':        return data.clues == null ? null : target && target !== 'all' ? (data.clues[target] ?? 0) : data.clues._total;
     default:             return null;
   }
 }

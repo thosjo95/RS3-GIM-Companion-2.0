@@ -297,6 +297,13 @@ router.post('/ingest', ingestLimiter, express.json({ limit: '1mb' }), (req, res)
     db.prepare('UPDATE plugin_tokens SET last_used_at = ? WHERE id = ?').run(now, row.id);
   });
 
+  if (data.quests || data.achievements || data.bossKills || data.skills || data.kills) {
+    try {
+      const gid = db.prepare('SELECT group_id FROM players WHERE id = ?').get(playerId)?.group_id;
+      if (gid) require('../services/goalTracker').reconcileGoals(gid);
+    } catch (e) { console.error('[goals] reconcile failed:', e.message); }
+  }
+
   res.json({ ok: true, ledger_added: ledgerAdded, ...applied });
 });
 

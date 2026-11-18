@@ -114,7 +114,21 @@ function PlayerChips({ players, selected, onToggle }) {
 
 // ── Active-goal card (board) ──────────────────────────────────────────────────
 
-function GoalCard({ goal, players, onCycle, onDelete, onEdit, onSetBlocked, canWrite, isDragging, onDragStart, onDragEnd }) {
+// Live progress of a goal the tracker can judge ("Slayer 71 / 85", "Giant Mole 13 / 50"). Shown only while it is not done.
+function GoalProgress({ p }) {
+  if (!p || p.satisfied || !(p.target > 1)) return null;
+  const pct = Math.max(0, Math.min(100, Math.round((p.current / p.target) * 100)));
+  return (
+    <div title={`${p.current.toLocaleString()} / ${p.target.toLocaleString()} ${p.unit}`} style={{ marginTop: 5 }}>
+      <div style={{ height: 4, background: 'var(--bg-root)', borderRadius: 2, overflow: 'hidden' }}>
+        <div style={{ width: `${pct}%`, height: '100%', background: 'var(--gold)', transition: 'width 0.4s' }} />
+      </div>
+      <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 2 }}>{p.current.toLocaleString()} / {p.target.toLocaleString()} {p.unit === 'kills' ? 'kills' : p.unit}</div>
+    </div>
+  );
+}
+
+function GoalCard({ goal, players, progress, onCycle, onDelete, onEdit, onSetBlocked, canWrite, isDragging, onDragStart, onDragEnd }) {
   const details  = parseDetails(goal.details_json);
   const owner    = players.find(p => p.id === goal.owner_id);
   const isGroup  = goal.type === 'group';
@@ -178,6 +192,7 @@ function GoalCard({ goal, players, onCycle, onDelete, onEdit, onSetBlocked, canW
               </a>
             )}
           </div>
+          <GoalProgress p={progress} />
         </div>
         {canWrite && (
           <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
@@ -258,7 +273,7 @@ function StatsBar({ goals }) {
 
 // ── Board view ────────────────────────────────────────────────────────────────
 
-function BoardView({ goals, players, onCycle, onDelete, onEdit, onSetBlocked, onSetStatus, canWrite }) {
+function BoardView({ goals, players, progress = {}, onCycle, onDelete, onEdit, onSetBlocked, onSetStatus, canWrite }) {
   const [draggingId, setDraggingId] = useState(null);
   const [dragOverCol, setDragOverCol] = useState(null);
 
@@ -297,7 +312,7 @@ function BoardView({ goals, players, onCycle, onDelete, onEdit, onSetBlocked, on
                   {canWrite ? 'Drop here' : 'Empty'}
                 </div>
               : colGoals.map(g => (
-                  <GoalCard key={g.id} goal={g} players={players}
+                  <GoalCard key={g.id} goal={g} players={players} progress={progress[g.id]}
                     onCycle={onCycle} onDelete={onDelete} onEdit={onEdit} onSetBlocked={onSetBlocked}
                     canWrite={canWrite}
                     isDragging={draggingId === g.id}
@@ -315,7 +330,7 @@ function BoardView({ goals, players, onCycle, onDelete, onEdit, onSetBlocked, on
 
 // ── List view ─────────────────────────────────────────────────────────────────
 
-function ListView({ goals, players, onCycle, onDelete, canWrite }) {
+function ListView({ goals, players, progress = {}, onCycle, onDelete, canWrite }) {
   if (goals.length === 0) return (
     <div style={{ textAlign: 'center', color: 'var(--text-dim)', padding: '32px 0', fontSize: 13 }}>
       No goals match the current filters.
@@ -342,6 +357,7 @@ function ListView({ goals, players, onCycle, onDelete, canWrite }) {
               <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
                 {g.type === 'group' ? 'Group' : owner?.rsn ?? '—'}
               </div>
+              <GoalProgress p={progress[g.id]} />
             </div>
             <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 3, flexShrink: 0,
               color: PRI_COLORS[g.priority], border: `1px solid ${PRI_COLORS[g.priority]}33`,
@@ -893,7 +909,7 @@ function GoalBrowser({ players, goals, onAdd, canWrite, addingId, onCreateCustom
         <button onClick={() => setCategory('all')} style={pillStyle(category === 'all')}>All</button>
         {CATEGORIES.map(c => (
           <button key={c.id} onClick={() => setCategory(c.id)} style={pillStyle(category === c.id)}>
-            {c.icon} {c.label}
+            <IconLabel name={c.rs} fallback={c.icon} size={14} gap={5}>{c.label}</IconLabel>
           </button>
         ))}
       </div>
@@ -987,6 +1003,7 @@ export default function GoalsTab({ group, goals, players, groupId, onRefresh, on
   const [addingId,       setAddingId]       = useState(null);
   const [activeSection,  setActiveSection]  = useState('browser'); // 'browser' | 'active'
   const [achievements,   setAchievements]   = useState([]);
+  const [goalProgress,   setGoalProgress]   = useState({});   // live progress from the goal tracker (server)
 
   // Jump to 'active' section when signalled from outside (e.g. Overview banner click)
   const prevJumpKey = React.useRef(0);
@@ -1006,6 +1023,11 @@ export default function GoalsTab({ group, goals, players, groupId, onRefresh, on
     if (!groupId) return;
     api.getAchievements(groupId).then(setAchievements).catch(() => {});
   }, [groupId]);
+  // Progress of skill / boss / quest / area task goals; refreshed whenever the goal list changes.
+  useEffect(() => {
+    if (!groupId) return;
+    api.getGoalProgress(groupId).then(setGoalProgress).catch(() => {});
+  }, [groupId, goals]);
 
   // Filter active goals
   const filteredGoals = useMemo(() => {
@@ -1124,7 +1146,7 @@ export default function GoalsTab({ group, goals, players, groupId, onRefresh, on
           onToast(`Marked done: ${s.title}`, 'success');
         }
       } else {
-        onToast(`Added: ${s.title}`, 'success');
+        onToast(result?.alreadyDone ? `Already done: ${s.title}` : `Added: ${s.title}`, 'success');
       }
       onRefresh();
     } catch (err) {
@@ -1247,13 +1269,13 @@ export default function GoalsTab({ group, goals, players, groupId, onRefresh, on
 
           {/* Board / List */}
           {view === 'board'
-            ? <BoardView goals={filteredGoals} players={players}
+            ? <BoardView goals={filteredGoals} players={players} progress={goalProgress}
                 onCycle={cycleStatus} onDelete={deleteGoal}
                 onEdit={openEdit}
                 onSetBlocked={id => setGoalStatus(id, 'blocked')}
                 onSetStatus={setGoalStatus}
                 canWrite={canWrite} />
-            : <ListView  goals={filteredGoals} players={players} onCycle={cycleStatus} onDelete={deleteGoal} canWrite={canWrite} />}
+            : <ListView  goals={filteredGoals} players={players} progress={goalProgress} onCycle={cycleStatus} onDelete={deleteGoal} canWrite={canWrite} />}
 
           {/* Empty state */}
           {goals.length === 0 && (

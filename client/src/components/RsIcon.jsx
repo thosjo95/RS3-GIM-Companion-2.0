@@ -32,6 +32,7 @@ export const RS_ICON = {
   combat:       'Multicombat.png',
   search:       'Magnifying_glass.png',
   lamp:         'Lamp.png',
+  slayer:       'Slayer_helmet.png',
   // goals page
   browser:      'Compass.png',
   activeGoals:  'Task_icon.png',

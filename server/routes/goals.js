@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../database');
+const { reconcileGoals, goalProgress } = require('../services/goalTracker');
 const { generateSuggestedGoals } = require('../services/runescape');
 const { checkGroupAuth } = require('../utils/auth');
 const { notifyGoalCompleted } = require('../services/discord');
@@ -91,6 +92,13 @@ function applyCompletionEffects({ ownerId, goalId, completedBy, goalTitle, detai
 
   return { autoVaulted, diaryTicked };
 }
+
+// GET /api/goals/progress?group_id=X — live progress of the goals the tracker can judge (skill levels, boss kills, quests, area tasks)
+router.get('/progress', (req, res) => {
+  const groupId = parseInt(req.query.group_id, 10);
+  if (!groupId) return res.status(400).json({ error: 'group_id required' });
+  res.json(goalProgress(groupId));
+});
 
 // GET /api/goals?group_id=X
 router.get('/', (req, res) => {
@@ -214,7 +222,14 @@ router.post('/', (req, res) => {
     diaryTicked = effects.diaryTicked;
   }
 
-  res.status(201).json({ id: goalId, autoVaulted, diaryTicked });
+  // A goal the players have already achieved (a quest finished long ago, a level already reached, ...) is done at once.
+  let alreadyDone = false;
+  if (finalStatus !== 'complete' && groupId) {
+    reconcileGoals(groupId);
+    alreadyDone = db.prepare('SELECT status FROM goals WHERE id = ?').get(goalId)?.status === 'complete';
+  }
+
+  res.status(201).json({ id: goalId, autoVaulted, diaryTicked, alreadyDone });
 });
 
 // PUT /api/goals/:id

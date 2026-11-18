@@ -48,6 +48,9 @@ function autoCompleteGoals(playerId, skillsMap) {
       console.log(`[goals] Auto-completed "${goal.title}" for player ${playerId}`);
     }
   }
+
+  // everything else the app knows (quests, area tasks, boss kills, the plugin's live skills)
+  try { require('../services/goalTracker').reconcileGoals(groupId); } catch (e) { console.error('[goals] reconcile failed:', e.message); }
 }
 
 function getPlayerGroupId(playerId) {

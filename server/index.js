@@ -209,4 +209,6 @@ process.on('unhandledRejection', err => console.error('[unhandledRejection]', er
 
 app.listen(PORT, () => {
   console.log(`RS3 GIM Companion server running on http://localhost:${PORT}`);
+  // Catch-up: complete goals the players have already achieved (quests, levels, area tasks, boss kills).
+  try { require('./services/goalTracker').reconcileAllGroups(); } catch (e) { console.error('[goals] startup reconcile failed:', e.message); }
 });

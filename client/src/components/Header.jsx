@@ -6,7 +6,7 @@ import GroupHeaderInfo from './GroupHeaderInfo';
 import HeaderStats from './HeaderStats';
 import RsIcon from './RsIcon';
 
-export default function Header({ group, onSynced, onToast, isUnlocked, isClaimed, myRsn, onLockClick, onClaimClick, onSetRsnClick, onWebhookClick, onMenuToggle, mobileMenuOpen, onTourClick }) {
+export default function Header({ group, onSynced, onToast, isUnlocked, isClaimed, myRsn, onLockClick, onClaimClick, onSetRsnClick, onWebhookClick, onMenuToggle, mobileMenuOpen, onTourClick, onAddPlayer }) {
   const [syncing, setSyncing] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
   const [pluginOpen, setPluginOpen] = useState(false);
@@ -177,6 +177,13 @@ export default function Header({ group, onSynced, onToast, isUnlocked, isClaimed
               color: 'var(--text-dim)',
             }}>
             ?
+          </button>
+        )}
+
+        {/* Add a character to the group by hand (unlocked groups) */}
+        {group && isUnlocked && onAddPlayer && (
+          <button data-tour="add-player" onClick={onAddPlayer} title="Add a player to this group" className="sync-btn" style={{ background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-bright)', padding: '0 12px', fontSize: 12, fontWeight: 600 }}>
+            + Add player
           </button>
         )}
 

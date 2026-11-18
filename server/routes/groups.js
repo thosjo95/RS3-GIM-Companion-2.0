@@ -519,4 +519,30 @@ router.post('/:id/webhook/test', async (req, res) => {
   }
 });
 
+/**
+ * Automatic roster check (daily, see index.js): adds members that joined the group on the Jagex hiscores since the
+ * group was added. It never removes anyone, because a half-loaded hiscores page must not delete a player's data;
+ * removing a member is done by hand from the player card.
+ */
+async function autoAddMembers() {
+  const groups = db.prepare("SELECT id, group_rsn, gim_type, gim_size FROM groups WHERE group_rsn IS NOT NULL AND gim_type IN ('regular', 'competitive')").all();
+  let added = 0;
+  for (const g of groups) {
+    try {
+      const fresh = await scrapeGroupMembers(g.group_rsn, g.gim_type, g.gim_size ?? 5);
+      if (!fresh?.length) continue;
+      const key = n => String(n).replace(/\s/g, ' ').trim().toLowerCase();
+      const have = new Set(db.prepare('SELECT rsn FROM players WHERE group_id = ?').all(g.id).map(p => key(p.rsn)));
+      for (const m of fresh) {
+        if (have.has(key(m.rsn))) continue;
+        db.prepare('INSERT OR IGNORE INTO players (rsn, group_id) VALUES (?, ?)').run(m.rsn, g.id);
+        added++;
+      }
+    } catch (e) { console.error('[roster] ' + g.group_rsn + ': ' + e.message); }
+    await new Promise(r => setTimeout(r, 3000));          // be gentle with the hiscores site
+  }
+  return added;
+}
+
 module.exports = router;
+module.exports.autoAddMembers = autoAddMembers;

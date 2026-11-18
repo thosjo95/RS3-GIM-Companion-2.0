@@ -292,6 +292,7 @@ export default function App() {
         onMenuToggle={() => setShowMobileSidebar(s => !s)}
         mobileMenuOpen={showMobileSidebar}
         onTourClick={handleTourClick}
+        onAddPlayer={() => setShowAddPlayer(true)}
       />
       <div className="main-layout">
         {/* Mobile overlay — tapping closes the sidebar */}

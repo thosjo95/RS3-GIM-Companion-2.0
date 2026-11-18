@@ -63,28 +63,6 @@ export default function PlayerBar({ group, players, groupId, canWrite, myRsn, se
 
   return (
     <div data-tour="members" style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
-      {/* Roster controls (only for an unlocked group). Click the selected card again to show everyone. */}
-      {canWrite && <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        <div style={{ flex: 1 }} />
-        {canWrite && (
-          <>
-            {!isUnranked && (
-              <button
-                className="btn btn-secondary btn-sm"
-                onClick={handleRefreshRoster}
-                disabled={rosterLoading}
-                title="Re-fetch member list from RS3 hiscores and apply changes"
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-                {rosterLoading
-                  ? <><span className="spinner" style={{ width: 10, height: 10 }} /> Refreshing…</>
-                  : '↻ Refresh Roster'}
-              </button>
-            )}
-            <button className="btn btn-primary btn-sm" onClick={onAddPlayer}>➕ Add Player</button>
-          </>
-        )}
-      </div>}
-
       {players.length === 0 ? (
         <div className="empty-state" style={{ marginTop: 4 }}>
           <div className="icon">👤</div>

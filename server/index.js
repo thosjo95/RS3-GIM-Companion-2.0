@@ -109,6 +109,13 @@ cron.schedule('0 */2 * * *', async () => {
   console.log(`[2h cron] Done.`);
 });
 
+// ── Roster cron ───────────────────────────────────────────────────────────────
+// Every day at 03:30: new members of a Group Ironman group are added automatically (nobody is ever removed).
+cron.schedule('30 3 * * *', async () => {
+  try { const n = await require('./routes/groups').autoAddMembers(); console.log('[roster] added ' + n + ' new member(s)'); }
+  catch (e) { console.error('[roster] failed:', e.message); }
+});
+
 // ── Daily snapshot cron ────────────────────────────────────────────────────────
 // Runs at midnight every day — syncs hiscores (skills, clue scrolls, RuneScore).
 cron.schedule('0 0 * * *', async () => {

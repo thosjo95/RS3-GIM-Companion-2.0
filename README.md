@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="client/public/logo.svg" alt="RS3 GIM Companion" height="120" />
+  <img src="client/public/logo.png" alt="RS3 GIM Companion" height="120" />
   <h1>RS3 GIM Companion 2.0</h1>
   <p><strong>The Group Ironman tracker that reads the game itself.</strong></p>
   <p>

@@ -39,7 +39,7 @@ export default function App() {
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [pendingImport, setPendingImport] = useState(null); // pre-filled data from RS3 search
   const [showTour, setShowTour]             = useState(false);
-  const tourShownRef                        = useRef(false); // prevent re-triggering on subsequent refreshes
+  const tourShownRef                        = useRef(new Set()); // groups whose tour already started on this page load
   const [tabTourReplayKey, setTabTourReplayKey] = useState(0); // increment to replay current tab's tour
 
   const TAB_TOUR_IDS = ['goals', 'vault', 'achievements', 'leaderboards'];
@@ -184,9 +184,9 @@ export default function App() {
     if (activeGroupId) {
       localStorage.setItem('activeGroupId', activeGroupId);
       loadGroup(activeGroupId).then(() => {
-        // Show tour on first-ever visit (once per browser)
-        if (!tourShownRef.current && !localStorage.getItem('tourCompleted')) {
-          tourShownRef.current = true;
+        // Show the tour the first time this browser opens this group; it starts with "new or existing group?"
+        if (!tourShownRef.current.has(activeGroupId) && !localStorage.getItem(`tourSeen_group_${activeGroupId}`)) {
+          tourShownRef.current.add(activeGroupId);
           // Small delay so the UI settles before the overlay appears
           setTimeout(() => setShowTour(true), 600);
         }
@@ -405,7 +405,7 @@ export default function App() {
       {showTour && (
         <TourOverlay
           onComplete={() => {
-            localStorage.setItem('tourCompleted', '1');
+            if (activeGroupId) localStorage.setItem(`tourSeen_group_${activeGroupId}`, '1');
             setShowTour(false);
           }}
         />

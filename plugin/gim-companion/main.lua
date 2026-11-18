@@ -684,6 +684,91 @@ local function probe2Step()
     end
 end
 
+-- ── 4f. Kill tracker record dump (beta debugging; config.lua: trackerProbe = "bosses") ────────────────────────
+-- Every boss / slayer creature of the game's tracker is a struct with a BSLAY_NAME parameter. This reads just those
+-- records (name, id, a few flags) and saves one compact line each, so the creature -> counter mapping can be derived.
+local probe3 = nil
+local p3NameParam, p3Params = nil, {}
+
+local function p3Value(st, paramName)
+    local prm = p3Params[paramName]
+    if prm == nil then
+        local okP, got = pcall(function() return config.Param[paramName] end)
+        prm = (okP and got ~= nil) and got or false
+        p3Params[paramName] = prm
+    end
+    if not prm then return nil end
+    local okH, has = pcall(function() return st:HasParam(prm) end)
+    if not okH or not has then return nil end
+    local okV, v = pcall(function() return st:GetParamValue(prm) end)
+    if okV and v ~= nil then return v end
+    return nil
+end
+local function p3Text(v)
+    if v == nil then return "" end
+    if type(v) == "boolean" then return v and "1" or "0" end
+    return tostring(v)
+end
+
+local function p3Save(p)
+    local chunk, n, size = {}, 1, 0
+    local function flush()
+        if #chunk > 0 then pcall(function() PersistentDB:SetString("gim_probe_" .. n, table.concat(chunk, "\n")) end); n = n + 1; chunk = {}; size = 0 end
+    end
+    for _, line in ipairs(p.lines) do
+        if size + #line > 5500 then flush() end
+        chunk[#chunk + 1] = line; size = size + #line + 1
+    end
+    flush()
+    pcall(function() PersistentDB:SetString("gim_probe_n", tostring(n - 1)) end)
+end
+
+local function probe3Start()
+    probe3 = { next = 0, last = 80000, misses = 0, found = 0, lines = {}, done = false, savedAt = 0 }
+    probeLog("record dump started (about 5 minutes)")
+end
+
+local function probe3Step()
+    local p = probe3
+    if p == nil or p.done then return end
+    local last = math.min(p.next + 200 - 1, p.last)
+    for sid = p.next, last do
+        local okS, st = pcall(function() return config.Struct.FromID(sid) end)
+        if not okS or st == nil then
+            p.misses = p.misses + 1
+            if p.misses >= 4000 and p.found > 0 then last = p.last; break end
+        else
+            p.misses = 0
+            local name = p3Value(st, "BSLAY_NAME")
+            if type(name) == "string" then
+                p.found = p.found + 1
+                local okC, cname = pcall(function() return st.configName end)
+                local line = table.concat({
+                    sid, name,
+                    "id=" .. p3Text(p3Value(st, "BSLAY_ID")),
+                    "npc=" .. p3Text(p3Value(st, "BSLAY_NPC")):gsub("config%.NPC%.", ""),
+                    "slay=" .. p3Text(p3Value(st, "BSLAY_ASSIGNABLE")),
+                    "grp=" .. p3Text(p3Value(st, "BSLAY_GROUP_BOSS")),
+                    "hm=" .. p3Text(p3Value(st, "BSLAY_HAS_HARDMODE")),
+                    "skl=" .. p3Text(p3Value(st, "BSLAY_SKILLING_BOSS")),
+                    "nt=" .. p3Text(p3Value(st, "BSLAY_NORMALMODE_TERM_ID")),
+                    "ht=" .. p3Text(p3Value(st, "BSLAY_HARDMODE_TERM_ID")),
+                    (okC and cname or "")
+                }, "|")
+                p.lines[#p.lines + 1] = line
+                if p.found <= 6 then probeLog("record " .. line) end
+                if p.found - p.savedAt >= 25 then p.savedAt = p.found; p3Save(p) end
+            end
+        end
+    end
+    p.next = last + 1
+    if p.next > p.last then
+        p.done = true
+        p3Save(p)
+        probeLog("record dump finished: " .. p.found .. " records saved")
+    end
+end
+
 -- ── 5. Kills ──────────────────────────────────────────────────────────────────
 -- The game announces "an NPC was removed" for deaths but also for NPCs that merely leave your view. So a
 -- removal only counts as YOUR kill when it is the monster named on your target display, its health moved
@@ -1113,6 +1198,9 @@ Event.ServerLogic.Subscribe("gim_tick", function()
 
     if settings.trackerProbe == true and Player.IsAvailable() then
         if probe == nil then probeStart() else probeStep() end
+    end
+    if settings.trackerProbe == "bosses" and Player.IsAvailable() then
+        if probe3 == nil then probe3Start() else probe3Step() end
     end
     if settings.trackerProbe == "structs" and Player.IsAvailable() then
         if probe2 == nil then probe2Start() else probe2Step() end

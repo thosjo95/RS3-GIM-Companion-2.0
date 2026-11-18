@@ -40,6 +40,14 @@ async function lookup(group) {
       return { rank: Math.floor(startIdx / pageSize) * pageSize + idx + 1, total, xp: e.groupTotalXp, level: e.groupTotalLevel };
     }
   }
+  // Not near our XP (for example while a member's data is missing): scan the whole board by name.
+  if (total <= 6000) {
+    for (let page = 0; page * PER < total; page++) {
+      const data = await board(size, competitive, page, PER);
+      const idx = (data.content ?? []).findIndex(e => names.includes(String(e.name).toLowerCase()));
+      if (idx >= 0) { const e = data.content[idx]; return { rank: page * PER + idx + 1, total, xp: e.groupTotalXp, level: e.groupTotalLevel }; }
+    }
+  }
   return { rank: null, total };
 }
 

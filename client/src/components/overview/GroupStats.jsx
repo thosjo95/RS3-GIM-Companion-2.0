@@ -121,41 +121,6 @@ export default function GroupStats({ players, goals, groupId }) {
             </div>
           </div>
 
-          {/* Leader banner when a skill is spotlit */}
-          {filteredSkill && (() => {
-            const ranked = players
-              .map(p => ({ rsn: p.rsn, id: p.id, level: p.skills?.find(s => s.skill_name === filteredSkill)?.level ?? null }))
-              .filter(p => p.level !== null)
-              .sort((a, b) => b.level - a.level);
-            if (!ranked.length) return null;
-            const best = ranked[0];
-            const is120 = best.level >= 120;
-            const is99  = best.level >= 99;
-            return (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, flexWrap: 'wrap', marginBottom: 10 }}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-                  <SkillIcon name={filteredSkill} size={16} />
-                  <strong style={{ color: 'var(--text-bright)' }}>{filteredSkill}</strong>
-                </span>
-                <span style={{ color: 'var(--text-dim)' }}>—</span>
-                <span style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                  {ranked.map((p, idx) => (
-                    <span key={p.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                      {idx === 0 && <span style={{ fontSize: 10 }}>🥇</span>}
-                      {idx === 1 && <span style={{ fontSize: 10 }}>🥈</span>}
-                      {idx === 2 && <span style={{ fontSize: 10 }}>🥉</span>}
-                      <span style={{ color: colorMap[p.id], fontWeight: idx === 0 ? 700 : 500 }}>{p.rsn}</span>
-                      <span style={{
-                        fontWeight: idx === 0 ? 800 : 600,
-                        color: (idx === 0 && is120) ? 'var(--gold)' : (idx === 0 && is99) ? 'var(--text-bright)' : 'var(--text)',
-                      }}>{p.level}</span>
-                    </span>
-                  ))}
-                </span>
-              </div>
-            );
-          })()}
-
           {/* ── Modern comparison grid: one column per member, skills grouped by type ── */}
           {(() => {
             const GROUPS = [

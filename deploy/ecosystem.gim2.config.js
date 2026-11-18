@@ -1,4 +1,4 @@
-// PM2 process for GIM Companion 2.0. Its own name, port and data folder, so it never touches the 1.x process or database.
+// PM2 process for GIM Companion 2.0 (runs as the `gim` user on its own server).
 //   pm2 start deploy/ecosystem.gim2.config.js && pm2 save
 module.exports = {
   apps: [{
@@ -8,8 +8,8 @@ module.exports = {
     // Node 22 or newer is required (the built-in SQLite module)
     env: {
       NODE_ENV: 'production',
-      PORT: 3002,                          // 1.x keeps its own port
-      GIM_DATA_DIR: '/var/lib/gim2',       // 2.0 database (a separate file from 1.x)
+      PORT: 3001,
+      GIM_DATA_DIR: '/var/lib/gim2',       // the database and its backups
     },
     max_memory_restart: '600M',
     time: true,

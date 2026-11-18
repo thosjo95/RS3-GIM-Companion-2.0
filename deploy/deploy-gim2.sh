@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Deploys GIM Companion 2.0 to /opt/gim2 (first install and every update). Safe next to 1.x: different folder, port,
-# PM2 name and database. Run as root on the server:   bash /opt/gim2/deploy/deploy-gim2.sh   (first time: see deploy/README.md)
+# Deploys GIM Companion 2.0 to /opt/gim2 (first install and every update). Run as the `gim` user on the server:
+#   sudo -u gim bash /opt/gim2/deploy/deploy-gim2.sh      (first time: see deploy/README.md)
 set -euo pipefail
 
 APP=/opt/gim2
@@ -29,4 +29,4 @@ if pm2 describe gim2 >/dev/null 2>&1; then pm2 reload gim2 --update-env; else pm
 pm2 save >/dev/null
 
 sleep 3
-curl -fsS http://127.0.0.1:3002/api/health && echo && echo "GIM 2.0 is up on port 3002."
+curl -fsS http://127.0.0.1:3001/api/health && echo && echo "GIM 2.0 is up on port 3001."

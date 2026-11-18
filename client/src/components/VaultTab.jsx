@@ -535,7 +535,7 @@ function VaultPanel({ players, groupId, goals, onToast, myRsn, canWrite, groupEq
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
         <div>
           <div className="section-title" style={{ marginBottom: 2 }}>
-            Group Vault
+            Drop Log
             {dupeCount > 0 && (
               <span style={{ fontWeight: 400, fontSize: 11, color: 'var(--gold)', marginLeft: 8 }}>
                 · {dupeCount} dupe{dupeCount !== 1 ? 's' : ''}
@@ -651,7 +651,7 @@ export default function VaultTab({ players, groupId, goals = [], onToast, canWri
   const [groupEquipment, setGroupEquip] = useState([]);
   // 'vault' = drops + gear loadouts (as before); the rest is the plugin's live data
   const [section, setSection] = useState('vault');
-  const SECTIONS = [['vault', '🏆 Drops & Gear'], ['items', '🎒 Items'], ['ledger', '📒 Bank ledger'], ['setup', '🔌 Plugin setup']];
+  const SECTIONS = [['vault', '🏆 Drops & Gear'], ['items', '🏦 Group Vault'], ['ledger', '📒 Bank Journal'], ['setup', '🔌 Plugin setup']];
 
   const loadEquipment = useCallback(async () => {
     try { setGroupEquip(await api.getGroupEquipment(groupId)); }

@@ -49,7 +49,19 @@ function fmtDate(iso) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function AchievementsTab({ players, groupId, canWrite, onToast }) {
+// Completed / total area tasks for each player, from the achievement rows the API returns.
+export function areaTaskTotals(players, achievements) {
+  const done = {};
+  for (const a of achievements) if (a.achieved) (done[a.player_id] ??= new Set()).add(a.key);
+  const total = DIARY_REGIONS.length * TIERS.length;
+  return new Map(players.map(p => [p.id, {
+    total,
+    done: DIARY_REGIONS.reduce((n, r) => n + regionTiers(r).filter(t => done[p.id]?.has(`${r.base}_${t.key}`)).length, 0),
+  }]));
+}
+
+// `embedded`: shown inside the Quests & Area Tasks page, which supplies the progress summary and the frame itself.
+export default function AchievementsTab({ players, groupId, canWrite, onToast, embedded = false, onLoaded }) {
   const [achievements, setAchievements] = useState([]);
   const [loading, setLoading]           = useState(true);
   const [toggling, setToggling]         = useState(null); // 'playerId:key'
@@ -65,6 +77,7 @@ export default function AchievementsTab({ players, groupId, canWrite, onToast })
     try {
       const data = await api.getAchievements(groupId);
       setAchievements(data);
+      onLoaded?.(data);
     } catch (err) {
       onToast?.(err.message, 'error');
     } finally {
@@ -128,7 +141,7 @@ export default function AchievementsTab({ players, groupId, canWrite, onToast })
   }
 
   return (
-    <div style={{
+    <div style={embedded ? { display: 'flex', flexDirection: 'column', gap: 16 } : {
       display: 'flex', flexDirection: 'column', gap: 16,
       background: 'var(--bg-panel)',
       border: '1px solid var(--border)',
@@ -138,7 +151,7 @@ export default function AchievementsTab({ players, groupId, canWrite, onToast })
       {/* Header */}
       <div className="flex align-center justify-between" style={{ flexWrap: 'wrap', gap: 8 }}>
         <div>
-          <div className="section-title" style={{ marginBottom: 4 }}>📋 Area Tasks</div>
+          {!embedded && <div className="section-title" style={{ marginBottom: 4 }}>📋 Area Tasks</div>}
           <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>
             Auto-detected from the Adventurer's Log feed · Click a cell to mark manually
           </div>
@@ -155,8 +168,8 @@ export default function AchievementsTab({ players, groupId, canWrite, onToast })
         </div>
       </div>
 
-      {/* Progress summary row */}
-      <div data-tour="achievements-progress" style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+      {/* Progress summary row (the combined page shows its own) */}
+      {!embedded && <div data-tour="achievements-progress" style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
         {summary.map(p => (
           <div key={p.id} style={{
             flex: '1 1 140px', padding: '10px 14px',
@@ -170,7 +183,7 @@ export default function AchievementsTab({ players, groupId, canWrite, onToast })
             </div>
           </div>
         ))}
-      </div>
+      </div>}
 
       {loading ? (
         <div style={{ textAlign: 'center', padding: 40 }}><span className="spinner" /></div>

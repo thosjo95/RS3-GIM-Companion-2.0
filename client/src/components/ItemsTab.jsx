@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '../api/client';
 import { MEMBER_COLORS, fmtNum } from '../lib/rs3';
 
-// GIM 2.0 — live group items, bank ledger and plugin setup.
+// GIM 2.0 — live group items, the Bank Journal (group storage in/out) and plugin setup.
 // All data is pushed by the in-game RS3 plugin (see /plugin) and is private to the group.
 
 // What each filter shows. "Storage" (the default) is what a group vault is about: the shared group storage
@@ -150,19 +150,21 @@ function ItemsView({ state, colorOf, selectedPlayerId }) {
 
 // ── Ledger ────────────────────────────────────────────────────────────────────
 
+// The Bank Journal: what was put into / taken out of the group storage, and by whom.
 function LedgerView({ ledger, colorOf, selectedPlayerId }) {
   const [op, setOp] = useState('all');
-  const [store, setStore] = useState('all');
+  const [search, setSearch] = useState('');
+  const q = search.trim().toLowerCase();
   const rows = ledger.filter(r => (selectedPlayerId == null || r.player_id === selectedPlayerId)
     && (op === 'all' || (op === 'in' ? r.delta > 0 : r.delta < 0))
-    && (store === 'all' || r.store === store));
+    && (!q || (r.item_name || '').toLowerCase().includes(q)));
 
   if (ledger.length === 0) {
     return (
       <div className="empty-state">
         <div className="icon">📒</div>
-        <p>No deposits or withdrawals recorded yet.</p>
-        <p style={{ fontSize: 12, color: 'var(--text-dim)' }}>They appear here as members use the group storage with the plugin running.</p>
+        <p>Nothing recorded in the Bank Journal yet.</p>
+        <p style={{ fontSize: 12, color: 'var(--text-dim)' }}>Everything a member puts into or takes out of the group storage appears here, as long as their plugin is running.</p>
       </div>
     );
   }
@@ -171,13 +173,13 @@ function LedgerView({ ledger, colorOf, selectedPlayerId }) {
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
         {[['all', 'All movements'], ['in', 'Deposits'], ['out', 'Withdrawals']].map(([id, label]) => <button key={id} style={pillStyle(op === id)} onClick={() => setOp(id)}>{label}</button>)}
         <span style={{ width: 12 }} />
-        {[['all', 'Banks + group storage'], ['group', 'Group storage'], ['bank', 'Banks']].map(([id, label]) => <button key={id} style={pillStyle(store === id)} onClick={() => setStore(id)}>{label}</button>)}
+        <input className="form-input" style={{ maxWidth: 220, marginLeft: 'auto' }} placeholder="Search items…" value={search} onChange={e => setSearch(e.target.value)} />
       </div>
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
           <thead>
             <tr style={{ textAlign: 'left', color: 'var(--text-dim)', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              <th style={{ padding: '6px 8px' }}>Operation</th><th>Time</th><th>Item</th><th style={{ textAlign: 'right' }}>Amount</th><th style={{ textAlign: 'right' }}>Value</th><th style={{ paddingLeft: 12 }}>Member</th>
+              <th style={{ padding: '6px 8px' }}>Action</th><th>Time</th><th>Item</th><th style={{ textAlign: 'right' }}>Amount</th><th style={{ textAlign: 'right' }}>Value</th><th style={{ paddingLeft: 12 }}>Member</th>
             </tr>
           </thead>
           <tbody>
@@ -185,7 +187,7 @@ function LedgerView({ ledger, colorOf, selectedPlayerId }) {
               <tr key={r.id} style={{ borderTop: '1px solid var(--border)' }}>
                 <td style={{ padding: '6px 8px', color: r.delta > 0 ? 'var(--green-bright)' : 'var(--orange)' }}>{r.delta > 0 ? '+ Deposited' : '− Withdrew'}</td>
                 <td style={{ color: 'var(--text-dim)' }}>{new Date(r.occurred_at).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</td>
-                <td>{r.item_name || `Item ${r.item_id}`} <span style={{ color: 'var(--text-dim)', fontSize: 10 }}>({r.store === 'group' ? 'group storage' : 'bank'})</span></td>
+                <td>{r.item_name || `Item ${r.item_id}`}</td>
                 <td style={{ textAlign: 'right', fontWeight: 700 }}>{r.delta > 0 ? '+' : '−'}{fmtNum(Math.abs(r.delta))}</td>
                 <td style={{ textAlign: 'right', color: 'var(--text-dim)' }}>{r.value_each != null ? fmtNum(r.value_each * Math.abs(r.delta)) : '—'}</td>
                 <td style={{ paddingLeft: 12, color: colorOf(r.player_id) }}>{r.rsn}</td>
@@ -284,7 +286,7 @@ export default function ItemsTab({ players, groupId, canWrite, onToast, selected
     return (
       <div className="empty-state">
         <div className="icon">🔒</div>
-        <p>The group's items and bank ledger are private to the group.</p>
+        <p>The group's items and Bank Journal are private to the group.</p>
         <p style={{ fontSize: 12, color: 'var(--text-dim)' }}>Unlock the group with its secret to view them.</p>
       </div>
     );

@@ -9,6 +9,7 @@
 --   2. Reading      - skills, inventories, position
 --   3. Bank changes - what moved in/out of the bank and group storage
 --   4. Quests       - quest progress from the game's quest definitions
+--      Achievements  - completed achievements / area tasks from the game's achievement definitions
 --   5. Kills        - NPC kills of the monster you are fighting
 --   6. Drops        - valuable items that appear after one of your kills
 --   7. Sending      - one JSON POST, retried until the server confirms (nothing is lost on a failed request)
@@ -47,7 +48,7 @@ end
 --   dryRun = true              read the game and print what WOULD be sent, but make no network request at all
 local DRY_RUN = settings.dryRun == true
 local DEBUG = settings.debug ~= false
-local FEATURES = { quests = true, kills = true, drops = true }
+local FEATURES = { quests = true, kills = true, drops = true, achievements = true }
 if type(settings.features) == "table" then
     for name in pairs(FEATURES) do if settings.features[name] == false then FEATURES[name] = false end end
 end
@@ -74,6 +75,11 @@ local KILL_NEAR_TILES    = 25    -- ... and it was this close to you (so telepor
 local DROP_WINDOW_TICKS  = 20    -- a drop belongs to a kill made this recently
 local DROP_NEAR_TILES    = 12    -- ... and this close
 local MAX_DROPS_PER_SEND = 20
+local ACH_RECHECK        = 600   -- re-read achievements this often (about 6 minutes)
+local ACH_SCAN_LIMIT     = 8000  -- achievement ids are scanned from 0 up to this, in small steps
+local ACH_MISS_LIMIT     = 400   -- stop early after this many missing ids in a row
+local ACH_IDS_PER_TICK   = 25
+local ACH_MAX_PER_SEND   = 1500  -- the server accepts at most this many per request; the rest follows next time
 
 -- Shared state
 local ticks = 0
@@ -203,14 +209,16 @@ local function near(a, b, tiles)
 end
 
 -- ── 3. Changes in the bank and group storage ──────────────────────────────────
--- The dashboard ledger records deposits/withdrawals. For each store we remember the totals the server has
+-- The dashboard's Bank Journal records what is put into / taken out of the GROUP STORAGE only (a member's own
+-- bank is sent as a snapshot for the Items view but its movements are not journalled). For each journalled
+-- store we remember the totals the server has
 -- ALREADY ACCEPTED ("held"); a change is only counted as delivered once a send succeeds, so a failed
 -- request simply tries again with nothing lost.
 local changeBatch = nil      -- { ref, changes, seen } formed and sent, waiting for the server's confirmation
 local changeBatchCounter = 0
 local STORES = {
-    { key = "bank",  field = "bank", window = id.Interface.BANK,                    inv = id.Inv.BANK,                          held = nil },
-    { key = "group", field = "group_storage", window = id.Interface.GROUP_IRONMAN_STORAGE,   inv = id.Inv.GROUP_IRONMAN_STORAGE_CLAN_TEMP, held = nil },
+    { key = "bank",  field = "bank", journal = false, window = id.Interface.BANK,   inv = id.Inv.BANK,                          held = nil },
+    { key = "group", field = "group_storage", journal = true, window = id.Interface.GROUP_IRONMAN_STORAGE,   inv = id.Inv.GROUP_IRONMAN_STORAGE_CLAN_TEMP, held = nil },
 }
 
 -- The game's Lua has NO `os` library (no clock), so the plugin cannot stamp times itself: it sends no time and
@@ -249,10 +257,12 @@ local function readQuest(questId)
     local okQ, quest = pcall(function() return config.Quest.FromID(questId) end)
     if not okQ or quest == nil then return nil end
     local okR, entry = pcall(function()
+        if quest.deprecated then return false end   -- old versions of quests that no longer exist in the game
         local state = "not_started"
         if quest.hasFinishedQuest then state = "finished" elseif quest.hasStartedQuest then state = "started" end
         return { id = questId, name = quest.name, state = state, members = quest.isMembers and true or false, points = quest.questPoints }
     end)
+    if okR and entry == false then return false end   -- deprecated: skip it, but it is not a gap in the id range
     if not okR or type(entry.name) ~= "string" or entry.name == "" then return nil end
     if type(entry.points) ~= "number" then entry.points = nil end
     return entry
@@ -273,6 +283,8 @@ local function questScanStep()
         if entry == nil then
             scan.misses = scan.misses + 1
             if scan.misses >= QUEST_MISS_LIMIT and scan.seen > 0 then last = QUEST_SCAN_LIMIT; break end
+        elseif entry == false then
+            scan.misses = 0   -- deprecated quest: skipped, not sent
         else
             scan.misses = 0
             scan.seen = scan.seen + 1
@@ -291,6 +303,89 @@ local function questScanStart()
     lastQuestCheck = ticks
     questScan = { next = 0, seen = 0, misses = 0, changed = {} }
     trace("quest scan started")
+end
+
+-- ── 4b. Achievements and area tasks ───────────────────────────────────────────────
+-- RuneScape's "achievements" (which include the area tasks) are config entries that know their own name, category
+-- and the character's progress; progress == -2 means complete. Like the quests they are scanned a few ids per tick;
+-- only COMPLETED ones are sent (a baseline once per login, then whatever is newly completed).
+local achHeld = {}              -- achievement id -> true once the server has accepted it as completed
+local achBaselineDone = false
+local lastAchCheck = -ACH_RECHECK
+local achScan, achChanges = nil, nil
+local achTable = nil            -- config.Achievement (looked up once)
+local achPrinted = false
+
+local function achComplete()
+    local ok, value = pcall(function() return AchievementProgressType.COMPLETE end)
+    if ok and type(value) == "number" then return value end
+    return -2
+end
+
+local function readAchievement(achId)
+    if achTable == nil then
+        local okT, tbl = pcall(function() return config.Achievement end)
+        if okT and tbl ~= nil then achTable = tbl end
+        if achTable == nil then return nil end
+    end
+    local okA, ach = pcall(function() return achTable.FromID(achId) end)
+    if not okA or ach == nil then return nil end
+    local okR, entry = pcall(function()
+        return { id = achId, name = ach.name, category = ach.category, sub_category = ach.subCategory,
+                 members = ach.isMembers and true or false, rune_score = ach.runeScore, progress = ach.progress }
+    end)
+    if not okR or type(entry.name) ~= "string" or entry.name == "" then return nil end
+    return entry
+end
+
+local function achScanStep()
+    local scan = achScan
+    if scan == nil then return end
+    local done = achComplete()
+    local last = math.min(scan.next + ACH_IDS_PER_TICK - 1, ACH_SCAN_LIMIT - 1)
+    for achId = scan.next, last do
+        local e = readAchievement(achId)
+        if e == nil then
+            scan.misses = scan.misses + 1
+            if scan.misses >= ACH_MISS_LIMIT and scan.seen > 0 then last = ACH_SCAN_LIMIT; break end
+        else
+            scan.misses = 0
+            scan.seen = scan.seen + 1
+            local completed = e.progress == done
+            if completed then scan.completed = scan.completed + 1 end
+            scan.categories[e.category or -1] = (scan.categories[e.category or -1] or 0) + (completed and 1 or 0)
+            -- A few samples are printed once so the real names / categories can be inspected in the beta.
+            if #scan.samples < 14 and (completed or e.name:find("Easy") or e.name:find("Elite") or e.name:find("Beginner")) then
+                scan.samples[#scan.samples + 1] = e.name .. " [cat " .. tostring(e.category) .. "/" .. tostring(e.sub_category) .. ", progress " .. tostring(e.progress) .. "]"
+            end
+            if completed and not achHeld[achId] then
+                scan.changed[#scan.changed + 1] = { id = e.id, name = e.name, category = e.category, sub_category = e.sub_category,
+                                                    members = e.members, rune_score = e.rune_score }
+            end
+        end
+    end
+    scan.next = last + 1
+    if scan.next >= ACH_SCAN_LIMIT then
+        achScan = nil
+        trace("achievement scan finished: " .. scan.seen .. " achievements, " .. scan.completed .. " completed, " .. #scan.changed .. " to send")
+        if not achPrinted and scan.seen > 0 then
+            achPrinted = true
+            local cats = {}
+            for c, n in pairs(scan.categories) do cats[#cats + 1] = "cat " .. tostring(c) .. "=" .. n end
+            table.sort(cats)
+            log("[GIM] achievements: " .. scan.seen .. " found, " .. scan.completed .. " completed. Completed per category: " .. table.concat(cats, ", "))
+            for _, line in ipairs(scan.samples) do log("[GIM] achievements sample: " .. line) end
+        elseif scan.seen == 0 then
+            log("[GIM] achievements: none readable (config.Achievement may be named differently)")
+        end
+        if scan.seen > 0 and #scan.changed > 0 then achChanges = scan.changed; markItemsDirty() end
+    end
+end
+
+local function achScanStart()
+    lastAchCheck = ticks
+    achScan = { next = 0, seen = 0, misses = 0, completed = 0, changed = {}, categories = {}, samples = {} }
+    trace("achievement scan started")
 end
 
 -- ── 5. Kills ──────────────────────────────────────────────────────────────────
@@ -527,7 +622,7 @@ local function send()
             if list then
                 local now = totals(list)
                 seen[store] = now
-                if changeBatch == nil then
+                if changeBatch == nil and store.journal then
                     for _, c in ipairs(diff(store, now)) do changes[#changes + 1] = c end
                 end
                 if store.field then payload[store.field] = list end
@@ -546,6 +641,15 @@ local function send()
     if sentQuests then
         payload.quests = sentQuests
         if not questBaselineDone then payload.quests_full = true end
+    end
+
+    -- Achievements: the newly completed ones found by the last finished scan (at most ACH_MAX_PER_SEND at once).
+    local sentAch
+    if achChanges then
+        sentAch = {}
+        for i = 1, math.min(#achChanges, ACH_MAX_PER_SEND) do sentAch[i] = achChanges[i] end
+        payload.achievements = sentAch
+        if not achBaselineDone then payload.achievements_full = true end
     end
 
     -- Kills: pending kills are frozen into one batch with its own reference. The batch is re-sent unchanged
@@ -606,6 +710,14 @@ local function send()
                 for _, q in ipairs(sentQuests) do questHeld[q.id] = q.state end
                 questBaselineDone = true
                 if questChanges == sentQuests then questChanges = nil end
+            end
+            if sentAch then
+                for _, a in ipairs(sentAch) do achHeld[a.id] = true end
+                local rest = {}
+                for i = #sentAch + 1, #achChanges do rest[#rest + 1] = achChanges[i] end
+                achChanges = #rest > 0 and rest or nil
+                if achChanges == nil then achBaselineDone = true end
+                if achChanges then markItemsDirty() end
             end
             if sentKills and killBatch == sentKills then killBatch = nil end
             if sentDrops then
@@ -673,6 +785,7 @@ Event.GameStateChanged.Subscribe("gim_state", function(event)
     if event.newState ~= GameState.GAME then
         for _, store in ipairs(STORES) do store.held = nil end
         questHeld, questBaselineDone, lastQuestCheck, questScan, questChanges = {}, false, -QUEST_RECHECK, nil, nil
+        achHeld, achBaselineDone, lastAchCheck, achScan, achChanges = {}, false, -ACH_RECHECK, nil, nil
         engagedName, lastHp, recentKills, fromGround, packBefore = nil, nil, {}, {}, nil
         rules = nil
         dirty.skills, dirty.items = true, true
@@ -689,6 +802,11 @@ Event.ServerLogic.Subscribe("gim_tick", function()
     end
 
     -- Drop rules: fetch when logged in and missing; retry about every 3 minutes if the server did not answer.
+    if FEATURES.achievements and Player.IsAvailable() then
+        if achScan ~= nil then achScanStep()
+        elseif ticks - lastAchCheck >= ACH_RECHECK then achScanStart() end
+    end
+
     if FEATURES.drops and not DRY_RUN and rules == nil and ticks - rulesAskedAt >= 300 and Player.IsAvailable() then trace("fetching drop rules"); fetchRules() end
 
     if settings.probe and not probeDone and ticks >= 20 and Player.IsAvailable() then runProbe() end

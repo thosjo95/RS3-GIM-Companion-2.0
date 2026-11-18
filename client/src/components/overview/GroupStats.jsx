@@ -2,7 +2,6 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { api } from '../../api/client';
 import { MEMBER_COLORS } from '../../lib/rs3';
 import SkillIcon from '../common/SkillIcon';
-import { QuestsPanel } from './QuestTables';
 import { SKILL_ORDER } from './constants';
 
 // ── Group stats (tabbed) ──────────────────────────────────────────────────────
@@ -58,10 +57,6 @@ export default function GroupStats({ players, goals, groupId }) {
       .finally(() => setGainsLoading(false));
   }, [groupId, gainPeriod]);
 
-  const TABS = [
-    { id: 'skills', label: 'Skills', icon: 'https://runescape.wiki/images/Skills.png' },
-    { id: 'quests', label: 'Quests', icon: 'https://runescape.wiki/images/Quest_points.png' },
-  ];
 
   function pillStyle(active) {
     return {
@@ -74,17 +69,6 @@ export default function GroupStats({ players, goals, groupId }) {
 
   return (
     <div>
-      <div style={{ display: 'flex', gap: 3, marginBottom: 14, background: 'var(--bg-root)', borderRadius: 'var(--radius)', padding: 3 }}>
-        {TABS.map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)} style={{ ...pillStyle(tab === t.id), display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
-            <img src={t.icon} alt="" width={13} height={13}
-              style={{ imageRendering: 'crisp-edges', opacity: tab === t.id ? 0.9 : 0.65, flexShrink: 0 }}
-              onError={e => { e.target.style.display = 'none'; }} />
-            {t.label}
-          </button>
-        ))}
-      </div>
-
       {/* Skills tab — levels matrix + gains overlay */}
       {tab === 'skills' && (
         <div>
@@ -291,10 +275,6 @@ export default function GroupStats({ players, goals, groupId }) {
         </div>
       )}
 
-      {/* Quests tab — group-wide quest completion grid */}
-      {tab === 'quests' && (
-        <QuestsPanel players={players} colorMap={colorMap} />
-      )}
     </div>
   );
 }

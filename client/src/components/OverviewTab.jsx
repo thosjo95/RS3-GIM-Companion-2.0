@@ -1,8 +1,7 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useMemo } from 'react';
 import { fmtXp } from '../lib/rs3';
 import SkillTable from './overview/SkillTable';
 import SnapshotButton from './overview/SnapshotButton';
-import { PlayerQuestTable } from './overview/QuestTables';
 import GroupStats from './overview/GroupStats';
 import RightPanel from './overview/RightPanel';
 
@@ -10,8 +9,6 @@ import RightPanel from './overview/RightPanel';
 
 // The player cards (and the player filter) live in PlayerBar, pinned above every page; `selectedId` comes from there.
 export default function OverviewTab({ group, goals, players, groupId, onRefresh, onToast, canWrite, myRsn, selectedId = null, pendingRequests = [], onGoToRequests }) {
-  const [playerView, setPlayerView] = useState('skills'); // 'skills' | 'quests'
-  useEffect(() => { setPlayerView('skills'); }, [selectedId]);
 
   const selectedPlayer = players.find(p => p.id === selectedId) ?? null;
 
@@ -108,34 +105,15 @@ export default function OverviewTab({ group, goals, players, groupId, onRefresh,
             <span className="panel-title" style={{ flex: 1 }}>
               {selectedPlayer ? selectedPlayer.rsn : 'Group Stats'}
             </span>
-            {selectedPlayer ? (
-              <div style={{ display: 'flex', gap: 3 }}>
-                {[
-                  ['skills', 'Skills',  'https://runescape.wiki/images/Skills.png'],
-                  ['quests', 'Quests',  'https://runescape.wiki/images/Quest_points.png'],
-                ].map(([id, lbl, icon]) => (
-                  <button key={id} type="button"
-                    className={`btn btn-sm ${playerView === id ? 'btn-primary' : 'btn-secondary'}`}
-                    style={{ fontSize: 11, display: 'inline-flex', alignItems: 'center', gap: 5 }}
-                    onClick={() => setPlayerView(id)}>
-                    <img src={icon} alt="" width={13} height={13}
-                      style={{ imageRendering: 'crisp-edges', opacity: playerView === id ? 0.9 : 0.65, flexShrink: 0 }}
-                      onError={e => { e.target.style.display = 'none'; }} />
-                    {lbl}
-                  </button>
-                ))}
-              </div>
-            ) : !selectedPlayer && group ? (
+            {!selectedPlayer && group && (
               <SnapshotButton group={group} players={players} goals={goals} onToast={onToast} />
-            ) : null}
+            )}
           </div>
           <div className="panel-body">
             {selectedPlayer
-              ? playerView === 'quests'
-                ? <PlayerQuestTable player={selectedPlayer} />
-                : selectedPlayer.skills?.length > 0
-                  ? <SkillTable player={selectedPlayer} />
-                  : <div className="empty-state"><p>No data — sync this player first.</p></div>
+              ? selectedPlayer.skills?.length > 0
+                ? <SkillTable player={selectedPlayer} />
+                : <div className="empty-state"><p>No data — sync this player first.</p></div>
               : players.length > 0
                 ? <GroupStats players={players} goals={goals} groupId={groupId} />
                 : <div className="empty-state"><p>No players yet.</p></div>}

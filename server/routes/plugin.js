@@ -5,10 +5,11 @@
  *   DELETE /api/plugin/tokens/:playerId revoke a player's tokens                (group write auth)
  *   POST   /api/plugin/ingest          the plugin pushes its data               (Bearer token)
  *   GET    /api/plugin/state?group_id  latest live state per player             (group auth)
- *   GET    /api/plugin/ledger?group_id deposits / withdrawals                   (group auth)
+ *   GET    /api/plugin/ledger?group_id group storage in/out (the Bank Journal)  (group auth)
  *   GET    /api/plugin/config          drop rules for the plugin                (Bearer token)
  *   GET    /api/plugin/quests?group_id quest progress per player                (group auth)
  *   GET    /api/plugin/kills?group_id  NPC kills counted by the plugin          (group auth)
+ *   GET    /api/plugin/achievements?group_id  completed achievements / area tasks (group auth)
  *
  * Design rules:
  *  - A token belongs to exactly one player and can only write that player's data.
@@ -32,7 +33,7 @@ const SKILL_NAMES = new Set(SKILLS.filter(s => s !== 'Overall'));
 const ingestLimiter = createRateLimiter({ windowMs: 60_000, max: 60, message: 'Too many plugin updates. Send at most one per second.' });
 
 // Limits per section — generous for real use, small enough to stop abuse.
-const MAX = { inventory: 100, equipment: 30, bank: 6000, changes: 500, quests: 900, kills: 200, drops: 50 };
+const MAX = { inventory: 100, equipment: 30, bank: 6000, changes: 500, quests: 900, kills: 200, drops: 50, achievements: 1500 };
 // gp; the plugin also reports any item named in a boss's drop table. GIM_DROP_THRESHOLD overrides it for testing.
 const DROP_THRESHOLD = Number(process.env.GIM_DROP_THRESHOLD) || 100_000;
 
@@ -124,6 +125,19 @@ function cleanPayload(b) {
         points: isInt(q.points, 0, 1000) ? q.points : null };
     });
     out.questsFull = b.quests_full === true;
+  }
+
+  if (b.achievements !== undefined) {
+    if (!Array.isArray(b.achievements)) throw new Error('achievements must be an array');
+    if (b.achievements.length > MAX.achievements) throw new Error(`achievements has too many entries (max ${MAX.achievements})`);
+    out.achievements = b.achievements.map((a, i) => {
+      if (!a || !isInt(a.id, 0, 1e7)) throw new Error(`achievements[${i}].id must be an integer`);
+      if (typeof a.name !== 'string' || !a.name.trim() || a.name.length > 160) throw new Error(`achievements[${i}].name must be a string`);
+      const opt = v => (isInt(v, -1, 1e7) ? v : null);
+      return { id: a.id, name: a.name.trim(), category: opt(a.category), sub: opt(a.sub_category),
+        members: a.members === undefined ? null : (a.members ? 1 : 0), score: isInt(a.rune_score, 0, 1e6) ? a.rune_score : null };
+    });
+    out.achievementsFull = b.achievements_full === true;
   }
 
   if (b.kills !== undefined) {
@@ -232,9 +246,11 @@ router.post('/ingest', ingestLimiter, express.json({ limit: '1mb' }), (req, res)
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
     const freshChanges = !data.changes || sync.claimBatch(playerId, data.changesRef);
-    for (const c of freshChanges ? (data.changes ?? []) : []) ledgerAdded += ins.run(playerId, c.store, c.id, c.name, c.delta, c.value, c.ts).changes;
+    // The Bank Journal is about the group storage only; bank movements from older plugin versions are ignored.
+    for (const c of freshChanges ? (data.changes ?? []).filter(x => x.store === 'group') : []) ledgerAdded += ins.run(playerId, c.store, c.id, c.name, c.delta, c.value, c.ts).changes;
 
     if (data.quests) applied.quests = sync.applyQuests(playerId, data.quests, data.questsFull, now);
+    if (data.achievements) applied.achievements = sync.applyAchievements(playerId, data.achievements, data.achievementsFull, now);
     if (data.kills) applied.kills_applied = sync.applyKills(playerId, data.kills, data.killsRef, now);
     if (data.drops) applied.drops_added = sync.applyDrops(playerId, data.drops);
 
@@ -282,7 +298,7 @@ router.get('/ledger', (req, res) => {
   const rows = db.prepare(`
     SELECT l.id, l.player_id, p.rsn, l.store, l.item_id, l.item_name, l.delta, l.value_each, l.occurred_at
     FROM storage_ledger l JOIN players p ON p.id = l.player_id
-    WHERE p.group_id = ?
+    WHERE p.group_id = ? AND l.store = 'group'
     ORDER BY l.occurred_at DESC, l.id DESC
     LIMIT ?
   `).all(groupId, limit);
@@ -306,6 +322,17 @@ router.get('/quests', (req, res) => {
     SELECT q.player_id, p.rsn, q.quest_id, q.name, q.state, q.members, q.points, q.updated_at
     FROM player_quests q JOIN players p ON p.id = q.player_id
     WHERE p.group_id = ? ORDER BY q.name, p.rsn
+  `).all(groupId));
+});
+
+router.get('/achievements', (req, res) => {
+  const groupId = parseInt(req.query.group_id, 10);
+  if (!groupId) return res.status(400).json({ error: 'group_id required' });
+  if (!checkGroupAuth(req, res, groupId)) return;
+  res.json(db.prepare(`
+    SELECT a.player_id, p.rsn, a.achievement_id, a.name, a.category, a.sub_category, a.members, a.rune_score, a.completed_at
+    FROM player_achievements a JOIN players p ON p.id = a.player_id
+    WHERE p.group_id = ? ORDER BY a.name, p.rsn
   `).all(groupId));
 });
 

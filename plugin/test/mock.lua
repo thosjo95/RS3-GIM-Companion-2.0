@@ -51,7 +51,15 @@ QUESTS = {
   [0] = { name = "Cook's Assistant", hasStartedQuest = true,  hasFinishedQuest = true,  isMembers = false, questPoints = 1 },
   [1] = { name = "Demon Slayer",     hasStartedQuest = true,  hasFinishedQuest = false, isMembers = false, questPoints = 3 },
   [2] = { name = "Dragon Slayer",    hasStartedQuest = false, hasFinishedQuest = false, isMembers = true,  questPoints = 2 },
+  [3] = { name = "Old Cooking Quest", hasStartedQuest = false, hasFinishedQuest = false, isMembers = false, questPoints = 0, deprecated = true },
 }
+-- Achievements / area tasks (ACHS is changed by the harness to simulate completing one). progress -2 = complete.
+ACHS = {
+  [10] = { name = "Varrock Easy Tasks",  category = 5, subCategory = 1, isMembers = false, runeScore = 1, progress = -2 },
+  [11] = { name = "Varrock Medium Tasks", category = 5, subCategory = 2, isMembers = false, runeScore = 2, progress = 0 },
+  [12] = { name = "Falador Easy Tasks",  category = 6, subCategory = 1, isMembers = false, runeScore = 1, progress = -2 },
+}
+config.Achievement = { FromID = function(i) return ACHS[i] end }
 config.Quest = { FromID = function(i) return QUESTS[i] end }
 
 -- Target overlay (controlled by the harness)

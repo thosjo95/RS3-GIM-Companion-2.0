@@ -78,26 +78,35 @@ const check = (c, m) => { console.log((c ? 'PASS' : 'FAIL') + '  ' + m); if (!c)
   const s3 = JSON.parse(captured[2].body);
   const key = c => c.store + ':' + c.id;
   const ch = Object.fromEntries((s3.storage_changes || []).map(c => [key(c), c]));
-  check(ch['bank:385']?.delta === 10 && ch['bank:4151']?.delta === -1 && !ch['bank:995'], 'bank deposit (+10 shark) and withdrawal (-1 whip) detected; unchanged coins ignored');
+  check(!Object.keys(ch).some(k => k.startsWith('bank:')), 'a member\'s own bank movements are not journalled (the Bank Journal is for the group storage only)');
   check(ch['group:560']?.delta === 50, 'group storage change detected as store "group"');
   dostr('BANK_OPEN = false; GROUP_OPEN = false');
 
   // 4. a failed send must not lose changes: same change is sent again until the server confirms
-  dostr('BANK_OPEN = true; HTTP_STATUS = 500; BANK_STATE = { { id = 995, count = 6000 }, { id = 385, count = 10 } }; FIRE("InventoryUpdated", {}); TICK(5)');
+  dostr('GROUP_OPEN = true; HTTP_STATUS = 500; GROUP_STATE = { { id = 560, count = 250 } }; FIRE("InventoryUpdated", {}); TICK(5)');
   const failedAt = captured.length;
   dostr('HTTP_STATUS = 200; FIRE("InventoryUpdated", {}); TICK(5)');
   const retried = JSON.parse(captured[captured.length - 1].body);
-  check(captured.length > failedAt && (retried.storage_changes || []).some(c => c.id === 995 && c.delta === 1000), 'after a failed send the coin deposit (+1000) is sent again');
+  check(captured.length > failedAt && (retried.storage_changes || []).some(c => c.id === 560 && c.delta === 100), 'after a failed send the group storage deposit (+100 runes) is sent again');
   const afterOk = captured.length;
   dostr('TICK(5)');
   check(captured.length === afterOk, 'no repeat once the server confirmed (baseline advanced)');
-  dostr('BANK_OPEN = false');
+  dostr('GROUP_OPEN = false');
 
   // 5. quest progress: finishing Demon Slayer completes the group's goal; the baseline did not complete Cook's Assistant
   check(goalStatus(goalDemon) === 'not_started' && goalStatus(goalCook) === 'not_started', 'goals untouched before the replay');
   dostr('QUESTS[1].hasFinishedQuest = true; TICK(110)');
   const qSend = captured.slice(afterOk).map(c => JSON.parse(c.body)).find(b => b.quests);
   check(qSend && qSend.quests.length === 1 && qSend.quests[0].name === 'Demon Slayer' && qSend.quests[0].state === 'finished' && !qSend.quests_full, 'only the changed quest is sent, without the baseline flag');
+
+  // 5b. achievements / area tasks: the baseline sends only COMPLETED ones; a later completion is sent on its own
+  const achBaseline = captured.map(c => JSON.parse(c.body)).find(b => b.achievements);
+  check(achBaseline && achBaseline.achievements_full === true && achBaseline.achievements.length === 2
+    && achBaseline.achievements.every(a => a.id === 10 || a.id === 12) && achBaseline.achievements[0].name.includes('Tasks'),
+    'achievement baseline: only completed achievements, with names and categories');
+  dostr('ACHS[11].progress = -2; TICK(620)');
+  const achLater = captured.map(c => JSON.parse(c.body)).filter(b => b.achievements).pop();
+  check(achLater.achievements.length === 1 && achLater.achievements[0].id === 11 && !achLater.achievements_full, 'a newly completed achievement is sent on its own, without the baseline flag');
 
   // 6. kills and drops
   //    a) not our kill: a monster we are not fighting, and our target dying far away, are not counted
@@ -159,22 +168,33 @@ const check = (c, m) => { console.log((c ? 'PASS' : 'FAIL') + '  ' + m); if (!c)
   check(accepted === captured.length, `server accepted all ${captured.length} snapshots`);
   const state = (await (await fetch(`${base}/plugin/state?group_id=${gid}`, { headers: gh })).json())[0];
   check(state.skills.Attack.level === 10 && state.inventory.length >= 2 && state.position.y === 3201, 'live state stored (skills, backpack, position)');
-  check(state.group_storage.length === 1 && state.group_storage[0].name === 'Death rune' && state.group_storage[0].count === 150 && !!state.group_storage_at, 'group storage contents stored and returned (not just its changes)');
+  check(state.group_storage.length === 1 && state.group_storage[0].name === 'Death rune' && state.group_storage[0].count === 250 && !!state.group_storage_at, 'group storage contents stored and returned (not just its changes)');
   const ledger = await (await fetch(`${base}/plugin/ledger?group_id=${gid}`, { headers: gh })).json();
-  check(ledger.some(l => l.item_name === 'Shark' && l.delta === 10 && l.store === 'bank') && ledger.some(l => l.item_name === 'Abyssal whip' && l.delta === -1)
-    && ledger.some(l => l.store === 'group' && l.item_name === 'Death rune' && l.delta === 50), 'ledger rows stored with names, signs and store');
-  check(ledger.filter(l => l.item_name === 'Coins' && l.delta === 1000).length === 1 && ledger.filter(l => l.item_name === 'Shark' && l.delta === 10).length === 1,
+  check(ledger.length === 2 && ledger.every(l => l.store === 'group') && ledger.some(l => l.item_name === 'Death rune' && l.delta === 50) && ledger.some(l => l.item_name === 'Death rune' && l.delta === 100),
+    'Bank Journal rows stored for the group storage only, with names and signs');
+  check(ledger.filter(l => l.delta === 100).length === 1 && ledger.filter(l => l.delta === 50).length === 1,
     'a deposit that was sent twice (failed attempt + retry, then replayed) is in the ledger exactly once');
 
   const quests = await (await fetch(`${base}/plugin/quests?group_id=${gid}`, { headers: gh })).json();
   check(quests.length === 3 && quests.find(q => q.name === 'Demon Slayer').state === 'finished', 'quest progress stored and readable');
   check(goalStatus(goalDemon) === 'complete', 'finishing a quest completes the matching goal');
   check(goalStatus(goalCook) === 'not_started', 'a quest that was already finished at the baseline does not complete goals');
+  check(!quests.some(q => q.name === 'Old Cooking Quest'), 'deprecated quests are not sent');
+  // a new full baseline that no longer lists a quest removes the stale row
+  const pruneRes = await fetch(base + '/plugin/ingest', { method: 'POST', headers: { Authorization: captured[0].auth, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ v: 1, rsn: 'LuaPlayer', quests_full: true, quests: [{ id: 0, name: "Cook's Assistant", state: 'finished' }, { id: 1, name: 'Demon Slayer', state: 'finished' }] }) });
+  const afterPrune = await (await fetch(`${base}/plugin/quests?group_id=${gid}`, { headers: gh })).json();
+  check(pruneRes.status === 200 && afterPrune.length === 2 && !afterPrune.some(q => q.name === 'Dragon Slayer'), 'a full quest baseline removes quests the plugin no longer lists');
 
   const drops = db.prepare("SELECT item_name, boss_name, quantity, source FROM drops WHERE player_id = ?").all(pid);
   const distinctRefs = new Set(captured.map(c => JSON.parse(c.body)).flatMap(b => (b.drops || []).map(d => d.ref)));
   check(drops.length === distinctRefs.size && drops.length === 4 && drops.every(d => d.source === 'plugin') && drops.every(d => d.boss_name === 'Araxxor'),
     `drops logged once each despite retries and replays (${drops.length} rows for ${distinctRefs.size} drops)`);
+
+  const achRows = await (await fetch(`${base}/plugin/achievements?group_id=${gid}`, { headers: gh })).json();
+  const byId = Object.fromEntries(achRows.map(a => [a.achievement_id, a]));
+  check(achRows.length === 3 && byId[10].completed_at === null && byId[12].completed_at === null && byId[11].completed_at !== null && byId[11].category === 5,
+    'achievements stored: baseline ones have no completion time, the later one does');
 
   const npcKills = await (await fetch(`${base}/plugin/kills?group_id=${gid}`, { headers: gh })).json();
   check(npcKills.length === 1 && npcKills[0].npc === 'Araxxor' && npcKills[0].kills === 3, 'kills counted once per real kill (replay of retried sends does not double them)');

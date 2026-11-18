@@ -33,7 +33,7 @@ import VaultTab from './VaultTab';
 import OverviewTab from './OverviewTab';
 import LeaderboardsTab from './LeaderboardsTab';
 import PlayerBar from './PlayerBar';
-import AchievementsTab from './AchievementsTab';
+import QuestsAreaTab from './QuestsAreaTab';
 import GoalsTab from './GoalsTab';
 import TourOverlay from './TourOverlay';
 
@@ -84,18 +84,18 @@ const TAB_TOURS = {
   achievements: [
     {
       target: null,
-      title: '📋 Area Tasks',
-      body: 'Track diary completion across all 14 RS3 regions × 4 tiers (Easy → Elite). Auto-detected from the Adventurer\'s Log, or toggle manually.',
+      title: '📜 Quests & Area Tasks',
+      body: 'Everything your group completes, on one page: quest progress (read live from the game when the plugin is connected) and area tasks across all RS3 regions × 4 tiers.',
     },
     {
       target: '[data-tour="achievements-progress"]',
       title: '📊 Player Progress',
-      body: "Each player gets a summary card showing how many diaries they've completed out of the total. The colour-coded bar updates as completions are recorded.",
+      body: "Each player gets a card with quests and area tasks side by side. Pick a player card at the top of the page to focus on one person.",
     },
     {
       target: '[data-tour="achievements-view"]',
-      title: '🗂️ Grid vs By Player',
-      body: 'Grid view shows all regions × tiers in one table with coloured dots per player. By Player view focuses on a single player\'s completion status across every tier.',
+      title: '📜 Quests or 🗺️ Area Tasks',
+      body: 'Switch between the quest grid (filter by difficulty, free-to-play and who is still missing it) and the area task grid, where you can also mark tasks manually.',
     },
   ],
 
@@ -148,7 +148,7 @@ export default function Dashboard({ group, goals, pendingRequests, onRefresh, on
     { id: 'overview',      label: '📊 Overview' },
     { id: 'goals',         label: '🎯 Goals',               tour: 'tab-goals' },
     { id: 'vault',         label: '🏆 Group Vault',         tour: 'tab-vault' },
-    { id: 'achievements',  label: '📋 Area Tasks', tour: 'tab-achievements' },
+    { id: 'achievements',  label: '📜 Quests & Area Tasks', tour: 'tab-achievements' },
     { id: 'leaderboards',  label: '🏅 Leaderboards',        tour: 'tab-leaderboards' },
   ];
 
@@ -265,8 +265,9 @@ export default function Dashboard({ group, goals, pendingRequests, onRefresh, on
 
       {/* ACHIEVEMENTS TAB */}
       {activeTab === 'achievements' && (
-        <AchievementsTab
-          players={visiblePlayers}
+        <QuestsAreaTab
+          players={players}
+          selectedPlayerId={selectedPlayerId}
           groupId={groupId}
           canWrite={canWrite}
           onToast={onToast}

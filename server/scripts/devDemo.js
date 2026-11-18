@@ -58,6 +58,26 @@ players.forEach((p, i) => {
 const moves = [[0, 'group', ITEMS.whip(1), -1, 20], [1, 'group', ITEMS.shark(200), 200, 55], [2, 'group', ITEMS.rune(1000), 1000, 130], [0, 'group', ITEMS.logs(500), 500, 240], [1, 'bank', ITEMS.coins(250_000), 250_000, 300]];
 for (const [pi, store, it, delta, minsAgo] of moves) ledger.run(players[pi].id, store, it.id, it.name, delta, it.value, new Date(Date.now() - minsAgo * 60_000).toISOString());
 
+// Quests (as the plugin reports them) and area tasks, with different progress per player.
+const QUESTS = [["Cook's Assistant",1,0],['Demon Slayer',3,0],['Dragon Slayer',2,1],['Rune Mysteries',1,0],['Priest in Peril',1,1],['Ernest the Chicken',4,0],['Plague City',1,1],
+  ['Fremennik Trials',3,1],['Desert Treasure',3,1],["Mourning's End Part I",2,1],['Recipe for Disaster',10,1],['While Guthix Sleeps',5,1],["Nomad's Requiem",3,1],['Missing My Mummy',2,1],['The Void Stares Back',1,1],['Fate of the Gods',2,1]];
+const q = db.prepare('INSERT INTO player_quests (player_id, quest_id, name, state, members, points, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)');
+players.forEach((p, pi) => QUESTS.forEach(([name, pts, members], qi) => {
+  const done = qi < [14, 9, 5][pi], started = !done && qi < [15, 11, 8][pi];
+  q.run(p.id, qi, name, done ? 'finished' : started ? 'started' : 'not_started', members, pts, new Date().toISOString());
+}));
+const DIARIES = ['diary_varrock','diary_falador','diary_karamja','diary_ardougne','diary_seers_village','diary_fremennik','diary_morytania','diary_desert'];
+const TIERS = ['easy','medium','hard','elite'];
+const ach = db.prepare("INSERT OR IGNORE INTO achievements (player_id, type, key, achieved, achieved_at) VALUES (?, 'diary', ?, 1, CURRENT_TIMESTAMP)");
+players.forEach((p, pi) => DIARIES.forEach((d, di) => TIERS.forEach((t, ti) => { if (di * 4 + ti < [26, 17, 8][pi]) ach.run(p.id, d + '_' + t); })));
+
+// Achievements the plugin reported (first few at the baseline = no completion time, the last ones were completed while playing).
+const ACHS = [['Varrock Easy Tasks',5,1,0,1],['Varrock Medium Tasks',5,2,0,2],['Falador Easy Tasks',6,1,0,1],['Ardougne Hard Tasks',7,3,1,5],['Fremennik Easy Tasks',8,1,1,1],['Quest Cape',2,0,1,50],['Maxed Out',3,0,0,100],['Slayer Master',4,2,1,10]];
+const pa = db.prepare('INSERT OR IGNORE INTO player_achievements (player_id, achievement_id, name, category, sub_category, members, rune_score, completed_at, seen_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
+players.forEach((p, pi) => ACHS.forEach(([name, cat, sub, members, score], ai) => {
+  if (ai < [8, 5, 3][pi]) pa.run(p.id, 100 + ai, name, cat, sub, members, score, ai >= [6, 3, 2][pi] ? new Date(Date.now() - (ai + 1) * 3_600_000).toISOString() : null, new Date().toISOString());
+}));
+
 console.log(`Demo group "${NAME}" created (id ${gid}). Unlock it in the app with secret: ${SECRET}`);
 console.log('Plugin tokens for the simulator:');
 for (const t of tokens) console.log(`  ${t.rsn.padEnd(12)} ${t.token}`);

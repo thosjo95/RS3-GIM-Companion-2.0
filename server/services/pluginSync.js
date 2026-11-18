@@ -32,6 +32,13 @@ function applyQuests(playerId, quests, full, now) {
     ON CONFLICT(player_id, quest_id) DO UPDATE SET name = excluded.name, state = excluded.state,
       members = excluded.members, points = excluded.points, updated_at = excluded.updated_at
   `);
+  // A full list is the plugin's complete picture: anything stored earlier that it no longer lists (for example
+  // quests it now knows are deprecated) is removed.
+  if (full) {
+    const sent = new Set(quests.map(q => q.id));
+    const drop = db.prepare('DELETE FROM player_quests WHERE player_id = ? AND quest_id = ?');
+    for (const id of prev.keys()) if (!sent.has(id)) { drop.run(playerId, id); prev.delete(id); }
+  }
   const finished = [];
   for (const q of quests) {
     const before = prev.get(q.id);
@@ -51,6 +58,24 @@ function claimBatch(playerId, ref) {
   if (!ref) return true;
   db.prepare("DELETE FROM plugin_kill_batches WHERE seen_at < datetime('now', '-7 days')").run();
   return db.prepare('INSERT OR IGNORE INTO plugin_kill_batches (player_id, ref, seen_at) VALUES (?, ?, CURRENT_TIMESTAMP)').run(playerId, ref).changes > 0;
+}
+
+/**
+ * Completed achievements. Once completed they stay completed, so rows are only ever added. `full` is the plugin's
+ * first scan after login: those were done at some unknown time, so they get no completed_at (and no announcement).
+ */
+function applyAchievements(playerId, list, full, now) {
+  const insert = db.prepare(`
+    INSERT OR IGNORE INTO player_achievements (player_id, achievement_id, name, category, sub_category, members, rune_score, completed_at, seen_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  let added = 0;
+  const fresh = [];
+  for (const a of list) {
+    const n = insert.run(playerId, a.id, a.name, a.category, a.sub, a.members, a.score, full ? null : now, now).changes;
+    if (n) { added++; if (!full) fresh.push(a.name); }
+  }
+  return { received: list.length, added, new_completions: fresh };
 }
 
 function applyKills(playerId, kills, ref, now) {
@@ -99,4 +124,4 @@ function rareItemNames() {
   return [...names].sort();
 }
 
-module.exports = { claimBatch, applyQuests, applyKills, applyDrops, rareItemNames, bossKeyForNpc, MULTI_NPC_BOSSES };
+module.exports = { claimBatch, applyAchievements, applyQuests, applyKills, applyDrops, rareItemNames, bossKeyForNpc, MULTI_NPC_BOSSES };

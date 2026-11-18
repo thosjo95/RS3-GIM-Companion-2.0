@@ -274,6 +274,24 @@ db.exec(`
     FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
   );
 
+  -- Achievements (and area tasks) the plugin has seen completed. Once completed they stay completed.
+  -- completed_at is the time the plugin first reported it as NEW; achievements already done at the
+  -- first login scan (the baseline) have none, since the game does not say when they were completed.
+  CREATE TABLE IF NOT EXISTS player_achievements (
+    player_id      INTEGER NOT NULL,
+    achievement_id INTEGER NOT NULL,
+    name           TEXT    NOT NULL,
+    category       INTEGER,
+    sub_category   INTEGER,
+    members        INTEGER,
+    rune_score     INTEGER,
+    completed_at   TEXT,
+    seen_at        TEXT    NOT NULL,
+    PRIMARY KEY (player_id, achievement_id),
+    FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
+  );
+  CREATE INDEX IF NOT EXISTS idx_player_achievements_recent ON player_achievements(player_id, completed_at DESC);
+
   -- References of kill batches already applied, so a re-sent batch is ignored (cleaned after 7 days).
   CREATE TABLE IF NOT EXISTS plugin_kill_batches (
     player_id INTEGER NOT NULL,
@@ -461,6 +479,12 @@ try { db.exec('ALTER TABLE players ADD COLUMN rune_score INTEGER DEFAULT NULL');
 
 // Migration tracking table — idempotent
 db.exec(`CREATE TABLE IF NOT EXISTS _migrations (name TEXT PRIMARY KEY, ran_at DATETIME DEFAULT CURRENT_TIMESTAMP)`);
+
+// The Bank Journal only tracks the group storage: drop personal-bank movements recorded by early test versions.
+if (!db.prepare("SELECT 1 FROM _migrations WHERE name = 'journal_group_storage_only'").get()) {
+  db.prepare("DELETE FROM storage_ledger WHERE store <> 'group'").run();
+  db.prepare("INSERT INTO _migrations (name) VALUES ('journal_group_storage_only')").run();
+}
 
 // groups.is_dev_only — gates custom (non-GIM) groups from production browse
 try { db.exec('ALTER TABLE groups ADD COLUMN is_dev_only INTEGER DEFAULT 0'); } catch {}

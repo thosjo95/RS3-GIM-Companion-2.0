@@ -16,6 +16,22 @@ const qtyColor = n => (n >= 10_000_000 ? '#00ff80' : n >= 100_000 ? '#ffffff' : 
 const qtyText = n => (n >= 10_000_000 ? `${Math.floor(n / 1_000_000)}M` : n >= 100_000 ? `${Math.floor(n / 1000)}K` : n.toLocaleString());
 const stroke = { textShadow: '1px 1px 0 #000, -1px 1px 0 #000, 1px -1px 0 #000, -1px -1px 0 #000' };
 
+// The coin total, shortened like the game's money pouch: white K, green M, blue B (under 100,000 the full amount in yellow).
+const oneDecimal = x => (x >= 100 ? Math.floor(x).toString() : (Math.floor(x * 10) / 10).toString());
+function gpParts(n) {
+  if (n >= 1_000_000_000) return { text: oneDecimal(n / 1_000_000_000) + 'B', color: '#5fb8ff' };
+  if (n >= 1_000_000) return { text: oneDecimal(n / 1_000_000) + 'M', color: '#00ff80' };
+  if (n >= 100_000) return { text: Math.floor(n / 1000) + 'K', color: '#ffffff' };
+  return { text: n.toLocaleString(), color: '#ffff00' };
+}
+// Official coin-stack sprite (RuneScape Wiki); the single coin from Jagex's item images if it cannot load.
+function CoinStackIcon({ size = 22 }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return <ItemIcon id={COINS_ID} name="Coins" size={size} />;
+  return <img src="https://runescape.wiki/images/Coins_10000.png" alt="Coins" onError={() => setFailed(true)}
+    style={{ width: size, height: size, objectFit: 'contain', flexShrink: 0 }} />;
+}
+
 function timeAgo(iso) {
   const t = Date.parse(iso); if (!Number.isFinite(t)) return '';
   const s = Math.max(0, Math.round((Date.now() - t) / 1000));
@@ -44,7 +60,14 @@ function Backpack({ items, pouch }) {
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10, fontSize: 12, color: 'var(--text-dim)' }}>
         <span><strong style={{ color: 'var(--text-bright)' }}>{items.length}</strong> / 28 slots</span>
-        <span title={pouch != null ? 'Money pouch plus coins in the backpack' : 'Coins in the backpack'} style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><ItemIcon id={COINS_ID} name="Coins" size={16} /><strong style={{ color: 'var(--gold)' }}>{coins == null ? '–' : coins.toLocaleString()}</strong></span>
+        <span title={coins == null ? 'The plugin has not reported the money pouch yet'
+                     : `${coins.toLocaleString()} coins${pouch != null ? ' (money pouch plus coins in the backpack)' : ' in the backpack'}`}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <CoinStackIcon size={22} />
+          {coins == null
+            ? <strong style={{ color: 'var(--text-dim)' }}>–</strong>
+            : <strong style={{ fontSize: 13, color: gpParts(coins).color, ...stroke }}>{gpParts(coins).text}</strong>}
+        </span>
       </div>
     </div>
   );

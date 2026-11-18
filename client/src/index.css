@@ -692,3 +692,6 @@ a:hover { color: var(--gold-light); }
   .mb-20  { margin-bottom: 12px; }
   .mb-24  { margin-bottom: 16px; }
 }
+
+/* group stats grid */
+.gs-row:hover { background: rgba(255,255,255,0.03); }

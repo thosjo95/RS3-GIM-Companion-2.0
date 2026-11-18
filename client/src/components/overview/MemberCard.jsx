@@ -28,6 +28,7 @@ export default function MemberCard({ player, active, color, onClick, isMe, onEdi
       transition: 'border-color 0.15s, background 0.15s',
       userSelect: 'none',
       flexShrink: 0,
+      display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center',
     }}>
       {/* Sync error badge */}
       {hasSyncError && (
@@ -42,7 +43,7 @@ export default function MemberCard({ player, active, color, onClick, isMe, onEdi
 
       <div style={{
         width: 40, height: 40, borderRadius: '50%', background: color,
-        overflow: 'hidden', marginBottom: 10, flexShrink: 0,
+        overflow: 'hidden', marginBottom: 8, flexShrink: 0,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
         {!avatarError ? (
@@ -58,11 +59,11 @@ export default function MemberCard({ player, active, color, onClick, isMe, onEdi
           </span>
         )}
       </div>
-      <div style={{ fontWeight: 700, fontSize: 13, color: active ? color : 'var(--text-bright)', marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+      <div style={{ fontWeight: 700, fontSize: 13, color: active ? color : 'var(--text-bright)', marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>
         {player.rsn}
       </div>
       {overall
-        ? <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 1, flexWrap: 'wrap' }}>
+        ? <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, marginTop: 1, flexWrap: 'wrap' }}>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, color: 'var(--text-dim)' }}>
               <img src="https://runescape.wiki/images/Multicombat.png" alt="Combat"
                 width={12} height={12} style={{ imageRendering: 'crisp-edges', opacity: 0.85 }}

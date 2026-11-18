@@ -716,12 +716,8 @@ function GoalBrowser({ players, goals, onAdd, canWrite, addingId, onCreateCustom
   // Default to just "me" if a character name is set, otherwise select everyone
   // The chips below choose WHO a suggestion is checked against and added for. They start from the player picked in
   // the pinned player bar (or "me"), and can still be widened to several players by hand.
-  const [selected, setSelected] = useState(() => focusPlayerId ?? myPlayerId ? [focusPlayerId ?? myPlayerId] : players.map(p => p.id));
-  const firstFocus = useRef(true);
-  useEffect(() => {
-    if (firstFocus.current) { firstFocus.current = false; return; }
-    setSelected(focusPlayerId != null ? [focusPlayerId] : (myPlayerId ? [myPlayerId] : players.map(p => p.id)));
-  }, [focusPlayerId]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Who suggestions are checked against comes from the pinned player bar at the top: one player, or everyone.
+  const selected = useMemo(() => focusPlayerId != null ? [focusPlayerId] : players.map(p => p.id), [focusPlayerId, players]);
   const [search,   setSearch]   = useState('');
   const [showDismissed,        setShowDismissed]        = useState(false);
   const [showCompletedDiaries, setShowCompletedDiaries] = useState(false);
@@ -743,6 +739,12 @@ function GoalBrowser({ players, goals, onAdd, canWrite, addingId, onCreateCustom
   // Map: playerId → Set of completed quest titles (from RuneMetrics quests_json),
   // normalised by stripping a trailing " (...)" suffix so suggestion titles like
   // "Biohazard (Plague City series)" still match the real quest title "Biohazard".
+  // Quests finished in the game itself (plugin) count too: the Adventurer's Log is often private or out of date.
+  const [pluginQuests, setPluginQuests] = useState([]);
+  useEffect(() => {
+    if (!groupId) return;
+    api.getPluginQuests(groupId).then(r => setPluginQuests(Array.isArray(r) ? r : [])).catch(() => setPluginQuests([]));
+  }, [groupId]);
   const completedQuestsByPlayer = useMemo(() => {
     const map = {};
     for (const p of players) {
@@ -752,8 +754,9 @@ function GoalBrowser({ players, goals, onAdd, canWrite, addingId, onCreateCustom
         quests.filter(q => q.status === 'COMPLETED').map(q => q.title.trim().toLowerCase())
       );
     }
+    for (const q of pluginQuests) if (q.state === 'finished') map[q.player_id]?.add(String(q.name).trim().toLowerCase());
     return map;
-  }, [players]);
+  }, [players, pluginQuests]);
 
   // DB suggestions (boss_kill + important_item) — loaded once on mount
   const [dbSuggestions, setDbSuggestions] = useState([]);
@@ -788,14 +791,6 @@ function GoalBrowser({ players, goals, onAdd, canWrite, addingId, onCreateCustom
     try { localStorage.removeItem(DISMISSED_KEY); } catch {}
   }
 
-  const allPlayerIds = players.map(p => p.id);
-  function togglePlayer(id) {
-    if (id === '__all__')  { setSelected(allPlayerIds); return; }
-    if (id === '__none__') { setSelected([]); return; }
-    setSelected(prev =>
-      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
-    );
-  }
 
   // Titles of goals that are complete or vaulted — these get hidden from the browser
   const completedTitles = useMemo(() =>
@@ -915,12 +910,6 @@ function GoalBrowser({ players, goals, onAdd, canWrite, addingId, onCreateCustom
             + Custom Goal
           </button>
         )}
-      </div>
-
-      {/* Player chips */}
-      <div>
-        {sectionHeader('Players', 'select one or more to check readiness')}
-        <PlayerChips players={players} selected={selected} onToggle={togglePlayer} />
       </div>
 
       {/* Stage tabs */}

@@ -98,8 +98,7 @@ notice (`docs/privacy.html`); mod.io listing text; deploy files for a fresh serv
 **Open, in this order:**
 1. **Migration rehearsal.** The owner made a consistent snapshot of the 1.x production database on the old server
    (root@178.104.126.158, Hetzner nbg1; app in /var/www/RS3-GIM-Companion, database server/data/gim.db) at /root/gim-1x-copy.db.
-   Next: owner downloads it (`scp root@178.104.126.158:/root/gim-1x-copy.db C:\Users\Thomas\GIM-2.0\server\data\gim-1x-copy.db`,
-   server/data is git-ignored) and deletes the server copy. Then rehearse on a COPY with `GIM_DATA_DIR` (never the dev database):
+   DOWNLOADED 2026-11-18 to server/data/gim-1x-copy.db (385 MB, git-ignored). The owner should still delete /root/gim-1x-copy.db on the old server. Then rehearse on a COPY with `GIM_DATA_DIR` (never the dev database):
    2.0 must start on it and upgrade it; every group opens; old secrets unlock (legacy SHA-256 rows are upgraded on first
    unlock); history shows; clean names with non-breaking spaces and duplicate members. Delete the copy afterwards (player data).
 2. **Beta as a labelled preview** (agreed in principle, not built): copy of the 1.x database as beta's database, a banner
@@ -131,13 +130,13 @@ on the final copy and repoint `groupiron.com` at the new server (keep `api.group
 manifest). 2.0 has never been run against a real 1.x database.
 
 **Owner decision (2026-11-18): every group gets a NEW secret on 2.0, and adoption is tracked.** Design agreed (not built):
-- Add  (null after migration). It is set when a group is claimed or re-keyed on 2.0. The admin
+- Add a column `groups.claimed_v2_at` (null after migration). It is set when a group is claimed or re-keyed on 2.0. The admin
   group list shows it, so the owner can see which groups came over and when.
 - Group that had a 1.x secret: shown as "not claimed on the new version yet". Claiming (in the Plugin window) asks for the
   OLD secret once, then creates a new secret at once (shown once, "save it and share it") and the old one stops working.
   This keeps the history safe from strangers: clearing all secrets outright would let anyone claim a group with its history.
 - Group that never had a secret: open claim as today. Lost old secret: the owner checks membership and uses the admin
-  tool "New Group Secret" (that also sets ).
+  tool "New Group Secret" (that also sets `claimed_v2_at`).
 - Claim window text for migrated groups: "Your group came over from groupiron.com with all its history. Enter your old
   secret once; you get a new one for the new version and the plugin."
 - Until the group is claimed on 2.0, the old secret should still unlock the website for viewing? Owner to decide; default:

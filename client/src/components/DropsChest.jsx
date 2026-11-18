@@ -45,8 +45,7 @@ export function useUnseenDrops(groupId, drops, open, prefix = 'gim_drops_seen_')
   return { fresh, markSeen };
 }
 
-const BEAM_CSS = `
-@keyframes gimBeam { 0%,100% { opacity: .55; transform: scaleY(.85); } 50% { opacity: 1; transform: scaleY(1.05); } }
+const GLOW_CSS = `
 @keyframes gimGlow { 0%,100% { box-shadow: 0 0 10px 1px var(--beam), 0 0 0 0 var(--beam); } 50% { box-shadow: 0 0 26px 6px var(--beam), 0 0 40px 10px var(--beam); } }
 `;
 
@@ -63,14 +62,8 @@ export function ChestButton({ drops = [], open, onClick, fresh = [], icon = 'vau
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, textAlign: 'center',
       background: open ? 'var(--bg-panel)' : 'var(--bg-panel-alt)', border: `2px solid ${glowing ? beam : open ? 'var(--gold)' : 'var(--border)'}`, borderRadius: 'var(--radius-lg)',
     }}>
-      {glowing && (
-        <>
-          <style>{BEAM_CSS}</style>
-          {/* the loot beam: a column of light rising from the chest */}
-          <div style={{ position: 'absolute', left: '50%', bottom: '55%', width: 44, height: 170, marginLeft: -22, transformOrigin: 'bottom', pointerEvents: 'none', zIndex: 2,
-            background: `linear-gradient(to top, ${beam}ee, ${beam}88 40%, transparent)`, filter: 'blur(3px)', animation: 'gimBeam 1.8s ease-in-out infinite' }} />
-        </>
-      )}
+      {/* something new: the tile pulses with a glowing ring (no beam above it) */}
+      {glowing && <style>{GLOW_CSS}</style>}
       <RsIcon name={icon} fallback={fallback} size={44} />
       <div style={{ fontWeight: 700, fontSize: 13, color: open ? 'var(--gold)' : glowing ? beam : 'var(--text-bright)' }}>{label}</div>
       <div style={{ fontSize: 11, color: glowing ? beam : 'var(--text-dim)' }}>{glowing ? `${fresh.length} ${freshWord}!` : sub ?? (week > 0 ? `${week} this week` : 'nothing this week')}</div>

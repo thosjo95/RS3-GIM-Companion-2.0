@@ -101,7 +101,7 @@ const FEATURE_STEPS = [
   {
     target: '[data-tour="drops-chest"]',
     title: 'Drops chest and Goals',
-    body: 'The chest lists the group\'s recent big drops from the Adventurer\'s Log and the plugin. When a new drop arrives that you have not looked at, the chest glows like a loot beam. The Goals tile shows your active goals and lets you add one; it glows when someone adds a new goal.',
+    body: 'The chest lists the group\'s recent big drops from the Adventurer\'s Log and the plugin. When a new drop arrives that you have not looked at, the chest glows. The Goals tile shows your active goals and lets you add one; it glows when someone adds a new goal.',
   },
   {
     target: '[data-tour="drops-chest"]',

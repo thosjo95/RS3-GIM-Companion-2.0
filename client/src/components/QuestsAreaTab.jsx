@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { api } from '../api/client';
+import { useCanRead } from '../lib/access';
 import { MEMBER_COLORS } from '../lib/rs3';
 import { mergeQuests, masterQuestList, questCounts, questKey } from '../lib/questData';
 import { DiffBadge, QuestStatusIcon } from './overview/QuestTables';
@@ -253,7 +254,8 @@ function AchievementList({ rows, colorMap, players }) {
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
-export default function QuestsAreaTab({ players, groupId, canWrite, onToast, selectedPlayerId = null }) {
+export default function QuestsAreaTab({ players, groupId, canWrite: unlocked, onToast, selectedPlayerId = null }) {
+  const canWrite = useCanRead(unlocked);          // read access only: the demo group is open to look at
   const [section, setSection] = useState('quests');
   const [pluginQuests, setPluginQuests] = useState([]);
   const [pluginAchs, setPluginAchs] = useState([]);

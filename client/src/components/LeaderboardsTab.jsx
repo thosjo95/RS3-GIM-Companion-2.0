@@ -2,6 +2,7 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { IconLabel } from './RsIcon';
 import { BossIcon, ItemIcon } from './GameIcon';
 import { api } from '../api/client';
+import { useCanRead } from '../lib/access';
 
 import { MEMBER_COLORS, parseRMDate } from '../lib/rs3';
 
@@ -1352,7 +1353,8 @@ function LogShell({ title, children, empty }) {
 
 const logRow = { display: 'flex', alignItems: 'center', gap: 10, padding: '6px 12px', fontSize: 12, borderBottom: '1px solid var(--border)' };
 
-function BossLog({ players, colorMap, groupId, bossName, canWrite }) {
+function BossLog({ players, colorMap, groupId, bossName, canWrite: unlocked }) {
+  const canWrite = useCanRead(unlocked);          // the demo group may be looked at
   const kills = useProgressLog(groupId, 'boss', canWrite);
   const [drops, setDrops] = useState([]);
   useEffect(() => { if (groupId && canWrite) api.getDrops(groupId).then(r => setDrops(Array.isArray(r) ? r : [])).catch(() => {}); }, [groupId, canWrite]);
@@ -1398,7 +1400,8 @@ function ClueIcon({ tier, size = 20 }) {
   return <img src={`https://runescape.wiki/images/${CLUE_IMG[tier]}`} alt={`${tier} clue`} onError={() => setFailed(true)} style={{ width: size, height: size, objectFit: 'contain', flexShrink: 0 }} />;
 }
 
-function ClueLog({ players, colorMap, groupId, canWrite }) {
+function ClueLog({ players, colorMap, groupId, canWrite: unlocked }) {
+  const canWrite = useCanRead(unlocked);
   const rows = useProgressLog(groupId, 'clue', canWrite);
   if (!canWrite) return <LogShell title="Clue log" empty="Unlock the group to see the clue log: every clue the hiscores show a member completed." />;
   const ids = new Set(players.map(p => p.id));

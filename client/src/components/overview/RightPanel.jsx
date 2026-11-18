@@ -6,6 +6,7 @@ import GoalModal from '../GoalModal';
 import DropsPanel, { ChestButton, useRecentDrops, useUnseenDrops } from '../DropsChest';
 import GroupLeaderboard from '../GroupLeaderboard';
 import XpDropsPanel from './XpDropsPanel';
+import { useCanRead } from '../../lib/access';
 import { useXpDrops, fmtGain } from '../../lib/xpDrops';
 import ActivityFeed from './ActivityFeed';
 import GoalItem from './GoalItem';
@@ -15,7 +16,8 @@ import { STATUS_CYCLE } from './constants';
 
 export default function RightPanel({ goals, players, filteredPlayerId, groupId, onRefresh, onToast, canWrite, myRsn }) {
   const [open, setOpen] = useState(null);          // 'drops' | 'board' | 'xp' | 'goals' | null: the floating panel that is open
-  const xpDrops = useXpDrops(groupId, canWrite);
+  const canRead = useCanRead(canWrite);          // the demo group may be looked at but not changed
+  const xpDrops = useXpDrops(groupId, canRead);
   const xpLastHour = xpDrops.filter(d => Date.now() - Date.parse(d.at) < 3600 * 1000).reduce((n, d) => n + d.xp, 0);
   const drops = useRecentDrops(groupId);
   // how many competitions are running right now (the Leaderboard tile says so)
@@ -85,7 +87,7 @@ export default function RightPanel({ goals, players, filteredPlayerId, groupId, 
         <div data-tour="drops-chest" style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
           <ChestButton drops={drops} fresh={freshDrops} open={open === 'drops'} onClick={() => toggle('drops')} />
           <ChestButton icon="leaderboards" fallback="🏆" label="Leaderboard" sub={`${liveCompetitions} active`} open={open === 'board'} onClick={() => toggle('board')} />
-          {canWrite && <ChestButton icon="skills" fallback="" label="Live XP" open={open === 'xp'} onClick={() => toggle('xp')}
+          {canRead && <ChestButton icon="skills" fallback="" label="Live XP" open={open === 'xp'} onClick={() => toggle('xp')}
             sub={xpLastHour > 0 ? `+${fmtGain(xpLastHour)} last hour` : 'quiet last hour'} />}
           <ChestButton icon="goals" fallback="🎯" label="Goals" fresh={freshGoals} open={open === 'goals'} onClick={() => toggle('goals')}
             sub={`${active.length} active${done.length ? ` · ${done.length} done` : ''}`} />

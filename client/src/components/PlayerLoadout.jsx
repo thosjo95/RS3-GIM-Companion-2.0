@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import RsIcon from './RsIcon';
+import { useCanRead } from '../lib/access';
 import { ItemIcon } from './GameIcon';
 import { EquipmentGrid } from './WornGear';
 import { SKILLS, SKILL_ICON_URLS, xpForLevel } from '../lib/rs3';
@@ -127,7 +128,8 @@ function Skills({ player, live, questPoints }) {
   );
 }
 
-export default function PlayerLoadout({ player, groupId, canWrite, onClose }) {
+export default function PlayerLoadout({ player, groupId, canWrite: unlocked, onClose }) {
+  const canWrite = useCanRead(unlocked);          // (read access only: nothing here changes data) the demo group is open to look at
   const [tab, setTab] = useState('equipment');
   const [row, setRow] = useState(null);
   const [error, setError] = useState(false);

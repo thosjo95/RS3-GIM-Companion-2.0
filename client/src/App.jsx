@@ -14,6 +14,7 @@ import UnlockModal from './components/modals/UnlockModal';
 import SetupScreen from './components/setup/SetupScreen';
 import SearchGroupModal from './components/groups/SearchGroupModal';
 import Sidebar from './components/groups/Sidebar';
+import { AccessContext } from './lib/access';
 
 export default function App() {
   const [allGroups, setAllGroups] = useState([]);
@@ -296,6 +297,7 @@ export default function App() {
   }
 
   return (
+    <AccessContext.Provider value={{ demo: !!group?.is_demo }}>
     <div className="app">
       <Header
         group={group}
@@ -434,6 +436,7 @@ export default function App() {
       )}
       <ToastArea toasts={toasts} />
     </div>
+    </AccessContext.Provider>
   );
 }
 

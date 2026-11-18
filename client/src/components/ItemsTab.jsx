@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '../api/client';
+import { useCanRead } from '../lib/access';
 import { MEMBER_COLORS, fmtNum } from '../lib/rs3';
 import RsIcon, { IconLabel } from './RsIcon';
 import { ItemIcon } from './GameIcon';
@@ -346,7 +347,8 @@ function SetupView({ state, groupId, canWrite, onToast, reload }) {
 // ── Tab ───────────────────────────────────────────────────────────────────────
 
 // `view` is chosen by the Group Vault's section buttons: 'items' | 'ledger' | 'setup'.
-export default function ItemsTab({ players, groupId, canWrite, onToast, selectedPlayerId = null, view = 'items' }) {
+export default function ItemsTab({ players, groupId, canWrite: unlocked, onToast, selectedPlayerId = null, view = 'items' }) {
+  const canWrite = useCanRead(unlocked);          // reading banks and storage: the demo group is open to look at
   const [state, setState] = useState([]);
   const [ledger, setLedger] = useState([]);
   const [error, setError] = useState(null);

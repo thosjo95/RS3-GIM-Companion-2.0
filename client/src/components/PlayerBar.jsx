@@ -4,6 +4,7 @@ import { MEMBER_COLORS, normRsn } from '../lib/rs3';
 import MemberCard from './overview/MemberCard';
 import EditRsnModal from './overview/EditRsnModal';
 import PlayerLoadout from './PlayerLoadout';
+import { useCanRead } from '../lib/access';
 import { useXpDrops } from '../lib/xpDrops';
 
 /**
@@ -23,7 +24,8 @@ export default function PlayerBar({ group, players, groupId, canWrite, myRsn, se
   const [online, setOnline] = useState({});
   // Live XP drops float up from a card for a few seconds, like the game's XP drops (one after another per player)
   const [bubbles, setBubbles] = useState({});      // player_id -> [{ key, skill, xp }]
-  useXpDrops(groupId, canWrite, fresh => {
+  const canRead = useCanRead(canWrite);
+  useXpDrops(groupId, canRead, fresh => {
     const perPlayer = {};
     for (const d of [...fresh].reverse()) (perPlayer[d.player_id] ??= []).push(d);
     for (const [pid, list] of Object.entries(perPlayer)) {
@@ -37,13 +39,13 @@ export default function PlayerBar({ group, players, groupId, canWrite, myRsn, se
     }
   });
   useEffect(() => {
-    if (!canWrite || !groupId) { setOnline({}); return undefined; }
+    if (!canRead || !groupId) { setOnline({}); return undefined; }
     let alive = true;
     const load = () => api.getPresence(groupId).then(r => { if (alive) setOnline(Object.fromEntries((Array.isArray(r) ? r : []).filter(x => x.online).map(x => [x.player_id, true]))); }).catch(() => {});
     load();
     const t = setInterval(() => { if (!document.hidden) load(); }, 20000);
     return () => { alive = false; clearInterval(t); };
-  }, [groupId, canWrite]);
+  }, [groupId, canRead]);
   const isUnranked = group?.gim_type === 'regular_unranked';
 
   async function handleRemovePlayer(player) {

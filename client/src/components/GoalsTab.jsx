@@ -501,7 +501,7 @@ function SuggestionCard({ suggestion: s, selectedPlayers, alreadyAdded, onAdd, o
               background: s.priority === 'high' ? 'rgba(192,64,64,0.12)' : s.priority === 'medium' ? 'rgba(200,168,75,0.10)' : 'rgba(90,154,80,0.10)',
               color: PRI_COLORS[s.priority],
               border: `1px solid ${s.priority === 'high' ? 'rgba(192,64,64,0.3)' : s.priority === 'medium' ? 'rgba(200,168,75,0.25)' : 'rgba(90,154,80,0.25)'}` }}>
-              {PRI_DOT[s.priority]} {s.priority}
+              <PriDot p={s.priority} /> {s.priority}
             </span>
           </div>
           <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--text-dim)', lineHeight: 1.5 }}>

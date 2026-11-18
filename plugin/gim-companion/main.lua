@@ -78,7 +78,7 @@ local MAX_DROPS_PER_SEND = 20
 local ACH_RECHECK        = 600   -- re-read achievements this often (about 6 minutes)
 local ACH_SCAN_LIMIT     = 8000  -- achievement ids are scanned from 0 up to this, in small steps
 local ACH_MISS_LIMIT     = 400   -- stop early after this many missing ids in a row
-local ACH_IDS_PER_TICK   = 25
+local ACH_IDS_PER_TICK   = 50
 local ACH_MAX_PER_SEND   = 1500  -- the server accepts at most this many per request; the rest follows next time
 
 -- Shared state
@@ -384,6 +384,18 @@ end
 
 local function achScanStart()
     lastAchCheck = ticks
+    if achTable == nil then
+        local okT, tbl = pcall(function() return config.Achievement end)
+        if okT and tbl ~= nil then achTable = tbl end
+    end
+    if not achPrinted then
+        if achTable == nil then
+            log("[GIM] achievements: config.Achievement was not found in this game version - nothing to scan")
+        else
+            local e0 = readAchievement(0)
+            log("[GIM] achievements: scan started (this takes a few minutes). Achievement #0 = " .. (e0 and (e0.name .. " [progress " .. tostring(e0.progress) .. "]") or "not readable"))
+        end
+    end
     achScan = { next = 0, seen = 0, misses = 0, completed = 0, changed = {}, categories = {}, samples = {} }
     trace("achievement scan started")
 end

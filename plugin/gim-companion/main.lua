@@ -540,6 +540,30 @@ local function send()
     trace("send: request handed to the game")   -- the second callback of Post/Get is for download PROGRESS, so only completion is given
 end
 
+-- ── Network probe (beta debugging only) ──────────────────────────────────────────
+-- config.lua: probe = "local"  -> one GET to <urls.gim>/api/health   (plain http to localhost)
+--             probe = "https"  -> one GET to <urls.probe>/zen        (a public https address)
+-- Runs once, about 12 seconds after you are in the game, and prints every step so a crash shows where.
+local probeDone = false
+local function runProbe()
+    probeDone = true
+    local kind = settings.probe
+    local base, path = nil, nil
+    if kind == "local" then base, path = Plugin.urls.gim, "/api/health"
+    elseif kind == "https" then base, path = Plugin.urls.probe, "/zen" end
+    if base == nil then log("[GIM] probe: unknown kind or missing url for " .. tostring(kind)); return end
+    log("[GIM] probe 1/4: has httpAccess = " .. tostring(Plugin.HasPermission(PluginPermissions.httpAccess)))
+    log("[GIM] probe 2/4: creating request " .. tostring(kind) .. " " .. path)
+    local okReq, request = pcall(HTTPRequest.new, base, path)
+    if not okReq or request == nil then log("[GIM] probe: could not create request: " .. tostring(request)); return end
+    log("[GIM] probe 3/4: sending GET")
+    request:Get(function()
+        log("[GIM] probe 4/4: finished. successful=" .. tostring(request.successful) .. " code=" .. tostring(request.responseCode)
+            .. " error=" .. tostring(request.errorInfo) .. " data=" .. tostring(request.data):sub(1, 80))
+    end)
+    log("[GIM] probe: GET handed to the game")
+end
+
 -- ── 8. Scheduling ─────────────────────────────────────────────────────────────
 local function onInventoryEvent() markItemsDirty(); packDirtyAt = ticks end
 
@@ -573,6 +597,8 @@ Event.ServerLogic.Subscribe("gim_tick", function()
 
     -- Drop rules: fetch when logged in and missing; retry about every 3 minutes if the server did not answer.
     if FEATURES.drops and not DRY_RUN and rules == nil and ticks - rulesAskedAt >= 300 and Player.IsAvailable() then trace("fetching drop rules"); fetchRules() end
+
+    if settings.probe and not probeDone and ticks >= 20 and Player.IsAvailable() then runProbe() end
 
     -- A backpack change is examined once it has settled (so several items from one kill arrive together).
     if packDirtyAt ~= nil and ticks - packDirtyAt >= 2 then packDirtyAt = nil; scanBackpack() end

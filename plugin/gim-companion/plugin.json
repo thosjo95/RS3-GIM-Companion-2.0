@@ -6,5 +6,5 @@
     "optionalDependencies": {},
     "requiredPermissions": [],
     "optionalPermissions": [ "httpAccess" ],
-    "urls": { "gim": "http://localhost:3001" }
+    "urls": { "gim": "http://localhost:3001", "probe": "https://api.github.com" }
 }

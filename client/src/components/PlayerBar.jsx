@@ -100,7 +100,7 @@ export default function PlayerBar({ group, players, groupId, canWrite, myRsn, se
           <p>No members yet. Add your first player to get started.</p>
         </div>
       ) : (
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center', marginTop: 4 }}>
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', justifyContent: 'center', marginTop: 4, position: 'relative' }}>
           {players.map((p, i) => (
             <MemberCard
               key={p.id}
@@ -120,7 +120,19 @@ export default function PlayerBar({ group, players, groupId, canWrite, myRsn, se
         </div>
       )}
 
-      {loadoutPlayer && <PlayerLoadout player={loadoutPlayer} groupId={groupId} canWrite={canWrite} onClose={() => setLoadoutId(null)} />}
+      {/* Floats over the page (does not push anything down); a click outside closes it */}
+      {loadoutPlayer && (
+        <>
+          <div onClick={() => setLoadoutId(null)} style={{ position: 'fixed', inset: 0, zIndex: 90 }} />
+          <div style={{ position: 'relative', height: 0, marginTop: -8, zIndex: 91 }}>
+            <div style={{ position: 'absolute', top: 4, left: 0, right: 0, display: 'flex', justifyContent: 'center', pointerEvents: 'none' }}>
+              <div style={{ pointerEvents: 'auto', boxShadow: '0 12px 36px rgba(0,0,0,0.65)', borderRadius: 'var(--radius-lg)', maxWidth: '100%' }}>
+                <PlayerLoadout player={loadoutPlayer} groupId={groupId} canWrite={canWrite} onClose={() => setLoadoutId(null)} />
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
       {editRsnPlayer && (
         <EditRsnModal

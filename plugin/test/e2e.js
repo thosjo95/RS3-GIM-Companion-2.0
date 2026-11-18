@@ -111,6 +111,15 @@ const check = (c, m) => { console.log((c ? 'PASS' : 'FAIL') + '  ' + m); if (!c)
   const achLater = captured.map(c => JSON.parse(c.body)).filter(b => b.achievements).pop();
   check(achLater.achievements.length === 1 && achLater.achievements[0].id === 11 && !achLater.achievements_full, 'a newly completed achievement is sent on its own, without the baseline flag');
 
+  // 5b2. journey steps carry description / reward / progress counter, and are re-sent when the counter moves
+  const j21 = achBaseline.achievements.find(a => a.id === 21);
+  check(j21.tally_progress === 500 && j21.tally_target === 1000 && j21.reward === 'Ironman armour trim' && j21.description === 'Reach a total level of 1000',
+    'journey steps report their description, reward and progress counter');
+  dostr('ACHS[21].tallyProgress = 700; TICK(620)');
+  const j21b = captured.map(c => JSON.parse(c.body)).filter(b => b.achievements).pop();
+  check(j21b.achievements.length === 1 && j21b.achievements[0].id === 21 && j21b.achievements[0].tally_progress === 700 && j21b.achievements[0].completed === false,
+    'an unfinished journey step is sent again when its progress counter moves');
+
   // 5c. the game's kill tracker variables are reported raw, then only when they change
   const kvSend = captured.map(c => JSON.parse(c.body)).find(b => b.kill_vars);
   check(kvSend && kvSend.kill_vars.bslay_boss_kills1 === 19 && kvSend.kill_vars.bslay_monster_kills1 === 250 && kvSend.kill_vars.bslay_boss_kills2 === undefined,
@@ -205,7 +214,8 @@ const check = (c, m) => { console.log((c ? 'PASS' : 'FAIL') + '  ' + m); if (!c)
   const achRows = await (await fetch(`${base}/plugin/achievements?group_id=${gid}`, { headers: gh })).json();
   const byId = Object.fromEntries(achRows.map(a => [a.achievement_id, a]));
   check(achRows.length === 6 && byId[10].completed_at === null && byId[12].completed_at === null && byId[11].completed_at !== null && byId[11].category === 4766
-    && byId[21].completed === 0 && byId[22].completed === 1 && byId[21].completed_at === null,
+    && byId[21].completed === 0 && byId[22].completed === 1 && byId[21].completed_at === null
+    && byId[21].tally_progress === 700 && byId[21].tally_target === 1000 && byId[21].reward === 'Ironman armour trim',
     'achievements stored: baseline ones have no completion time, the later one does');
   const diaryRows = db.prepare("SELECT key, achieved, achieved_at FROM achievements WHERE player_id = ? AND type = 'diary'").all(pid);
   const dk = Object.fromEntries(diaryRows.map(r => [r.key, r]));

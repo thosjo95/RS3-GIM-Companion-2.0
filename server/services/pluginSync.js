@@ -108,17 +108,24 @@ function backfillAreaTasks() {
  */
 function applyAchievements(playerId, list, full, now) {
   const insert = db.prepare(`
-    INSERT OR IGNORE INTO player_achievements (player_id, achievement_id, name, category, sub_category, members, rune_score, completed_at, seen_at, completed)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT OR IGNORE INTO player_achievements (player_id, achievement_id, name, category, sub_category, members, rune_score, completed_at, seen_at, completed, description, reward, tally_progress, tally_target)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
+  // Detail that can change after the first report (a progress counter moving) or arrive later.
+  const refresh = db.prepare(`UPDATE player_achievements SET description = COALESCE(?, description), reward = COALESCE(?, reward),
+    tally_progress = COALESCE(?, tally_progress), tally_target = COALESCE(?, tally_target) WHERE player_id = ? AND achievement_id = ?`);
   // A journey step first seen as "not done" later becomes done: upgrade the stored row.
   const complete = db.prepare('UPDATE player_achievements SET completed = 1, completed_at = ? WHERE player_id = ? AND achievement_id = ? AND completed = 0');
   let added = 0;
   const fresh = [];
   for (const a of list) {
-    const n = insert.run(playerId, a.id, a.name, a.category, a.sub, a.members, a.score, a.completed && !full ? now : null, now, a.completed ? 1 : 0).changes;
+    const n = insert.run(playerId, a.id, a.name, a.category, a.sub, a.members, a.score, a.completed && !full ? now : null, now, a.completed ? 1 : 0,
+      a.description, a.reward, a.tallyProgress, a.tallyTarget).changes;
     if (n) { if (a.completed) { added++; if (!full) fresh.push(a.name); } }
-    else if (a.completed && complete.run(full ? null : now, playerId, a.id).changes) { added++; if (!full) fresh.push(a.name); }
+    else {
+      refresh.run(a.description, a.reward, a.tallyProgress, a.tallyTarget, playerId, a.id);
+      if (a.completed && complete.run(full ? null : now, playerId, a.id).changes) { added++; if (!full) fresh.push(a.name); }
+    }
   }
   const areaTasks = syncAreaTasks(playerId, !full);
   return { received: list.length, added, new_completions: fresh, area_tasks_marked: areaTasks };

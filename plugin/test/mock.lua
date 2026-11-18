@@ -61,7 +61,8 @@ ACHS = {
 }
 -- Group Ironman journey: tier 0 done, tier 1 half done (one step still open)
 ACHS[20] = { name = "Journey Tier 0",                  category = 5483, subCategory = -1,   isMembers = false, runeScore = 0, progress = -2 }
-ACHS[21] = { name = "Journey Tier 1: Total level",     category = 5483, subCategory = 5485, isMembers = false, runeScore = 0, progress = 0 }
+ACHS[21] = { name = "Journey Tier 1: Total level",     category = 5483, subCategory = 5485, isMembers = false, runeScore = 0, progress = 0,
+              reward = "Ironman armour trim", tallyTarget = 1000, tallyProgress = 500, descriptions = { "Reach a total level of 1000" } }
 ACHS[22] = { name = "Journey Tier 1: Restless ghost",  category = 5483, subCategory = 5485, isMembers = false, runeScore = 0, progress = -2 }
 -- The game's kill tracker variables (VARS is changed by the harness)
 id.VarPlayer = { BSLAY_BOSS_KILLS1 = 9001, BSLAY_MONSTER_KILLS1 = 9002, BSLAY_BOSS_KILLS2 = 9003 }

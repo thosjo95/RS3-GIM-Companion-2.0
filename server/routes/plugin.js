@@ -137,6 +137,10 @@ function cleanPayload(b) {
       if (typeof a.name !== 'string' || !a.name.trim() || a.name.length > 160) throw new Error(`achievements[${i}].name must be a string`);
       const opt = v => (isInt(v, -1, 1e7) ? v : null);
       return { id: a.id, name: a.name.trim(), category: opt(a.category), sub: opt(a.sub_category), completed: a.completed !== false,
+        description: typeof a.description === 'string' ? a.description.slice(0, 300) : null,
+        reward: typeof a.reward === 'string' ? a.reward.slice(0, 200) : null,
+        tallyProgress: isInt(a.tally_progress, 0, 2147483647) ? a.tally_progress : null,
+        tallyTarget: isInt(a.tally_target, 1, 2147483647) ? a.tally_target : null,
         members: a.members === undefined ? null : (a.members ? 1 : 0), score: isInt(a.rune_score, 0, 1e6) ? a.rune_score : null };
     });
     out.achievementsFull = b.achievements_full === true;
@@ -349,7 +353,8 @@ router.get('/achievements', (req, res) => {
   if (!groupId) return res.status(400).json({ error: 'group_id required' });
   if (!checkGroupAuth(req, res, groupId)) return;
   res.json(db.prepare(`
-    SELECT a.player_id, p.rsn, a.achievement_id, a.name, a.category, a.sub_category, a.members, a.rune_score, a.completed_at, a.completed
+    SELECT a.player_id, p.rsn, a.achievement_id, a.name, a.category, a.sub_category, a.members, a.rune_score, a.completed_at, a.completed,
+           a.description, a.reward, a.tally_progress, a.tally_target
     FROM player_achievements a JOIN players p ON p.id = a.player_id
     WHERE p.group_id = ? ORDER BY a.name, p.rsn
   `).all(groupId));

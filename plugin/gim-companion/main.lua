@@ -325,6 +325,33 @@ local function achComplete()
     return -2
 end
 
+-- Journey steps carry more detail worth showing: what they ask for, what they give, and a progress counter
+-- (for example "Total level 2497 / 2600"). Read only for the journey category.
+local function journeyExtras(ach)
+    local out = {}
+    local okR, reward = pcall(function() return ach.reward end)
+    if okR and type(reward) == "string" and reward ~= "" then out.reward = reward end
+    local okT, target = pcall(function() return ach.tallyTarget end)
+    local okP, progress = pcall(function() return ach.tallyProgress end)
+    if okT and okP and type(target) == "number" and target > 0 and type(progress) == "number" then
+        out.tally_target, out.tally_progress = math.floor(target), math.max(0, math.floor(progress))
+    end
+    local okD, text = pcall(function()
+        local ds = ach.descriptions
+        if type(ds) ~= "table" then return nil end
+        for _, v in pairs(ds) do
+            if type(v) == "string" and v ~= "" then return v end
+            if type(v) == "table" then
+                local t = v.text or v.description
+                if type(t) == "string" and t ~= "" then return t end
+            end
+        end
+        return nil
+    end)
+    if okD and type(text) == "string" then out.description = text:sub(1, 280) end
+    return out
+end
+
 local function readAchievement(achId)
     if achTable == nil then
         local okT, tbl = pcall(function() return config.Achievement end)
@@ -338,6 +365,10 @@ local function readAchievement(achId)
                  members = ach.isMembers and true or false, rune_score = ach.runeScore, progress = ach.progress }
     end)
     if not okR or type(entry.name) ~= "string" or entry.name == "" then return nil end
+    if entry.category == JOURNEY_CATEGORY then
+        local x = journeyExtras(ach)
+        entry.reward, entry.tally_target, entry.tally_progress, entry.description = x.reward, x.tally_target, x.tally_progress, x.description
+    end
     return entry
 end
 
@@ -363,11 +394,14 @@ local function achScanStep()
             end
             if completed and not achHeld[achId] then
                 scan.changed[#scan.changed + 1] = { id = e.id, name = e.name, category = e.category, sub_category = e.sub_category,
-                                                    members = e.members, rune_score = e.rune_score }
-            elseif not completed and e.category == JOURNEY_CATEGORY and not achSeenOpen[achId] then
-                -- A journey step that is not done yet: sent once (completed = false) so the dashboard knows the total.
+                                                    members = e.members, rune_score = e.rune_score,
+                                                    reward = e.reward, description = e.description, tally_target = e.tally_target, tally_progress = e.tally_progress }
+            elseif not completed and e.category == JOURNEY_CATEGORY and achSeenOpen[achId] ~= (e.tally_progress or -1) then
+                -- A journey step that is not done yet: sent (completed = false) so the dashboard knows the total, and
+                -- again whenever its progress counter moves.
                 scan.changed[#scan.changed + 1] = { id = e.id, name = e.name, category = e.category, sub_category = e.sub_category,
-                                                    members = e.members, rune_score = e.rune_score, completed = false }
+                                                    members = e.members, rune_score = e.rune_score, completed = false,
+                                                    reward = e.reward, description = e.description, tally_target = e.tally_target, tally_progress = e.tally_progress }
             end
         end
     end
@@ -786,7 +820,7 @@ local function send()
             end
             if sentAch then
                 for _, a in ipairs(sentAch) do
-                    if a.completed == false then achSeenOpen[a.id] = true else achHeld[a.id] = true end
+                    if a.completed == false then achSeenOpen[a.id] = a.tally_progress or -1 else achHeld[a.id] = true end
                 end
                 local rest = {}
                 for i = #sentAch + 1, #achChanges do rest[#rest + 1] = achChanges[i] end

@@ -324,6 +324,9 @@ db.exec(`
 
 // Journey steps that are not done yet are stored too (completed = 0) so progress can show "3 of 5".
 try { db.exec('ALTER TABLE player_achievements ADD COLUMN completed INTEGER NOT NULL DEFAULT 1'); } catch {}
+for (const col of ['description TEXT', 'reward TEXT', 'tally_progress INTEGER', 'tally_target INTEGER']) {
+  try { db.exec('ALTER TABLE player_achievements ADD COLUMN ' + col); } catch {}
+}
 
 // The group's shared storage contents (the same for every member; the newest snapshot from any member wins).
 try { db.exec('ALTER TABLE player_live_state ADD COLUMN group_storage_json TEXT'); } catch {}

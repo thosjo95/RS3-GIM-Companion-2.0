@@ -304,8 +304,7 @@ export default function QuestsAreaTab({ players, groupId, canWrite, onToast, sel
 
   const single = visible.length === 1;
   return (
-    <div style={{ display: 'flex', gap: 18, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-    <div style={{ flex: '1 1 640px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 18 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
       {/* Summary tiles */}
       <div className="grid-4">
         <SummaryTile label={single ? 'Quests completed' : 'Avg. quests completed'} value={avgQuest != null ? `${avgQuest}%` : '—'}
@@ -331,8 +330,9 @@ export default function QuestsAreaTab({ players, groupId, canWrite, onToast, sel
         ))}
       </div>
 
-      {/* Section switch + detail */}
-      <div style={{ background: 'var(--bg-panel)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '16px 18px' }}>
+      {/* The quest / area task / achievement lists, with the Group Ironman Journey right beside them at the same height */}
+      <div style={{ display: 'flex', gap: 18, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+      <div style={{ flex: '1 1 560px', minWidth: 0, background: 'var(--bg-panel)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '16px 18px' }}>
         <div data-tour="achievements-view" style={{ display: 'inline-flex', gap: 3, background: 'var(--bg-root)', borderRadius: 'var(--radius)', padding: 3, marginBottom: 16 }}>
           <button style={pill(section === 'quests')} onClick={() => setSection('quests')}><IconLabel name="quests" fallback="📜" size={16}>Quests</IconLabel></button>
           <button style={pill(section === 'area')} onClick={() => setSection('area')}><IconLabel name="areaTasks" fallback="🗺️" size={16}>Area Tasks</IconLabel></button>
@@ -343,12 +343,12 @@ export default function QuestsAreaTab({ players, groupId, canWrite, onToast, sel
         {section === 'area' && <AchievementsTab embedded players={visible} groupId={groupId} canWrite={canWrite} onToast={onToast} onLoaded={setAchievements} />}
         {section === 'achievements' && <AchievementList rows={achRows} colorMap={colorMap} players={players} />}
       </div>
-    </div>
 
-    {/* Always visible, whichever section is open */}
-    <aside style={{ flex: '0 1 320px', minWidth: 260, maxWidth: '100%', position: 'sticky', top: 12, maxHeight: 'calc(100vh - 24px)', overflowY: 'auto' }}>
-      <JourneyPanel rows={journeyRows} players={visible} colorMap={colorMap} />
-    </aside>
+      {/* Always visible, whichever section is open */}
+      <aside style={{ flex: '0 1 360px', minWidth: 280, maxWidth: '100%', position: 'sticky', top: 12, maxHeight: 'calc(100vh - 24px)', overflowY: 'auto' }}>
+        <JourneyPanel rows={journeyRows} players={visible} colorMap={colorMap} />
+      </aside>
+      </div>
     </div>
   );
 }

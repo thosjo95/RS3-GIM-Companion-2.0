@@ -6,6 +6,9 @@
  *   POST   /api/plugin/ingest          the plugin pushes its data               (Bearer token)
  *   GET    /api/plugin/state?group_id  latest live state per player             (group auth)
  *   GET    /api/plugin/ledger?group_id deposits / withdrawals                   (group auth)
+ *   GET    /api/plugin/config          drop rules for the plugin                (Bearer token)
+ *   GET    /api/plugin/quests?group_id quest progress per player                (group auth)
+ *   GET    /api/plugin/kills?group_id  NPC kills counted by the plugin          (group auth)
  *
  * Design rules:
  *  - A token belongs to exactly one player and can only write that player's data.
@@ -20,6 +23,7 @@ const db      = require('../database');
 const { checkGroupAuth } = require('../utils/auth');
 const { createRateLimiter } = require('../utils/rateLimit');
 const { SKILLS } = require('../services/runescape');
+const sync = require('../services/pluginSync');
 
 const TOKEN_PREFIX = 'gimp_';
 const hashToken = t => crypto.createHash('sha256').update(t).digest('hex');
@@ -28,7 +32,8 @@ const SKILL_NAMES = new Set(SKILLS.filter(s => s !== 'Overall'));
 const ingestLimiter = createRateLimiter({ windowMs: 60_000, max: 60, message: 'Too many plugin updates. Send at most one per second.' });
 
 // Limits per section — generous for real use, small enough to stop abuse.
-const MAX = { inventory: 100, equipment: 30, bank: 6000, changes: 500 };
+const MAX = { inventory: 100, equipment: 30, bank: 6000, changes: 500, quests: 900, kills: 200, drops: 50 };
+const DROP_THRESHOLD = 100_000;   // gp; the plugin also reports any item named in a boss's drop table
 
 const isInt = (v, min, max) => Number.isInteger(v) && v >= min && v <= max;
 
@@ -100,6 +105,50 @@ function cleanPayload(b) {
       };
     });
   }
+
+  if (b.quests !== undefined) {
+    if (!Array.isArray(b.quests)) throw new Error('quests must be an array');
+    if (b.quests.length > MAX.quests) throw new Error(`quests has too many entries (max ${MAX.quests})`);
+    out.quests = b.quests.map((q, i) => {
+      if (!q || !isInt(q.id, 0, 1e6)) throw new Error(`quests[${i}].id must be an integer`);
+      if (typeof q.name !== 'string' || !q.name.trim() || q.name.length > 100) throw new Error(`quests[${i}].name must be a string`);
+      if (!['not_started', 'started', 'finished'].includes(q.state)) throw new Error(`quests[${i}].state must be not_started, started or finished`);
+      return { id: q.id, name: q.name.trim(), state: q.state,
+        members: q.members === undefined ? null : (q.members ? 1 : 0),
+        points: isInt(q.points, 0, 1000) ? q.points : null };
+    });
+    out.questsFull = b.quests_full === true;
+  }
+
+  if (b.kills !== undefined) {
+    if (!Array.isArray(b.kills)) throw new Error('kills must be an array');
+    if (b.kills.length > MAX.kills) throw new Error(`kills has too many entries (max ${MAX.kills})`);
+    if (b.kills_ref !== undefined) {
+      if (typeof b.kills_ref !== 'string' || b.kills_ref.length < 4 || b.kills_ref.length > 64) throw new Error('kills_ref must be a string of 4-64 characters');
+      out.killsRef = b.kills_ref;
+    }
+    out.kills = b.kills.map((k, i) => {
+      if (!k || typeof k.npc !== 'string' || !k.npc.trim() || k.npc.length > 80) throw new Error(`kills[${i}].npc must be a string`);
+      if (!isInt(k.kills, 1, 10000)) throw new Error(`kills[${i}].kills must be an integer between 1 and 10000`);
+      return { npc: k.npc.trim(), kills: k.kills };
+    });
+  }
+
+  if (b.drops !== undefined) {
+    if (!Array.isArray(b.drops)) throw new Error('drops must be an array');
+    if (b.drops.length > MAX.drops) throw new Error(`drops has too many entries (max ${MAX.drops})`);
+    out.drops = b.drops.map((d, i) => {
+      if (!d || typeof d.name !== 'string' || !d.name.trim() || d.name.length > 80) throw new Error(`drops[${i}].name must be a string`);
+      if (typeof d.ref !== 'string' || d.ref.length < 4 || d.ref.length > 64) throw new Error(`drops[${i}].ref must be a unique string of 4-64 characters`);
+      if (!isInt(d.quantity, 1, Number.MAX_SAFE_INTEGER)) throw new Error(`drops[${i}].quantity must be a positive integer`);
+      const ts = d.ts ? new Date(d.ts) : null;
+      if (ts && isNaN(ts.getTime())) throw new Error(`drops[${i}].ts is not a valid date`);
+      return { ref: d.ref, name: d.name.trim(), quantity: d.quantity,
+        value: Number.isFinite(d.value) && d.value >= 0 ? Math.round(d.value) : null,
+        npc: typeof d.npc === 'string' && d.npc.trim() ? d.npc.trim().slice(0, 80) : null,
+        ts: ts ? ts.toISOString() : null };
+    });
+  }
   return out;
 }
 
@@ -155,6 +204,7 @@ router.post('/ingest', ingestLimiter, express.json({ limit: '1mb' }), (req, res)
   const j = (fresh, old) => (fresh !== undefined ? JSON.stringify(fresh) : (old ?? null));
 
   let ledgerAdded = 0;
+  const applied = {};
   db.runTransaction(() => {
     db.prepare(`
       INSERT INTO player_live_state (player_id, updated_at, world, position_json, skills_json, inventory_json, equipment_json, bank_json)
@@ -175,10 +225,14 @@ router.post('/ingest', ingestLimiter, express.json({ limit: '1mb' }), (req, res)
     `);
     for (const c of data.changes ?? []) ledgerAdded += ins.run(playerId, c.store, c.id, c.name, c.delta, c.value, c.ts).changes;
 
+    if (data.quests) applied.quests = sync.applyQuests(playerId, data.quests, data.questsFull, now);
+    if (data.kills) applied.kills_applied = sync.applyKills(playerId, data.kills, data.killsRef, now);
+    if (data.drops) applied.drops_added = sync.applyDrops(playerId, data.drops);
+
     db.prepare('UPDATE plugin_tokens SET last_used_at = ? WHERE id = ?').run(now, row.id);
   });
 
-  res.json({ ok: true, ledger_added: ledgerAdded });
+  res.json({ ok: true, ledger_added: ledgerAdded, ...applied });
 });
 
 // ── Reads (group-authenticated) ───────────────────────────────────────────────
@@ -223,6 +277,37 @@ router.get('/ledger', (req, res) => {
     LIMIT ?
   `).all(groupId, limit);
   res.json(rows);
+});
+
+// The plugin fetches these rules when it starts: which drops are worth reporting.
+router.get('/config', (req, res) => {
+  const header = req.headers.authorization || '';
+  const token = header.startsWith('Bearer ') ? header.slice(7).trim() : '';
+  const ok = token.startsWith(TOKEN_PREFIX) && db.prepare('SELECT 1 FROM plugin_tokens WHERE token_hash = ? AND revoked = 0').get(hashToken(token));
+  if (!ok) return res.status(401).json({ error: 'Missing or invalid plugin token' });
+  res.json({ drop_threshold: DROP_THRESHOLD, rare_names: sync.rareItemNames() });
+});
+
+router.get('/quests', (req, res) => {
+  const groupId = parseInt(req.query.group_id, 10);
+  if (!groupId) return res.status(400).json({ error: 'group_id required' });
+  if (!checkGroupAuth(req, res, groupId)) return;
+  res.json(db.prepare(`
+    SELECT q.player_id, p.rsn, q.quest_id, q.name, q.state, q.members, q.points, q.updated_at
+    FROM player_quests q JOIN players p ON p.id = q.player_id
+    WHERE p.group_id = ? ORDER BY q.name, p.rsn
+  `).all(groupId));
+});
+
+router.get('/kills', (req, res) => {
+  const groupId = parseInt(req.query.group_id, 10);
+  if (!groupId) return res.status(400).json({ error: 'group_id required' });
+  if (!checkGroupAuth(req, res, groupId)) return;
+  res.json(db.prepare(`
+    SELECT k.player_id, p.rsn, k.npc, k.kills, k.last_seen
+    FROM plugin_npc_kills k JOIN players p ON p.id = k.player_id
+    WHERE p.group_id = ? ORDER BY k.kills DESC
+  `).all(groupId));
 });
 
 module.exports = router;

@@ -88,6 +88,15 @@ test('ingest validates every section with a useful message', async () => {
   await bad({ v: 1, storage_changes: [{ store: 'vault', id: 1, delta: 1 }] }, /store/);
   await bad({ v: 1, storage_changes: [{ store: 'group', id: 1, delta: 0 }] }, /delta/);
   await bad({ v: 1, inventory: Array.from({ length: 101 }, (_, i) => ({ id: i, count: 1 })) }, /too many/);
+  await bad({ v: 1, quests: [{ id: 1, name: 'X', state: 'done' }] }, /state/);
+  await bad({ v: 1, quests: [{ id: 'a', name: 'X', state: 'started' }] }, /id/);
+  await bad({ v: 1, quests: Array.from({ length: 901 }, (_, i) => ({ id: i, name: 'Q' + i, state: 'started' })) }, /too many/);
+  await bad({ v: 1, kills: [{ npc: 'Cow', kills: 0 }] }, /integer between 1 and 10000/);
+  await bad({ v: 1, kills: [{ npc: '', kills: 1 }] }, /npc/);
+  await bad({ v: 1, kills: [{ npc: 'Cow', kills: 1 }], kills_ref: 'x' }, /kills_ref/);
+  await bad({ v: 1, drops: [{ name: 'Whip', quantity: 1, ref: 'a' }] }, /ref/);
+  await bad({ v: 1, drops: [{ name: 'Whip', quantity: 0, ref: 'abcdef' }] }, /quantity/);
+  await bad({ v: 1, drops: [{ name: 'Whip', quantity: 1, ref: 'abcdef', ts: 'not a date' }] }, /ts/);
 });
 
 test('sections replace independently (partial updates keep the rest)', async () => {

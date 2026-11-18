@@ -260,7 +260,44 @@ db.exec(`
     FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
   );
   CREATE INDEX IF NOT EXISTS idx_storage_ledger_player ON storage_ledger(player_id, occurred_at DESC);
+
+  -- Quest progress as read from the game by the plugin (one row per player per quest).
+  CREATE TABLE IF NOT EXISTS player_quests (
+    player_id  INTEGER NOT NULL,
+    quest_id   INTEGER NOT NULL,
+    name       TEXT    NOT NULL,
+    state      TEXT    NOT NULL CHECK (state IN ('not_started','started','finished')),
+    members    INTEGER,
+    points     INTEGER,
+    updated_at TEXT    NOT NULL,
+    PRIMARY KEY (player_id, quest_id),
+    FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
+  );
+
+  -- References of kill batches already applied, so a re-sent batch is ignored (cleaned after 7 days).
+  CREATE TABLE IF NOT EXISTS plugin_kill_batches (
+    player_id INTEGER NOT NULL,
+    ref       TEXT    NOT NULL,
+    seen_at   TEXT    NOT NULL,
+    PRIMARY KEY (player_id, ref),
+    FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
+  );
+
+  -- NPC kills counted by the plugin (cumulative per player and NPC name).
+  CREATE TABLE IF NOT EXISTS plugin_npc_kills (
+    player_id INTEGER NOT NULL,
+    npc       TEXT    NOT NULL,
+    kills     INTEGER NOT NULL DEFAULT 0,
+    last_seen TEXT,
+    PRIMARY KEY (player_id, npc),
+    FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
+  );
 `);
+
+// Drops reported by the plugin carry a dedupe signature so a retried request never logs a drop twice.
+try { db.exec('ALTER TABLE drops ADD COLUMN source TEXT'); } catch {}
+try { db.exec('ALTER TABLE drops ADD COLUMN sig TEXT'); } catch {}
+db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_drops_sig ON drops(player_id, sig) WHERE sig IS NOT NULL');
 
 // ── RS3 reference tables ──────────────────────────────────────────────────────
 db.exec(`

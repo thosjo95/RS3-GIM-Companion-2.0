@@ -38,4 +38,88 @@ function json.encode(v)
     error('cannot encode value of type ' .. t)
 end
 
+-- ── Decoder ───────────────────────────────────────────────────────────────────
+-- Only used for the small rules document the server sends (objects, arrays, strings, numbers, booleans).
+-- Raises an error on anything malformed; callers wrap it in pcall.
+local unescapes = { ['"'] = '"', ['\\'] = '\\', ['/'] = '/', b = '\b', f = '\f', n = '\n', r = '\r', t = '\t' }
+
+local function skip(s, i) return s:find('[^ \t\r\n]', i) or #s + 1 end
+
+local decodeValue
+
+local function decodeString(s, i)
+    local out, pos = {}, i + 1
+    while true do
+        local c = s:sub(pos, pos)
+        if c == '' then error('unterminated string') end
+        if c == '"' then return table.concat(out), pos + 1 end
+        if c == '\\' then
+            local n = s:sub(pos + 1, pos + 1)
+            if n == 'u' then
+                local code = tonumber(s:sub(pos + 2, pos + 5), 16)
+                if not code then error('bad \\u escape') end
+                out[#out + 1] = utf8.char(code)
+                pos = pos + 6
+            elseif unescapes[n] then
+                out[#out + 1] = unescapes[n]
+                pos = pos + 2
+            else
+                error('bad escape')
+            end
+        else
+            out[#out + 1] = c
+            pos = pos + 1
+        end
+    end
+end
+
+decodeValue = function(s, i)
+    i = skip(s, i)
+    local c = s:sub(i, i)
+    if c == '{' then
+        local obj = {}
+        i = skip(s, i + 1)
+        if s:sub(i, i) == '}' then return obj, i + 1 end
+        while true do
+            i = skip(s, i)
+            if s:sub(i, i) ~= '"' then error('expected key') end
+            local key; key, i = decodeString(s, i)
+            i = skip(s, i)
+            if s:sub(i, i) ~= ':' then error('expected :') end
+            obj[key], i = decodeValue(s, i + 1)
+            i = skip(s, i)
+            local d = s:sub(i, i)
+            if d == '}' then return obj, i + 1 end
+            if d ~= ',' then error('expected , or }') end
+            i = i + 1
+        end
+    elseif c == '[' then
+        local arr = {}
+        i = skip(s, i + 1)
+        if s:sub(i, i) == ']' then return arr, i + 1 end
+        while true do
+            arr[#arr + 1], i = decodeValue(s, i)
+            i = skip(s, i)
+            local d = s:sub(i, i)
+            if d == ']' then return arr, i + 1 end
+            if d ~= ',' then error('expected , or ]') end
+            i = i + 1
+        end
+    elseif c == '"' then
+        return decodeString(s, i)
+    elseif s:sub(i, i + 3) == 'true' then return true, i + 4
+    elseif s:sub(i, i + 4) == 'false' then return false, i + 5
+    elseif s:sub(i, i + 3) == 'null' then return nil, i + 4
+    end
+    local num = s:match('^-?%d+%.?%d*[eE]?[+-]?%d*', i)
+    if not num or num == '' then error('unexpected character at ' .. i) end
+    return tonumber(num), i + #num
+end
+
+function json.decode(s)
+    local value, i = decodeValue(s, 1)
+    if skip(s, i) <= #s then error('trailing characters') end
+    return value
+end
+
 return json

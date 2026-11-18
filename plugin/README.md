@@ -1,7 +1,7 @@
 # GIM Companion — in-game plugin (GIM 2.0)
 
-A Lua plugin for the RuneScape 3 client that sends **your own character's** skills, backpack, bank and
-position to your group's dashboard. It never sends anything about other players and never sends actions
+A Lua plugin for the RuneScape 3 client that sends **your own character's** skills, backpack, worn items, bank,
+group storage, position, quest progress, kill counts and notable drops to your group's dashboard. It never sends anything about other players and never sends actions
 back into the game.
 
 > **Status: second draft, not yet run in the game.** The API names (skills, inventories, worn items, bank, group
@@ -56,7 +56,10 @@ The plugin talks to `http://localhost:3001` (see `urls` in `plugin.json`). Wheth
 | Is plain HTTP to localhost allowed? (HTTPS is needed for the real site) | `plugin.json` urls |
 | Do the group-storage inventory and window names behave as expected? | `STORES` in `main.lua` |
 | `GetLevelGameplay` vs boosted level for the dashboard skill level | `readSkills` |
-| Not built yet: quests (`config.Quest`), kills (`Event.NPCEntityRemoved`), drops, HP/prayer | later, after approval |
+| Quests: does `config.Quest.FromID` return every quest, and are `name` / `hasFinishedQuest` right? | `sweepQuests` |
+| Kills: does the target overlay text (`TOPLEVEL_V2_TARGET_INFO__NAME`) match the NPC's `displayName`? Multi-NPC bosses (Barrows, Dagannoth Kings, Vorago phases ...) | `onNpcRemoved` |
+| Drops: `ObjStackEntityAdded` `isOwner` + distance to the kill; auto-loot via backpack comparison | `onGroundItem`, `scanBackpack` |
+| Not built: HP / prayer / adrenaline, target health for the dashboard | later |
 
 ## Submitting to mod.io later (checklist from the official guide)
 

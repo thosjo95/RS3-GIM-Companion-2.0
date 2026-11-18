@@ -364,35 +364,36 @@ function saveActivities(playerId, activities) {
  * When a RuneMetrics activity signals a quest completion, auto-mark any matching
  * active quest goals for that player's group as complete and fire a Discord notification.
  */
-function autoCompleteQuestGoals(playerId, activities) {
-  if (!activities?.length) return;
+/** Mark every open quest goal in the player's group with this quest's name as complete, and notify Discord. */
+function completeQuestGoals(playerId, questName) {
   const player = db.prepare('SELECT group_id FROM players WHERE id = ?').get(playerId);
   if (!player?.group_id) return;
+  const matchingGoals = db.prepare(`
+    SELECT g.id, g.title
+    FROM goals g
+    JOIN players p ON p.id = g.owner_id
+    WHERE p.group_id = ?
+      AND g.category = 'quest'
+      AND g.status NOT IN ('complete', 'vaulted')
+      AND LOWER(g.title) = LOWER(?)
+  `).all(player.group_id, questName.trim());
 
-  for (const act of activities) {
-    const matched = matchQuestComplete(act.text);
-    if (!matched) continue;
-    const questName = matched.trim();
-
-    const matchingGoals = db.prepare(`
-      SELECT g.id, g.title
-      FROM goals g
-      JOIN players p ON p.id = g.owner_id
-      WHERE p.group_id = ?
-        AND g.category = 'quest'
-        AND g.status NOT IN ('complete', 'vaulted')
-        AND LOWER(g.title) = LOWER(?)
-    `).all(player.group_id, questName);
-
-    for (const goal of matchingGoals) {
-      db.prepare(
-        "UPDATE goals SET status = 'complete', completed_at = CURRENT_TIMESTAMP WHERE id = ?"
-      ).run(goal.id);
-      const { notifyGoalCompleted } = require('./discord');
-      notifyGoalCompleted(player.group_id, goal.title, []);
-      console.log(`[activitySync] Auto-completed quest goal "${goal.title}" for player ${playerId}`);
-    }
+  for (const goal of matchingGoals) {
+    db.prepare(
+      "UPDATE goals SET status = 'complete', completed_at = CURRENT_TIMESTAMP WHERE id = ?"
+    ).run(goal.id);
+    const { notifyGoalCompleted } = require('./discord');
+    notifyGoalCompleted(player.group_id, goal.title, []);
+    console.log(`[activitySync] Auto-completed quest goal "${goal.title}" for player ${playerId}`);
   }
 }
 
-module.exports = { saveActivities, autoLogDrops, autoDetectDiaries, autoCountBossKills, autoDetectLevelMilestones, autoCompleteQuestGoals, parseActivityDate, diaryRegionKey, BOSS_KILL_PATTERNS };
+function autoCompleteQuestGoals(playerId, activities) {
+  if (!activities?.length) return;
+  for (const act of activities) {
+    const matched = matchQuestComplete(act.text);
+    if (matched) completeQuestGoals(playerId, matched);
+  }
+}
+
+module.exports = { saveActivities, autoLogDrops, autoDetectDiaries, autoCountBossKills, autoDetectLevelMilestones, autoCompleteQuestGoals, completeQuestGoals, parseActivityDate, diaryRegionKey, BOSS_KILL_PATTERNS };

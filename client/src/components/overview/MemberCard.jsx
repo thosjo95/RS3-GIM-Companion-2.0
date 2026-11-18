@@ -107,11 +107,11 @@ export default function MemberCard({ player, active, color, onClick, isMe, onEdi
 
       {/* Equipment button: opens the player's backpack, equipment and skills. Always visible. */}
       {onOpenLoadout && (
-        <button type="button" title="Backpack, equipment and skills" onClick={e => { e.stopPropagation(); onOpenLoadout(player); }} style={{
+        <button type="button" title="Inspect: backpack, equipment and skills" onClick={e => { e.stopPropagation(); onOpenLoadout(player); }} style={{
           position: 'absolute', top: 6, right: 6, display: 'flex', alignItems: 'center', justifyContent: 'center',
           width: 26, height: 26, padding: 0, borderRadius: 6, cursor: 'pointer',
           background: loadoutOpen ? 'rgba(200,168,75,0.2)' : 'var(--bg-root)', border: `1px solid ${loadoutOpen ? 'var(--gold)' : 'var(--border)'}`,
-        }}><RsIcon name="equipment" fallback="🛡️" size={18} /></button>
+        }}><RsIcon name="search" fallback="🔍" size={18} /></button>
       )}
 
       {/* Sync + Edit RSN buttons — visible when active or on sync error */}

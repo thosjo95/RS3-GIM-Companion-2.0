@@ -91,7 +91,7 @@ const FEATURE_STEPS = [
   {
     target: '[data-tour="members"]',
     title: 'Player cards and the roster',
-    body: 'Click a card to focus every page on that player. Click more cards to compare just those players side by side, and click a selected card again to deselect it (nothing selected shows everyone). This is the one player filter for the whole app. Your own card has the YOU badge. For a Group Ironman the member list follows the official hiscores and new members are added automatically every night. The + button in the top bar (unlocked groups) opens Manage group: add a character by hand (how you build a custom group), correct a character name, or remove a member.',
+    body: 'Click a card to focus every page on that player. Click more cards to compare just those players side by side, and click a selected card again to deselect it (nothing selected shows everyone). This is the one player filter for the whole app. Your own card has the YOU badge. For a Group Ironman the member list follows the official hiscores and new members are added automatically every night. The Plugin window (top right, unlocked groups) lists the members: add a character by hand (how you build a custom group), correct a character name, or remove a member.',
   },
   {
     target: '[data-tour="inspect"]',

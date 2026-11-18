@@ -4,7 +4,6 @@ import GroupNotesOverlay from './GroupNotesOverlay';
 import PluginSetupModal from './PluginSetupModal';
 import GroupHeaderInfo from './GroupHeaderInfo';
 import HeaderStats from './HeaderStats';
-import ManageGroupModal from './ManageGroupModal';
 import DiscordLogo from './DiscordLogo';
 import RsIcon from './RsIcon';
 
@@ -12,7 +11,6 @@ export default function Header({ group, onSynced, onToast, isUnlocked, isClaimed
   const [syncing, setSyncing] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
   const [pluginOpen, setPluginOpen] = useState(false);
-  const [manageOpen, setManageOpen] = useState(false);
 
   async function syncAll() {
     if (!group?.id) return;
@@ -188,25 +186,6 @@ export default function Header({ group, onSynced, onToast, isUnlocked, isClaimed
           </button>
         )}
 
-        {/* Add a character to the group by hand (unlocked groups) */}
-        {group && isUnlocked && onAddPlayer && (
-          <button
-            data-tour="add-player"
-            className="sync-btn"
-            onClick={() => setManageOpen(true)}
-            title="Manage group: add players, correct names, remove members"
-            style={{
-              width: 32, height: 32, padding: 0,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              flexShrink: 0, fontSize: 18, fontWeight: 700,
-              background: 'transparent',
-              border: '1px solid var(--border)',
-              color: 'var(--text-dim)',
-            }}>
-            +
-          </button>
-        )}
-
         {/* Tour replay button */}
         {group && onTourClick && (
           <button
@@ -254,9 +233,8 @@ export default function Header({ group, onSynced, onToast, isUnlocked, isClaimed
         )}
 
       </div>
-      {manageOpen && group && <ManageGroupModal group={group} onClose={() => setManageOpen(false)} onAddPlayer={() => onAddPlayer?.()} onChanged={() => onSynced?.()} onToast={onToast} />}
       {pluginOpen && group?.id && (
-        <PluginSetupModal group={group} canWrite={isUnlocked} isClaimed={isClaimed} onClaim={onClaim} onClaimV2={onClaimV2} onUnlock={onLockClick} onToast={onToast} onChanged={onSynced} onOpenWebhook={onWebhookClick} onClose={() => setPluginOpen(false)} />
+        <PluginSetupModal group={group} canWrite={isUnlocked} isClaimed={isClaimed} onClaim={onClaim} onClaimV2={onClaimV2} onUnlock={onLockClick} onToast={onToast} onChanged={onSynced} onOpenWebhook={onWebhookClick} onAddPlayer={onAddPlayer} onClose={() => setPluginOpen(false)} />
       )}
       {notesOpen && group?.id && (
         <GroupNotesOverlay

@@ -9,7 +9,7 @@ export const RS_ICON = {
   overview:     'Statistics.png',                // the red / green / blue stat bars
   goals:        'Task_icon.png',                 // flag
   vault:        'Treasure_Hunter_icon.png',      // treasure chest
-  quests:       'Quest_icon.png',                // quest book
+  quests:       'Quest_points.png',              // the in-game quest symbol
   leaderboards: 'Achievements_icon.png',         // trophy
   // vault sections
   drops:        'Casket.png',

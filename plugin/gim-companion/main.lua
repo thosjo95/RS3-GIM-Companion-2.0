@@ -215,7 +215,7 @@ end
 
 -- ── 2b. Linking this character ───────────────────────────────────────────────
 -- No token yet: ask the server for a short code, show it in the game, and wait until someone enters it on the website
--- (Plugin > Connect). The plugin then collects its token and keeps it in the game's persistent store, per character.
+-- (top bar: Plugin > Link with code). The plugin then collects its token and keeps it in the game's persistent store, per character.
 local PAIR_POLL_TICKS  = 8        -- poll about every 5 seconds (ServerLogic fires about every 0.6 s)
 local PAIR_RETRY_TICKS = 100      -- after a failed request, wait this long
 local pair = nil                  -- { code, secret, busy, nextAt } while a code is on offer
@@ -251,7 +251,7 @@ local function showPairWindow(code)
         end
         line("GIM Companion: link this character", 0.04, 0.16)
         line(code, 0.22, 0.24)
-        line("On the website: Plugin > Connect, then enter this code", 0.48, 0.16)
+        line("Website: Plugin > Link with code, then type this code", 0.48, 0.16)
         local hide = ui.Button.new(box)
         hide:SetPos(0, 0, 0.35, 0.74)
         hide:SetSize(0, 0, 0.3, 0.2)
@@ -299,7 +299,7 @@ local function pairStep()
             local okJ, doc = pcall(json.decode, request.data or "")
             if request.successful and request.responseCode == 200 and okJ and type(doc) == "table" and doc.code and doc.device_secret then
                 pair = { code = doc.code, secret = doc.device_secret, busy = false, nextAt = ticks + PAIR_POLL_TICKS }
-                log("[GIM] Link code for " .. rsn .. ": " .. doc.code .. "  (website: Plugin > Connect)")
+                log("[GIM] Link code for " .. rsn .. ": " .. doc.code .. "  (website: Plugin > Link with code)")
                 showPairWindow(doc.code)
             else
                 pair = nil; pairRetryAt = ticks + PAIR_RETRY_TICKS

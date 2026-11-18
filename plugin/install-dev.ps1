@@ -16,7 +16,9 @@ robocopy $src $dst /E /XF config.lua | Out-Null   # exit codes 0-7 mean success
 
 # The released manifest points at https://api.groupiron.com; the development copy points at the local server instead.
 $manifest = Join-Path $dst "plugin.json"
-(Get-Content $manifest -Raw) -replace 'https://api\.groupiron\.com', $Server | Set-Content $manifest -Encoding utf8
+# Written WITHOUT a byte-order mark: Windows PowerShell's "-Encoding utf8" adds one, and a BOM can stop the client reading the manifest.
+$text = (Get-Content $manifest -Raw) -replace 'https://api\.groupiron\.com', $Server
+[IO.File]::WriteAllText($manifest, $text, (New-Object System.Text.UTF8Encoding $false))
 
 if (-not (Test-Path (Join-Path $dst "config.lua"))) {
     Copy-Item (Join-Path $src "config.example.lua") (Join-Path $dst "config.lua")

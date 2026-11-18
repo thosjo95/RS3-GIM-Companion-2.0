@@ -305,7 +305,7 @@
       <div class="feature-card"><h4>Group Ironman Journey</h4><p>Which tier the group is on, with each step and its progress counter.</p></div>
       <div class="feature-card"><h4>Exact boss kills</h4><p>Lifetime counts straight from the game's own kill tracker.</p></div>
       <div class="feature-card"><h4>Drops</h4><p>Valuable drops detected after your kills, logged once each.</p></div>
-      <div class="feature-card"><h4>One player filter</h4><p>Pick a player card at the top and every page follows.</p></div>
+      <div class="feature-card"><h4>One player filter</h4><p>Pick a player card at the top and every page follows. Pick several to compare them.</p></div>
       <div class="feature-card"><h4>Private by design</h4><p>Own character only, per-player tokens, nothing about other players.</p></div>
     </div>
 
@@ -320,11 +320,31 @@
       <a href="#plugin-overview">the plugin section</a>.
     </p>
 
-    <h3>One player filter for the whole dashboard</h3>
+    <h3>One player filter for the whole dashboard, and compare</h3>
     <p>
       The player cards that used to live on the Overview are now pinned above every page. Click a card and
-      <strong>every page shows only that player</strong>. The separate player dropdowns in Goals, Vault and Items are gone.
-      Click the card again, or <em>All players</em>, to see everyone. See <a href="#player-bar">Player cards &amp; filter</a>.
+      <strong>every page shows only that player</strong>. Click more cards to <strong>compare just those players</strong> side by side.
+      The separate player dropdowns in Goals, Vault and Items are gone. Click a selected card again to deselect it; with nothing
+      selected you see everyone. See <a href="#player-bar">Player cards &amp; filter</a>.
+    </p>
+
+    <h3>Link the plugin with a code</h3>
+    <p>
+      No more copying tokens into files. The plugin shows a short code in the game; a member types it on the website with
+      <strong>Link with code</strong> and the plugin connects by itself. See <a href="#plugin-install">Install &amp; connect</a>.
+    </p>
+
+    <h3>Drops, Goals and Leaderboard tiles</h3>
+    <p>
+      Three tiles beside the activity feed open as panels that float over the page: the <strong>Drops</strong> chest, your
+      <strong>Goals</strong>, and the <strong>Leaderboard</strong> with day, week and month boards and the group's own competitions.
+      See <a href="#tab-overview">Overview</a>.
+    </p>
+
+    <h3>Manage group</h3>
+    <p>
+      Adding a character by hand, correcting a name and removing a member moved off the player cards into one
+      <strong>Manage group</strong> window (the <strong>+</strong> button in the top bar). See <a href="#topbar">Top bar</a>.
     </p>
 
     <h3>Group Vault, Bank Journal and the group storage</h3>
@@ -380,8 +400,8 @@ npm run dev            # API on :3001, dashboard on :5173</code></pre>
                                    # unlock it with the secret it prints (dev database only)</code></pre>
     <h4>Connect the real plugin</h4>
     <ol>
-      <li>Open the dashboard, unlock your group, click <strong>Plugin</strong> in the top bar and create a token for your player.</li>
-      <li>Follow <a href="#plugin-install">Install &amp; connect</a>.</li>
+      <li>Open the dashboard, unlock your group and click <strong>Plugin</strong> in the top bar.</li>
+      <li>Follow <a href="#plugin-install">Install &amp; connect</a>, then press <strong>Link with code</strong> next to your player and type the code the game shows.</li>
     </ol>
 
     <!-- ── DASHBOARD ────────────────────────────────────── -->
@@ -391,12 +411,18 @@ npm run dev            # API on :3001, dashboard on :5173</code></pre>
     </p>
     <ul>
       <li>Click a card: every page shows only that player. The card gets a coloured border and the header says so.</li>
-      <li>Click it again, or press <strong>All players</strong>: everyone again.</li>
-      <li>The roster controls (<em>Refresh Roster</em>, <em>Add Player</em>, sync, edit RSN, remove) live on the cards.</li>
+      <li>Click more cards to <strong>compare</strong> just those players. The Overview then shows the same Group Stats grid as for
+        the whole group, limited to the selected players, under the heading <em>Comparing N players</em>.</li>
+      <li>Click a selected card again to deselect it. With nothing selected, every page shows everyone.</li>
+      <li>A green dot on a card means that member is online and playing right now (the plugin's heartbeat).</li>
+      <li>The magnifying glass on a card opens a floating panel with that player's backpack, worn equipment and skills:
+        live while they play, and as last seen after logout. Hover a skill for its XP and the XP to the next level.</li>
+      <li>Your own card has the <strong>YOU</strong> badge. For a Group Ironman the member list follows the official hiscores;
+        new members are added automatically every night and nobody is removed automatically.</li>
     </ul>
     <table>
       <tr><th>Page</th><th>What the selected player does</th></tr>
-      <tr><td><strong>Overview</strong></td><td>Shows that player's skills and stats.</td></tr>
+      <tr><td><strong>Overview</strong></td><td>One player: that player's skills and stats. Several players: the Group Stats grid for just them.</td></tr>
       <tr><td><strong>Goals</strong></td><td>Filters the active goals; the Goal Browser starts from that player.</td></tr>
       <tr><td><strong>Group Vault</strong></td><td>Filters drops, banks, backpacks and the journal. The group storage always shows the whole group's.</td></tr>
       <tr><td><strong>Worn Gear</strong></td><td>Shows what the selected player wears right now, or what was last seen before logout. With nobody selected it asks you to pick a player card.</td></tr>
@@ -406,14 +432,27 @@ npm run dev            # API on :3001, dashboard on :5173</code></pre>
 
     <h2 id="topbar">Top bar</h2>
     <ul>
-      <li><strong>Group name</strong> with the group type badge, member count and group rank. This used to be a heading on every page.</li>
-      <li><strong>Plugin</strong> opens the plugin setup window: every member, their connection status and token buttons.</li>
+      <li><strong>Group name</strong> with the group type badge, member count, total XP and the group's rank on the official
+        Group Ironman hiscores (the rank links to the group there). This used to be a heading on every page.</li>
+      <li><strong>+</strong> (unlocked groups) opens <strong>Manage group</strong>: add a character by hand (this is how you build a
+        custom group), correct a character name, or remove a member. Removing asks for confirmation and deletes that player's data.</li>
+      <li><strong>Plugin</strong> opens the plugin setup window: every member, their connection status, <strong>Link with code</strong>,
+        and under <strong>Advanced</strong> a manual token for <code>config.lua</code>.</li>
       <li><strong>Group notes</strong>, <strong>Discord notifications</strong>, <strong>?</strong> tour, <strong>Docs</strong>, <strong>Discord</strong>, <strong>Sync All</strong> as in 1.x.</li>
     </ul>
 
     <h2 id="tab-overview">Overview</h2>
-    <p>Group stats, per-skill leaderboard, the group's goals and recent activity, as in 1.x. The Quests view moved to
-    <a href="#tab-quests">Quests and Tasks</a>.</p>
+    <p>Group Stats (every member's skills side by side, with a Levels/XP switch), recent activity grouped by day, and three tiles
+    beside the activity. The Quests view moved to <a href="#tab-quests">Quests and Tasks</a>.</p>
+    <p>Each tile opens a panel that floats over the page, so nothing below it moves:</p>
+    <table>
+      <tr><th>Tile</th><th>What the panel shows</th></tr>
+      <tr><td><strong>Drops</strong> (chest)</td><td>The group's recent big drops from the Adventurer's Log and the plugin. The chest glows when a drop arrives that you have not looked at yet.</td></tr>
+      <tr><td><strong>Goals</strong></td><td>Your active goals, with a button to add one. Glows when someone adds a new goal.</td></tr>
+      <tr><td><strong>Leaderboard</strong> (trophy)</td><td>Who gained the most XP, levels, quest points, boss kills, slayer kills or drops over the last day, week or month, and the group's
+        <strong>competitions</strong>: press <em>New competition</em>, choose what to track (for example 50 Araxxi kills), start and end time and an optional goal,
+        or start from a preset. The tile shows how many competitions are running.</td></tr>
+    </table>
 
     <h2 id="tab-goals">Goals</h2>
     <p>The planning board with the Goal Browser and Active Goals. Quest goals now complete themselves when the plugin sees you
@@ -456,7 +495,7 @@ npm run dev            # API on :3001, dashboard on :5173</code></pre>
       <li>All eleven tiers with a progress bar. Expand a tier for every step, its description and reward, a dot per player, and a progress counter such as <em>total level 2,497 / 2,600</em>.</li>
     </ul>
     <div class="callout callout-info">
-      <span class="callout-icon">ℹ️</span>
+      <span class="callout-icon"></span>
       <p>The journey is read from each member's own character by the plugin. Members without the plugin have no data and are left out of the group figures, so they never drag the group back to tier 0.</p>
     </div>
 
@@ -466,6 +505,7 @@ npm run dev            # API on :3001, dashboard on :5173</code></pre>
       <tr><td><strong>Firsts</strong></td><td>Who did each milestone first. Dated from the Adventurer's Log; skills fall back to the hiscores; <strong>killed bosses count as a first kill (date unknown)</strong> from the plugin's lifetime counts. Manual corrections always win.</td></tr>
       <tr><td><strong>Milestones</strong></td><td>The activity feed of milestones.</td></tr>
       <tr><td><strong>Boss Kills</strong></td><td>Per-boss kills per player. With the plugin these are the <strong>game's exact lifetime counts</strong> (the same numbers as <em>Adventures → Beasts → Boss kills</em>); without it, the Adventurer's Log estimate.</td></tr>
+      <tr><td><strong>Slayer Kills</strong></td><td>Lifetime kills per slayer creature from the game's own counters (only the creatures matched so far).</td></tr>
       <tr><td><strong>Clue Scrolls</strong></td><td>From the hiscores.</td></tr>
       <tr><td><strong>Skill Mastery</strong></td><td>99s and 120s per player with dates.</td></tr>
     </table>
@@ -762,6 +802,11 @@ npm run build --prefix client</code></pre>
       <li>Goals: official RuneScape icons everywhere, a "Recommended next" panel, live goal progress, quests finished in the game count as done, and the top player bar replaces the second player filter.</li>
       <li>Group Leaderboard on the front page: day / week / month boards for XP, levels, quest points, boss kills, slayer kills and drops, plus competitions the group creates itself (what to track, start and end time, optional goal, ready-made presets). Gains are counted from periodic snapshots of every player's numbers (<code>/api/competitions</code>).</li>
       <li>Leaderboards: a Slayer Kills tab (creatures matched to the game's counters so far).</li>
+      <li>Select several player cards to compare just those players.</li>
+      <li>Drops, Goals and Leaderboard tiles open as floating panels; the Leaderboard tile counts running competitions.</li>
+      <li>Manage group window (+ in the top bar) for adding, renaming and removing members; the roster updates itself nightly.</li>
+      <li>Player cards show who is online, and the magnifying glass opens backpack, worn equipment and skills.</li>
+      <li>Link the plugin with a code shown in the game instead of pasting a token.</li>
       <li>Items refresh by themselves every few seconds.</li>
     </ul>
 

@@ -98,7 +98,7 @@ export default function MemberCard({ player, active, color, onClick, isMe, onEdi
           </div>}
       {isMe && (
         <div style={{
-          display: 'inline-block', marginTop: 5,
+          position: 'absolute', top: 8, left: 8, display: 'inline-block',
           fontSize: 9, fontWeight: 800, letterSpacing: '0.5px',
           background: 'var(--gold)', color: '#111',
           borderRadius: 4, padding: '1px 5px',

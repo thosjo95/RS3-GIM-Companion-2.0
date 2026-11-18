@@ -15,7 +15,7 @@ const gid = Number(db.prepare("INSERT INTO groups (name,gim_type,gim_size,passwo
 const pid = Number(db.prepare('INSERT INTO players (rsn,group_id) VALUES (?,?)').run('LuaPlayer', gid).lastInsertRowid);
 
 const PORT = 3985;
-const server = spawn(process.execPath, ['index.js'], { cwd: REPO + 'server', env: { ...process.env, PORT }, stdio: 'ignore' });
+const server = spawn(process.execPath, ['index.js'], { cwd: REPO + 'server', env: { ...process.env, PORT, GIM_DROP_THRESHOLD: '100000' }, stdio: 'ignore' });
 const base = `http://localhost:${PORT}/api`;
 let failures = 0;
 const check = (c, m) => { console.log((c ? 'PASS' : 'FAIL') + '  ' + m); if (!c) failures++; };
@@ -131,6 +131,14 @@ const check = (c, m) => { console.log((c ? 'PASS' : 'FAIL') + '  ' + m); if (!c)
   check(lootSend.length >= 1 && lootSend[0].drops.find(d => d.name === 'Death rune').quantity === 600, 'auto-loot that lands in the backpack after a kill is reported too');
   dostr('INV_EXTRA = {}');
 
+  //    d) loot that appears on the ground BEFORE the game announces the monster's removal
+  dostr('TARGET_HP = "40"; TICK(2)');
+  dostr(ground(4151, 1, true) + '; TICK(3)');
+  const wallBefore = captured.map(c => JSON.parse(c.body)).flatMap(b => (b.drops || []).filter(d => d.name === 'Abyssal whip')).length;
+  dostr(killNpc + '; TICK(8)');
+  const whips = new Set(captured.map(c => JSON.parse(c.body)).flatMap(b => (b.drops || []).filter(d => d.name === 'Abyssal whip').map(d => d.ref)));
+  check(whips.size === 2, 'loot seen before its kill was registered is still matched to the kill');
+
   // 7. heartbeat keeps the dashboard live even when nothing changes
   const beforeHeartbeat = captured.length;
   dostr('TICK(60)');
@@ -164,13 +172,13 @@ const check = (c, m) => { console.log((c ? 'PASS' : 'FAIL') + '  ' + m); if (!c)
 
   const drops = db.prepare("SELECT item_name, boss_name, quantity, source FROM drops WHERE player_id = ?").all(pid);
   const distinctRefs = new Set(captured.map(c => JSON.parse(c.body)).flatMap(b => (b.drops || []).map(d => d.ref)));
-  check(drops.length === distinctRefs.size && drops.length === 3 && drops.every(d => d.source === 'plugin') && drops.every(d => d.boss_name === 'Araxxor'),
+  check(drops.length === distinctRefs.size && drops.length === 4 && drops.every(d => d.source === 'plugin') && drops.every(d => d.boss_name === 'Araxxor'),
     `drops logged once each despite retries and replays (${drops.length} rows for ${distinctRefs.size} drops)`);
 
   const npcKills = await (await fetch(`${base}/plugin/kills?group_id=${gid}`, { headers: gh })).json();
-  check(npcKills.length === 1 && npcKills[0].npc === 'Araxxor' && npcKills[0].kills === 2, 'kills counted once per real kill (replay of retried sends does not double them)');
+  check(npcKills.length === 1 && npcKills[0].npc === 'Araxxor' && npcKills[0].kills === 3, 'kills counted once per real kill (replay of retried sends does not double them)');
   const boss = (await (await fetch(`${base}/boss-kills?group_id=${gid}`)).json()).find(b => b.boss_key === 'araxxor');
-  check(boss && boss.kills === 2 && boss.plugin_kills === 2 && boss.source === 'plugin', 'boss kill view shows the plugin count for the matching boss');
+  check(boss && boss.kills === 3 && boss.plugin_kills === 3 && boss.source === 'plugin', 'boss kill view shows the plugin count for the matching boss');
 
   // a token used by the wrong character is refused by the server
   const wrong = JSON.parse(captured[0].body); wrong.rsn = 'Someone Else';

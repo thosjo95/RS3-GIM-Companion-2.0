@@ -302,6 +302,8 @@ local killTally = {}        -- npc name -> kills counted since the last batch wa
 local killBatch = nil       -- { ref, entries } formed and sent, waiting for the server's confirmation
 local killBatchCounter = 0
 local recentKills = {}      -- for drops: { name, tile, at }
+local pendingGround = {}    -- loot seen BEFORE its kill was registered: { objId, count, tile, at }
+local claimPendingGround    -- assigned in the drops section; called when a kill is registered
 
 local function stripTags(s) return (s:gsub("<[^>]*>", ""):gsub("^%s+", ""):gsub("%s+$", "")) end
 
@@ -359,6 +361,7 @@ local function onNpcRemoved(event)
 
     killTally[name] = (killTally[name] or 0) + 1
     recentKills[#recentKills + 1] = { name = name, tile = where, at = ticks }
+    if claimPendingGround then claimPendingGround(recentKills[#recentKills]) end
     markItemsDirty()
 end
 
@@ -404,17 +407,51 @@ local function queueDrop(objId, quantity, kill)
     markItemsDirty()
 end
 
+local groundLogBudget = 40
+local function groundTile(event)
+    local ok, grid = pcall(function() return event.coordGrid end)
+    if ok and grid ~= nil then return tileOf(grid) end
+    local ok2, grid2 = pcall(function() return event.objStackEntity.coordGrid end)
+    if ok2 and grid2 ~= nil then return tileOf(grid2) end
+    return nil
+end
+
+-- Loot can appear on the ground slightly BEFORE the game announces the monster's removal, so an item that
+-- has no kill yet waits in pendingGround and is matched when the kill arrives.
+claimPendingGround = function(kill)
+    local keep = {}
+    for _, p in ipairs(pendingGround) do
+        local fresh = ticks - p.at <= DROP_WINDOW_TICKS
+        if fresh and (p.tile == nil or near(kill.tile, p.tile, DROP_NEAR_TILES)) then
+            fromGround[p.objId] = ticks
+            queueDrop(p.objId, p.count, kill)
+        elseif fresh then
+            keep[#keep + 1] = p
+        end
+    end
+    pendingGround = keep
+end
+
 local function onGroundItem(event)
     local okI, objId = pcall(function() return event.objType.id end)
     if not okI or type(objId) ~= "number" then return end
     local okO, owner = pcall(function() return event.isOwner end)
-    if not okO or owner ~= true then return end                 -- only items dropped FOR us
-    local okG, grid = pcall(function() return event.coordGrid end)
-    local kill = okG and grid ~= nil and recentKillNear(tileOf(grid)) or nil
-    if kill == nil then return end
-    fromGround[objId] = ticks
     local okC, count = pcall(function() return event.count end)
-    queueDrop(objId, okC and type(count) == "number" and count or 1, kill)
+    count = okC and type(count) == "number" and count or 1
+    local tile = groundTile(event)
+    local kill = recentKillNear(tile)
+    if groundLogBudget > 0 and (kill ~= nil or #recentKills > 0 or #pendingGround >= 0) then
+        groundLogBudget = groundLogBudget - 1
+        log('[GIM] drops: ground item "' .. describeObj(objId).name .. '" x' .. tostring(count) .. " isOwner=" .. tostring(owner)
+            .. " position=" .. tostring(tile ~= nil) .. " matching kill=" .. tostring(kill ~= nil and kill.name or "none yet"))
+    end
+    if not okO or owner ~= true then return end                 -- only items dropped FOR us
+    if kill == nil then
+        if #pendingGround < 30 then pendingGround[#pendingGround + 1] = { objId = objId, count = count, tile = tile, at = ticks } end
+        return
+    end
+    fromGround[objId] = ticks
+    queueDrop(objId, count, kill)
 end
 
 local HAND_WINDOWS = { id.Interface.BANK, id.Interface.GROUP_IRONMAN_STORAGE, id.Interface.STOCKMARKET,
@@ -660,6 +697,9 @@ Event.ServerLogic.Subscribe("gim_tick", function()
     if packDirtyAt ~= nil and ticks - packDirtyAt >= 2 then packDirtyAt = nil; scanBackpack() end
 
     if ticks % 10 == 0 then
+        local freshGround = {}
+        for _, p in ipairs(pendingGround) do if ticks - p.at <= DROP_WINDOW_TICKS then freshGround[#freshGround + 1] = p end end
+        pendingGround = freshGround
         local keep = {}
         for _, k in ipairs(recentKills) do if ticks - k.at <= 200 then keep[#keep + 1] = k end end
         recentKills = keep

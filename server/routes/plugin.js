@@ -241,7 +241,7 @@ function mintToken(playerId, { replace = true } = {}) {
 // into the plugin once. The plugin sends it here with the character name. If that character is a member of a claimed
 // group whose secret matches, the server answers with a key for that one character. The plugin stores the key, not
 // the secret. Failed attempts are rate-limited, and the answer never says whether the name or the secret was wrong.
-const joinLimiter = createRateLimiter({ windowMs: 60_000, max: 10, message: 'Too many attempts. Wait a minute and try again.' });
+const joinLimiter = createRateLimiter({ windowMs: 60_000, max: Number(process.env.GIM_JOIN_LIMIT) || 10, message: 'Too many attempts. Wait a minute and try again.' });
 // RuneScape treats spaces, underscores, hyphens and non-breaking spaces in names as the same character.
 const normName = s => String(s ?? '').toLowerCase().replace(/[\s_-]+/g, ' ').trim();
 // Secrets are made as XXXX-XXXX-XXXX; accept them typed in lower case or without the dashes too.

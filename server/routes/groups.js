@@ -385,17 +385,21 @@ router.post('/', (req, res) => {
   res.status(201).json({ id: result.lastInsertRowid, name, group_rsn, notes });
 });
 
+// A group secret like K7M2-9QXA-4HTR. crypto.randomInt (CSPRNG) rather than Math.random(): the secret is the only gate
+// on the group's private data and on connecting the plugin, so it must be unpredictable. Also used by the admin portal.
+function newGroupSecret() {
+  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  const seg = () => Array.from({ length: 4 }, () => chars[crypto.randomInt(chars.length)]).join('');
+  return `${seg()}-${seg()}-${seg()}`;
+}
+
 // POST /api/groups/:id/claim - generate a secret and claim an unclaimed group
 router.post('/:id/claim', (req, res) => {
   const group = db.prepare('SELECT id, password_hash FROM groups WHERE id = ?').get(req.params.id);
   if (!group) return res.status(404).json({ error: 'Group not found' });
   if (group.password_hash) return res.status(409).json({ error: 'Group is already claimed' });
 
-  // crypto.randomInt (CSPRNG) rather than Math.random() — this secret is the
-  // sole gate on write access to the group, so it needs to be unpredictable.
-  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-  const seg = () => Array.from({ length: 4 }, () => chars[crypto.randomInt(chars.length)]).join('');
-  const secret = `${seg()}-${seg()}-${seg()}`;
+  const secret = newGroupSecret();
 
   const pw = hashPassword(secret);
   db.prepare('UPDATE groups SET password_hash = ?, password_salt = ?, last_activity = CURRENT_TIMESTAMP WHERE id = ?')
@@ -543,4 +547,5 @@ async function autoAddMembers() {
 }
 
 module.exports = router;
+module.exports.newGroupSecret = newGroupSecret;
 module.exports.autoAddMembers = autoAddMembers;

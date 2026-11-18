@@ -312,6 +312,22 @@ router.post('/maintenance/reset-secret', requireAdmin, (req, res) => {
   res.json({ success: true, message: `Secret cleared for "${group.name}" (id ${gid}). They can now re-claim.` });
 });
 
+// POST /api/admin/maintenance/new-secret — give a group a new secret right away (for a group that lost theirs). Unlike
+// reset-secret there is no moment where the group is unclaimed. The old secret stops working at once; plugins that
+// already joined keep sending (their keys stay valid). The new secret is shown once, to the admin.
+router.post('/maintenance/new-secret', requireAdmin, (req, res) => {
+  const gid = Number(req.body?.group_id);
+  if (!gid) return res.status(400).json({ error: 'group_id required' });
+  const group = db.prepare('SELECT id, name FROM groups WHERE id = ?').get(gid);
+  if (!group) return res.status(404).json({ error: `Group ${gid} not found` });
+  const { newGroupSecret } = require('./groups');
+  const { hashPassword } = require('../utils/auth');
+  const secret = newGroupSecret();
+  const pw = hashPassword(secret);
+  db.prepare('UPDATE groups SET password_hash = ?, password_salt = ? WHERE id = ?').run(pw.hash, pw.salt, gid);
+  res.json({ success: true, secret, message: `New secret for "${group.name}" (id ${gid}): ${secret}  (shown once: pass it to the group; the old one no longer works)` });
+});
+
 // POST /api/admin/maintenance/delete-group — permanently delete a group and all its players
 router.post('/maintenance/delete-group', requireAdmin, (req, res) => {
   const { group_id } = req.body;

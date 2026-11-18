@@ -611,6 +611,15 @@ function MaintenanceTab({ pushToast }) {
       ],
     },
     {
+      id: 'new_secret',
+      emoji: '',
+      title: 'New Group Secret',
+      desc: 'For a group that lost its secret: sets a new one at once and shows it here (pass it to the group). The old secret stops working; plugins that already joined keep sending. Check first that the person asking is a member.',
+      fields: [
+        { key: 'group_id', label: 'Group ID', placeholder: 'e.g. 12' },
+      ],
+    },
+    {
       id: 'reset_secret',
       emoji: '🔓',
       title: 'Reset Group Secret',
@@ -724,6 +733,10 @@ function MaintenanceTab({ pushToast }) {
         data = await adminApi.maintenance.deleteOrphanGroup({ group_id: values.group_id });
         setResult({ ok: true, message: data.message });
         pushToast(data.message, 'success');
+      } else if (tool.id === 'new_secret') {
+        data = await adminApi.maintenance.newSecret({ group_id: values.group_id });
+        setResult({ ok: true, message: data.message });
+        pushToast('New secret created', 'success');
       } else if (tool.id === 'reset_secret') {
         data = await adminApi.maintenance.resetSecret({ group_id: values.group_id });
         setResult({ ok: true, message: data.message });

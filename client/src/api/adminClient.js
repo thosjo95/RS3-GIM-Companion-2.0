@@ -62,6 +62,7 @@ export const adminApi = {
     movePlayers:       (body)       => request('/maintenance/move-players',      { method: 'POST', body }),
     deleteOrphanGroup: (body)       => request('/maintenance/delete-orphan-group', { method: 'POST', body }),
     resetSecret:       (body)       => request('/maintenance/reset-secret',      { method: 'POST', body }),
+    newSecret:         (body)       => request('/maintenance/new-secret',        { method: 'POST', body }),
     deleteGroup:       (body)       => request('/maintenance/delete-group',      { method: 'POST', body }),
     fixRsn:            (body)       => request('/maintenance/fix-rsn',           { method: 'POST', body }),
     syncActivities:    (groupId)    => fetch(`/api/players/sync-activities/${groupId}`, { method: 'POST' }).then(async r => { const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.error || `Status ${r.status}`); return d; }),

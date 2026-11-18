@@ -8,6 +8,7 @@ const { spawn } = require('child_process');
 
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gim-test-'));
 process.env.GIM_DATA_DIR = dataDir;               // isolated database for this run
+process.env.GIM_JOIN_LIMIT = '100';               // the tests join many times a minute (production allows 10)
 const db = require('../database');
 const { hashPassword } = require('../utils/auth');
 
@@ -278,4 +279,28 @@ test('clue counts: logged per tier when the hiscores go up, and usable as a lead
   const c = clueCounts(JSON.stringify({ activities: { 'Clue Scrolls Hard': 41, 'Clue Scrolls Master': 2, 'Clue Scrolls Easy': -1 } }));
   assert.equal(c.hard, 41); assert.equal(c.master, 2); assert.equal(c._total, 43); assert.equal(c.easy, undefined);
   assert.equal(require('../services/metrics').pick({ clues: c }, 'clues', 'hard'), 41);
+});
+
+// ── admin: a new secret for a group that lost theirs ─────────────────────────
+test('admin "new secret": the old secret stops working, the new one unlocks and joins, connected plugins keep sending', async () => {
+  const adminAuth = require('../utils/adminAuth');
+  const apw = adminAuth.hashPassword('test-admin-password');
+  db.prepare('INSERT OR REPLACE INTO admin_users (username, password_hash, salt) VALUES (?, ?, ?)').run('testadmin', apw.hash, apw.salt);
+  const login = await (await call('POST', '/admin/login', { body: { username: 'testadmin', password: 'test-admin-password' } })).json();
+  assert.ok(login.token);
+
+  const old = 'LOST-SECR-ET22';
+  const pw = hashPassword(old);
+  const g = Number(db.prepare("INSERT INTO groups (name, gim_type, gim_size, password_hash, password_salt) VALUES ('Lost Secret', 'custom', 1, ?, ?)").run(pw.hash, pw.salt).lastInsertRowid);
+  db.prepare('INSERT INTO players (rsn, group_id) VALUES (?, ?)').run('Lost Member', g);
+  const key = (await (await call('POST', '/plugin/join', { body: { rsn: 'Lost Member', group_secret: old } })).json()).token;
+
+  assert.equal((await call('POST', '/admin/maintenance/new-secret', { body: { group_id: g } })).status, 401);   // admins only
+  const r = await (await call('POST', '/admin/maintenance/new-secret', { headers: { Authorization: `Bearer ${login.token}` }, body: { group_id: g } })).json();
+  assert.match(r.secret, /^[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$/);
+
+  assert.equal((await call('POST', '/plugin/join', { body: { rsn: 'Lost Member', group_secret: old } })).status, 401);
+  assert.equal((await call('POST', '/plugin/join', { body: { rsn: 'Lost Member', group_secret: r.secret } })).status, 200);
+  assert.equal((await call('GET', `/plugin/state?group_id=${g}`, { headers: { 'X-Group-Id': String(g), 'X-Group-Password': r.secret } })).status, 200);
+  assert.equal((await call('POST', '/plugin/ingest', { headers: bearer(key), body: { v: 1, rsn: 'Lost Member' } })).status, 200);
 });

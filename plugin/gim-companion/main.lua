@@ -1211,4 +1211,5 @@ Event.ServerLogic.Subscribe("gim_tick", function()
     end
 end)
 
-log("[GIM] GIM Companion started. Sending to " .. tostring(Plugin.urls.gim) .. " - your own character only.")
+-- Plugin.urls.gim is a game object, not text (printing it shows an internal address), so the message names it in words.
+log("[GIM] GIM Companion started. Sends your own character only, to the address in plugin.json.")

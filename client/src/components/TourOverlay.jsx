@@ -43,7 +43,7 @@ const TOUR_STEPS = [
   {
     target: '[data-tour="members"]',
     title: 'Player cards',
-    body: 'Click a card to focus every page on that player, click again (or All players) to see everyone. This is the one player filter for the whole app. Your own card has the YOU badge.',
+    body: 'Click a card to focus every page on that player, click the same card again to see everyone. This is the one player filter for the whole app. Your own card has the YOU badge.',
   },
   {
     target: '[data-tour="inspect"]',

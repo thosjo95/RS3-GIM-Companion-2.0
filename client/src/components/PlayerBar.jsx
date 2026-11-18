@@ -7,7 +7,7 @@ import PlayerLoadout from './PlayerLoadout';
 
 /**
  * The group's player cards, pinned above every page. Clicking a card selects that player; every page then
- * shows only that player's data (click again, or "All players", to see the whole group). This is the ONE
+ * shows only that player's data (click the same card again to see the whole group). This is the ONE
  * place the player filter lives — pages do not have their own.
  *
  * Also owns the roster actions that used to sit in the Overview: add, refresh roster, sync, edit RSN, remove.
@@ -63,18 +63,8 @@ export default function PlayerBar({ group, players, groupId, canWrite, myRsn, se
 
   return (
     <div data-tour="members" style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
-      {/* Selection summary + roster controls */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        <button
-          type="button"
-          className={`chip${selectedId == null ? ' active' : ''}`}
-          onClick={() => onSelect(null)}
-          title="Show the whole group on every page">
-          All players
-        </button>
-        <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>
-          {selectedId == null ? 'Click a player to focus every page on them' : 'Showing one player on every page — click their card again to show everyone'}
-        </span>
+      {/* Roster controls (only for an unlocked group). Click the selected card again to show everyone. */}
+      {canWrite && <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         <div style={{ flex: 1 }} />
         {canWrite && (
           <>
@@ -93,7 +83,7 @@ export default function PlayerBar({ group, players, groupId, canWrite, myRsn, se
             <button className="btn btn-primary btn-sm" onClick={onAddPlayer}>➕ Add Player</button>
           </>
         )}
-      </div>
+      </div>}
 
       {players.length === 0 ? (
         <div className="empty-state" style={{ marginTop: 4 }}>

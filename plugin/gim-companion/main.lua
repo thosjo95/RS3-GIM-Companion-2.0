@@ -40,11 +40,14 @@ if type(settings.token) == "string" and settings.token:find("^gimp_") then token
 local configSecret = type(settings.groupSecret) == "string" and settings.groupSecret:match("^%s*(.-)%s*$") or nil
 if configSecret == "" then configSecret = nil end
 
-log("[GIM] httpAccess granted: " .. tostring(Plugin.HasPermission(PluginPermissions.httpAccess)))
-if settings.dryRun ~= true and not Plugin.HasPermission(PluginPermissions.httpAccess) then
-    log("[GIM] httpAccess permission not granted - the plugin cannot send data. Plugin idle.")
-    log("[GIM] Fix: run   ppr gim-companion   then   ppe gim-companion httpAccess   then   prl gim-companion")
-    return
+-- Network access (httpAccess) is an optional permission the player can allow at any time, also after the plugin has
+-- started. Without it the plugin waits and does nothing (the scheduler in section 8 checks again on every tick), and it
+-- starts by itself the moment the permission is allowed.
+local function httpAllowed() return Plugin.HasPermission(PluginPermissions.httpAccess) end
+log("[GIM] httpAccess granted: " .. tostring(httpAllowed()))
+if settings.dryRun ~= true and not httpAllowed() then
+    log("[GIM] Waiting for network access (httpAccess). Allow it for GIM Companion and the plugin starts by itself.")
+    log("[GIM] Developers: run   ppr gim-companion   then   ppe gim-companion httpAccess")
 end
 
 -- Optional switches in config.lua, useful while testing (all default to on):
@@ -1205,8 +1208,18 @@ Event.GameStateChanged.Subscribe("gim_state", function(event)
     end
 end)
 
+local waitingForHttp = not DRY_RUN and not httpAllowed()
 Event.ServerLogic.Subscribe("gim_tick", function()
     ticks = ticks + 1
+    -- no network access yet: do nothing at all, and start as soon as the player allows it
+    if not DRY_RUN then
+        if not httpAllowed() then waitingForHttp = true; return end
+        if waitingForHttp then
+            waitingForHttp = false
+            dirty.skills, dirty.items = true, true
+            log("[GIM] Network access allowed. GIM Companion is starting.")
+        end
+    end
     if token == nil and not DRY_RUN then joinStep(); return end
     if FEATURES.kills and ticks % 2 == 0 then readTarget() end
 

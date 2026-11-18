@@ -11,7 +11,7 @@ function _unused_log(...)
 end
 
 PluginPermissions = { httpAccess = 1 }
-Plugin = { urls = { gim = "http://localhost:0" }, HasPermission = function() return true end }
+Plugin = { urls = { gim = "http://localhost:0" }, HasPermission = function() return HTTP_ALLOWED ~= false end }
 GameState = { GAME = 3, LOBBY = 2 }
 CONFIG_BODY = "{}"   -- the harness sets this to the real server's /api/plugin/config response
 

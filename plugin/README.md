@@ -29,7 +29,7 @@ hash of it. Data is sent over HTTPS to the single address declared in `plugin.js
 ## Permission
 
 The plugin asks for one optional permission, **httpAccess**, to send your data to the website. Without it the plugin
-stays idle and does nothing. You can withdraw it at any time in the plugin settings.
+waits and does nothing; it starts by itself as soon as you allow it. You can withdraw it at any time in the plugin settings.
 
 ## Install and connect (players)
 

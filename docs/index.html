@@ -692,8 +692,8 @@ pon gim-companion                     # enable it</code></pre></li>
     </table>
 
     <h2 id="plugin-trouble">Troubleshooting</h2>
-    <h3>"httpAccess permission not granted"</h3>
-    <p>Run <code>ppr gim-companion</code> (the plugin asks for its permission), then <code>ppe gim-companion httpAccess</code> (you grant it), then <code>prl gim-companion</code>. Remember <code>prf</code> resets it. The plugin prints <code>httpAccess granted: true</code> at start when it is right.</p>
+    <h3>"Waiting for network access (httpAccess)"</h3>
+    <p>Run <code>ppr gim-companion</code> (the plugin asks for its permission), then <code>ppe gim-companion httpAccess</code> (you grant it), then <code>prl gim-companion</code>. Remember <code>prf</code> resets it. The plugin prints <code>httpAccess granted: true</code> at start when it is right. It also starts by itself as soon as the permission is allowed later (<code>Network access allowed. GIM Companion is starting.</code>), so a reload is not needed.</p>
     <h3>"No claimed group with ... as a member has that secret"</h3>
     <p>Check the secret (letters and digits; dashes and lower case do not matter), that the group is claimed, and that this character is a member on the
       website. A character added to the group later can connect as soon as it appears in the member list.</p>

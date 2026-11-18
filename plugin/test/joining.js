@@ -8,7 +8,7 @@ let failures = 0;
 const check = (c, m) => { console.log((c ? 'PASS' : 'FAIL') + '  ' + m); if (!c) failures++; };
 
 // One fresh Lua state with the mocked game. `configLua` replaces config.lua (nil: no config.lua at all).
-function start(configLua) {
+function start(configLua, beforeMain) {
   const L = lauxlib.luaL_newstate(); lualib.luaL_openlibs(L);
   const captured = [];
   const fn = (name, impl) => { lua.lua_pushjsfunction(L, impl); lua.lua_setglobal(L, to_luastring(name)); };
@@ -26,6 +26,7 @@ function start(configLua) {
   // helpers in Lua: find the newest component of a kind, type into the box, press a button by its label
   dostr(`function NEWEST(kind) for i = #UI_LOG.created, 1, -1 do if UI_LOG.created[i].kind == kind then return UI_LOG.created[i] end end end
          function PRESS(label) for i = #UI_LOG.created, 1, -1 do local c = UI_LOG.created[i]; if c.label == label then c.pressed(); return end end end`);
+  if (beforeMain) dostr(beforeMain);
   dofile(path.join(REPO, 'plugin', 'gim-companion', 'main.lua'));
   return { captured, dostr, lget, posts: p => captured.filter(c => c.path === p) };
 }
@@ -95,6 +96,21 @@ function start(configLua) {
   check(g.lget('NEWEST("input")') === null, 'with groupSecret in config.lua no window is shown');
   check(g.posts('/api/plugin/join').length === 1 && JSON.parse(g.posts('/api/plugin/join')[0].body).group_secret === 'abcd-efgh-jk23', 'the secret from config.lua is used to join');
   check(g.lget('STORE["token_luaplayer"]') === 'gimp_JOINEDKEY', 'and the key is kept');
+}
+
+// ── 5. Network access allowed only after the plugin started: it waits, then starts by itself ──
+{
+  const g = start(null, 'HTTP_ALLOWED = false');
+  g.dostr('TICK(20)');
+  check(g.captured.length === 0 && g.lget('NEWEST("input")') === null, 'without network access the plugin sends nothing and shows no window');
+  g.dostr('HTTP_ALLOWED = true TICK(5)');
+  check(g.lget('NEWEST("input") ~= nil'), 'once network access is allowed it starts by itself (the join window appears)');
+  g.dostr('NEWEST("input").content = "ABCD-EFGH-JK23" PRESS("Connect") TICK(10)');
+  check(g.posts('/api/plugin/ingest').length >= 1, 'and sends after joining, with no reload');
+  g.dostr('HTTP_ALLOWED = false');
+  const before = g.captured.length;
+  g.dostr('TICK(60)');
+  check(g.captured.length === before, 'if network access is taken away again, it stops sending');
 }
 
 process.exit(failures ? 1 : 0);

@@ -21,6 +21,7 @@ local names = { "ATTACK","DEFENCE","STRENGTH","HITPOINTS","RANGED","PRAYER","MAG
 SkillType = {}
 for i, n in ipairs(names) do SkillType[n] = i - 1 end
 
+os = nil   -- the game's Lua has no os library; the plugin must not depend on it
 CHARACTER = "LuaPlayer"   -- changed by the harness to test the wrong-character case
 Player = {
   IsAvailable       = function() return true end,

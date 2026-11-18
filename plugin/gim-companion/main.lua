@@ -206,15 +206,16 @@ end
 -- The dashboard ledger records deposits/withdrawals. For each store we remember the totals the server has
 -- ALREADY ACCEPTED ("held"); a change is only counted as delivered once a send succeeds, so a failed
 -- request simply tries again with nothing lost.
+local changeBatch = nil      -- { ref, changes, seen } formed and sent, waiting for the server's confirmation
+local changeBatchCounter = 0
 local STORES = {
     { key = "bank",  field = "bank", window = id.Interface.BANK,                    inv = id.Inv.BANK,                          held = nil },
     { key = "group", field = nil,    window = id.Interface.GROUP_IRONMAN_STORAGE,   inv = id.Inv.GROUP_IRONMAN_STORAGE_CLAN_TEMP, held = nil },
 }
 
+-- The game's Lua has NO `os` library (no clock), so the plugin cannot stamp times itself: it sends no time and
+-- the server stamps each change when it arrives. Duplicates are prevented with batch references instead.
 local function nowIso()
-    -- Only a well-formed UTC stamp is used; otherwise nil and the server stamps the change on arrival.
-    local ok, stamp = pcall(os.date, "!%Y-%m-%dT%H:%M:%SZ")
-    if ok and type(stamp) == "string" and stamp:find("^%d%d%d%d%-%d%d%-%d%dT%d%d:%d%d:%d%dZ$") then return stamp end
     return nil
 end
 
@@ -457,6 +458,9 @@ local function send()
     if pos then payload.position = pos end
 
     -- Bank and group storage: only look while their window is open (see isOpen).
+    -- Deposits/withdrawals are frozen into one batch with its own reference and re-sent unchanged until the
+    -- server confirms it (the server ignores a reference it already applied), so a lost response can never
+    -- log a deposit twice. While a batch is waiting, new bank changes are picked up after it is confirmed.
     local seen, changes = {}, {}
     for _, store in ipairs(STORES) do
         if isOpen(store.window) then
@@ -464,12 +468,19 @@ local function send()
             if list then
                 local now = totals(list)
                 seen[store] = now
-                for _, c in ipairs(diff(store, now)) do changes[#changes + 1] = c end
+                if changeBatch == nil then
+                    for _, c in ipairs(diff(store, now)) do changes[#changes + 1] = c end
+                end
                 if store.field then payload[store.field] = list end
             end
         end
     end
-    if #changes > 0 then payload.storage_changes = changes end
+    if changeBatch == nil and #changes > 0 then
+        changeBatchCounter = changeBatchCounter + 1
+        changeBatch = { ref = session .. "-c" .. changeBatchCounter, changes = changes, seen = seen }
+    end
+    local sentBatch = changeBatch
+    if sentBatch then payload.storage_changes = sentBatch.changes; payload.changes_ref = sentBatch.ref end
 
     -- Quests: whatever the last finished scan found that the server does not know yet.
     local sentQuests = questChanges
@@ -524,7 +535,12 @@ local function send()
         inFlight = false
         if request.successful and request.responseCode == 200 then
             -- Delivered: the server now holds these, so they become the new baseline.
-            for store, now in pairs(seen) do store.held = now end
+            if sentBatch then
+                for store, now in pairs(sentBatch.seen) do store.held = now end
+                if changeBatch == sentBatch then changeBatch = nil end
+            else
+                for store, now in pairs(seen) do store.held = now end
+            end
             if sentSkills then dirty.skills = false end
             dirty.items = false
             if sentQuests then

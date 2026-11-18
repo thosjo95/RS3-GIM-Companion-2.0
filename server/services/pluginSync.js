@@ -43,13 +43,18 @@ function applyQuests(playerId, quests, full, now) {
   return { stored: quests.length, completed: finished };
 }
 
+/**
+ * A batch the plugin re-sends after a lost response carries the same reference: only the first one counts.
+ * Returns true when the reference is new (or absent), false when this batch was already applied.
+ */
+function claimBatch(playerId, ref) {
+  if (!ref) return true;
+  db.prepare("DELETE FROM plugin_kill_batches WHERE seen_at < datetime('now', '-7 days')").run();
+  return db.prepare('INSERT OR IGNORE INTO plugin_kill_batches (player_id, ref, seen_at) VALUES (?, ?, CURRENT_TIMESTAMP)').run(playerId, ref).changes > 0;
+}
+
 function applyKills(playerId, kills, ref, now) {
-  // A batch the plugin re-sends after a lost response carries the same reference: apply it only once.
-  if (ref) {
-    db.prepare("DELETE FROM plugin_kill_batches WHERE seen_at < datetime('now', '-7 days')").run();
-    const fresh = db.prepare('INSERT OR IGNORE INTO plugin_kill_batches (player_id, ref, seen_at) VALUES (?, ?, CURRENT_TIMESTAMP)').run(playerId, ref).changes;
-    if (!fresh) return false;
-  }
+  if (!claimBatch(playerId, ref)) return false;
   const up = db.prepare(`
     INSERT INTO plugin_npc_kills (player_id, npc, kills, last_seen) VALUES (?, ?, ?, ?)
     ON CONFLICT(player_id, npc) DO UPDATE SET kills = kills + excluded.kills, last_seen = excluded.last_seen
@@ -94,4 +99,4 @@ function rareItemNames() {
   return [...names].sort();
 }
 
-module.exports = { applyQuests, applyKills, applyDrops, rareItemNames, bossKeyForNpc, MULTI_NPC_BOSSES };
+module.exports = { claimBatch, applyQuests, applyKills, applyDrops, rareItemNames, bossKeyForNpc, MULTI_NPC_BOSSES };

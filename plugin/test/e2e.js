@@ -154,6 +154,8 @@ const check = (c, m) => { console.log((c ? 'PASS' : 'FAIL') + '  ' + m); if (!c)
   const ledger = await (await fetch(`${base}/plugin/ledger?group_id=${gid}`, { headers: gh })).json();
   check(ledger.some(l => l.item_name === 'Shark' && l.delta === 10 && l.store === 'bank') && ledger.some(l => l.item_name === 'Abyssal whip' && l.delta === -1)
     && ledger.some(l => l.store === 'group' && l.item_name === 'Death rune' && l.delta === 50), 'ledger rows stored with names, signs and store');
+  check(ledger.filter(l => l.item_name === 'Coins' && l.delta === 1000).length === 1 && ledger.filter(l => l.item_name === 'Shark' && l.delta === 10).length === 1,
+    'a deposit that was sent twice (failed attempt + retry, then replayed) is in the ledger exactly once');
 
   const quests = await (await fetch(`${base}/plugin/quests?group_id=${gid}`, { headers: gh })).json();
   check(quests.length === 3 && quests.find(q => q.name === 'Demon Slayer').state === 'finished', 'quest progress stored and readable');

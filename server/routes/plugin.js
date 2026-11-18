@@ -91,6 +91,10 @@ function cleanPayload(b) {
   if (b.storage_changes !== undefined) {
     if (!Array.isArray(b.storage_changes)) throw new Error('storage_changes must be an array');
     if (b.storage_changes.length > MAX.changes) throw new Error(`storage_changes has too many entries (max ${MAX.changes})`);
+    if (b.changes_ref !== undefined) {
+      if (typeof b.changes_ref !== 'string' || b.changes_ref.length < 4 || b.changes_ref.length > 64) throw new Error('changes_ref must be a string of 4-64 characters');
+      out.changesRef = b.changes_ref;
+    }
     out.changes = b.storage_changes.map((c, i) => {
       if (!c || !['group', 'bank'].includes(c.store)) throw new Error(`storage_changes[${i}].store must be "group" or "bank"`);
       if (!isInt(c.id, 0, 1e9)) throw new Error(`storage_changes[${i}].id must be an integer`);
@@ -223,7 +227,8 @@ router.post('/ingest', ingestLimiter, express.json({ limit: '1mb' }), (req, res)
       INSERT OR IGNORE INTO storage_ledger (player_id, store, item_id, item_name, delta, value_each, occurred_at)
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
-    for (const c of data.changes ?? []) ledgerAdded += ins.run(playerId, c.store, c.id, c.name, c.delta, c.value, c.ts).changes;
+    const freshChanges = !data.changes || sync.claimBatch(playerId, data.changesRef);
+    for (const c of freshChanges ? (data.changes ?? []) : []) ledgerAdded += ins.run(playerId, c.store, c.id, c.name, c.delta, c.value, c.ts).changes;
 
     if (data.quests) applied.quests = sync.applyQuests(playerId, data.quests, data.questsFull, now);
     if (data.kills) applied.kills_applied = sync.applyKills(playerId, data.kills, data.killsRef, now);

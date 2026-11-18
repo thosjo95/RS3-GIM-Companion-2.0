@@ -3,6 +3,7 @@ import { api } from '../api/client';
 import GroupNotesOverlay from './GroupNotesOverlay';
 import PluginSetupModal from './PluginSetupModal';
 import GroupHeaderInfo from './GroupHeaderInfo';
+import HeaderStats from './HeaderStats';
 import RsIcon from './RsIcon';
 
 export default function Header({ group, onSynced, onToast, isUnlocked, isClaimed, myRsn, onLockClick, onClaimClick, onSetRsnClick, onWebhookClick, onMenuToggle, mobileMenuOpen, onTourClick }) {
@@ -66,6 +67,7 @@ export default function Header({ group, onSynced, onToast, isUnlocked, isClaimed
         <img src="/logo-banner.png" alt="Group Ironman RS3 Companion" width={960} height={462} loading="eager" style={{ height: 34, width: 'auto', flexShrink: 0 }} />
       </div>
       {group && <GroupHeaderInfo group={group} />}
+      {group && <HeaderStats group={group} />}
       <div className="header-right">
         {lastSync && <span className="last-sync">Sync: {syncAgo}</span>}
 

@@ -41,7 +41,6 @@ export default function GroupHeaderInfo({ group }) {
         {group.group_rsn && group.group_rsn.toLowerCase() !== group.name.toLowerCase() && <span>{group.group_rsn}</span>}
         <span>{members} member{members === 1 ? '' : 's'}</span>
         {rank?.rank && <span title={`Group Ironman hiscores · ${rank.total.toLocaleString()} groups`}>· Rank #{rank.rank.toLocaleString()}</span>}
-        {group.group_total_xp > 0 && <span>· {group.group_total_xp.toLocaleString()} total XP</span>}
       </div>
     </div>
   );

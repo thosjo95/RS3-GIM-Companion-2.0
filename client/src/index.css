@@ -628,6 +628,7 @@ a:hover { color: var(--gold-light); }
   .header-logo { font-size: 14px; }
   .header-logo span { display: none; }       /* hide "— Group Name" */
   .group-info { padding-left: 8px !important; }
+  .header-stats { display: none !important; }
   .group-info-sub { display: none !important; }   /* the detail line is too wide for a phone */
   .last-sync { display: none; }
   .sync-btn { padding: 5px 9px; font-size: 11px; }

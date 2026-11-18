@@ -58,21 +58,6 @@ export default function OverviewTab({ group, goals, players, groupId, onRefresh,
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {/* Stat boxes */}
-      <div className="grid-4">
-        {statBoxes.map(b => (
-          <div
-            key={b.label}
-            className="stat-box"
-          >
-            <div className="stat-label">{b.label}</div>
-            <div className="stat-value" style={{ color: b.dim ? 'var(--text-dim)' : undefined }}>
-              {b.value}
-            </div>
-          </div>
-        ))}
-      </div>
-
       {/* Pending item requests banner */}
       {pendingRequests.length > 0 && (
         <button

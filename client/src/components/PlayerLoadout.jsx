@@ -3,7 +3,7 @@ import { api } from '../api/client';
 import RsIcon from './RsIcon';
 import { ItemIcon } from './GameIcon';
 import { EquipmentGrid } from './WornGear';
-import { SKILLS, SKILL_ICON_URLS } from '../lib/rs3';
+import { SKILLS, SKILL_ICON_URLS, xpForLevel } from '../lib/rs3';
 
 // A player's live loadout, opened from the equipment button on their card: backpack, equipment and skills,
 // laid out like the game's own tabs. Data comes from the plugin (live while logged in, last seen after logout);
@@ -47,24 +47,55 @@ function Backpack({ items }) {
   );
 }
 
-function Skills({ player, live }) {
-  const level = {};
-  for (const s of player.skills ?? []) level[s.skill_name] = s.level;
-  for (const [k, v] of Object.entries(live ?? {})) if (v?.level) level[k] = Math.max(level[k] ?? 0, v.level);
+function SkillTip({ tip }) {
+  if (!tip) return null;
+  const { sk, level, xp } = tip.data;
+  const elite = sk === 'Invention';                                  // elite skills follow another XP curve: no next-level figures
+  const next = !elite && level < 120 && xp < 200_000_000 ? xpForLevel(level + 1) : null;
+  const row = (label, value) => <div><span style={{ color: 'var(--text-dim)' }}>{label}:</span> <strong style={{ color: 'var(--text-bright)' }}>{value}</strong></div>;
+  return (
+    <div style={{ position: 'fixed', left: tip.x, top: tip.y, transform: 'translate(-50%, -100%)', zIndex: 200, pointerEvents: 'none', padding: '6px 9px', fontSize: 11, lineHeight: 1.45,
+      background: '#1d160d', border: '1px solid var(--gold-dark, #7a6a30)', borderRadius: 4, boxShadow: '0 6px 18px rgba(0,0,0,0.6)', whiteSpace: 'nowrap' }}>
+      <div style={{ color: 'var(--gold)', fontWeight: 700 }}>{sk}: {level}/{level}</div>
+      {row('Current XP', xp.toLocaleString())}
+      {next != null && row('Next level', next.toLocaleString())}
+      {next != null && row('Remainder', Math.max(0, next - xp).toLocaleString())}
+      {xp >= 200_000_000 && <div style={{ color: 'var(--text-dim)' }}>Maxed (200M)</div>}
+    </div>
+  );
+}
+
+function Skills({ player, live, questPoints }) {
+  const [tip, setTip] = useState(null);
+  const level = {}, xp = {};
+  for (const s of player.skills ?? []) { level[s.skill_name] = s.level; xp[s.skill_name] = s.xp ?? 0; }
+  for (const [k, v] of Object.entries(live ?? {})) {
+    if (v?.level) level[k] = Math.max(level[k] ?? 0, v.level);
+    if (Number.isFinite(v?.xp)) xp[k] = Math.max(xp[k] ?? 0, v.xp);
+  }
   const total = SKILLS.reduce((n, s) => n + (level[s] ?? 0), 0);
+  const icon = (src, alt) => <img src={src} alt={alt} width={16} height={16} style={{ imageRendering: 'crisp-edges' }} onError={e => { e.target.style.display = 'none'; }} />;
+  const stat = (src, alt, value, title) => (
+    <span title={title} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>{icon(src, alt)}<strong style={{ color: 'var(--text-bright)' }}>{value}</strong></span>
+  );
   return (
     <div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 62px)', gap: 4, justifyContent: 'center' }}>
         {SKILLS.map(sk => (
-          <div key={sk} title={`${sk}: ${level[sk] ?? '?'}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 3, padding: '4px 6px', background: 'var(--bg-root)', border: '1px solid var(--border)', borderRadius: 4 }}>
+          <div key={sk}
+            onMouseEnter={e => { const r = e.currentTarget.getBoundingClientRect(); setTip({ x: r.left + r.width / 2, y: r.top - 6, data: { sk, level: level[sk] ?? 1, xp: xp[sk] ?? 0 } }); }}
+            onMouseLeave={() => setTip(null)}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 3, padding: '4px 6px', background: 'var(--bg-root)', border: '1px solid var(--border)', borderRadius: 4 }}>
             <img src={SKILL_ICON_URLS[sk]} alt={sk} width={18} height={18} style={{ flexShrink: 0 }} onError={e => { e.target.style.visibility = 'hidden'; }} />
             <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-bright)' }}>{level[sk] ?? '–'}</span>
           </div>
         ))}
       </div>
-      <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: 10, fontSize: 12, color: 'var(--text-dim)' }}>
-        <span>Total <strong style={{ color: 'var(--text-bright)' }}>{total.toLocaleString()}</strong></span>
-        <span>Combat <strong style={{ color: 'var(--text-bright)' }}>{player.combat_level ?? '?'}</strong></span>
+      <SkillTip tip={tip} />
+      <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center', marginTop: 12, fontSize: 12, color: 'var(--text-dim)' }}>
+        {stat('https://runescape.wiki/images/Statistics.png', 'Total level', total.toLocaleString(), 'Total level')}
+        {stat('https://runescape.wiki/images/Multicombat.png', 'Combat level', player.combat_level ?? '?', 'Combat level')}
+        {stat('https://runescape.wiki/images/Quest_points.png', 'Quest points', (questPoints ?? player.quest_points ?? 0).toLocaleString(), 'Quest points')}
       </div>
     </div>
   );
@@ -74,6 +105,7 @@ export default function PlayerLoadout({ player, groupId, canWrite, onClose }) {
   const [tab, setTab] = useState('equipment');
   const [row, setRow] = useState(null);
   const [error, setError] = useState(false);
+  const [questPoints, setQuestPoints] = useState(null);   // from the quests the plugin read in the game
 
   useEffect(() => {
     if (!canWrite || !groupId) return undefined;
@@ -86,11 +118,22 @@ export default function PlayerLoadout({ player, groupId, canWrite, onClose }) {
     return () => { alive = false; clearInterval(t); };
   }, [groupId, canWrite, player.id]);
 
+  useEffect(() => {
+    setQuestPoints(null);
+    if (!canWrite || !groupId) return;
+    let alive = true;
+    api.getPluginQuests(groupId).then(r => {
+      const mine = (Array.isArray(r) ? r : []).filter(q => q.player_id === player.id);
+      if (alive && mine.length) setQuestPoints(mine.filter(q => q.state === 'finished').reduce((n, q) => n + (q.points || 0), 0));
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, [groupId, canWrite, player.id]);
+
   const fresh = row?.updated_at && Date.now() - Date.parse(row.updated_at) < 5 * 60 * 1000;
   let body;
-  if (!canWrite) body = <Note>Unlock the group to see {player.rsn}'s items.</Note>;
+  if (tab === 'skills') body = <Skills player={player} live={row?.skills} questPoints={questPoints} />;      // hiscores are public: no unlock needed
+  else if (!canWrite) body = <Note>Unlock the group to see {player.rsn}'s items.</Note>;
   else if (error) body = <Note>Could not load the plugin data.</Note>;
-  else if (tab === 'skills') body = <Skills player={player} live={row?.skills} />;
   else if (!row || !row.updated_at) body = <Note>{player.rsn} has not sent any data from the plugin yet.</Note>;
   else body = tab === 'backpack' ? <Backpack items={row.inventory ?? []} /> : <EquipmentGrid equipment={row.equipment ?? []} />;
 

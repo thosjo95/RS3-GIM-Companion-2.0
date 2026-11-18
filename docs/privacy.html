@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Privacy notice - GIM Companion</title>
+  <meta name="description" content="What the GIM Companion plugin and website collect, why, where it is stored, how long it is kept and how to have it deleted.">
+  <style>
+    :root { --bg:#0d0b14; --panel:#15121f; --border:#2e2840; --gold:#c8a84b; --text:#e2ddf0; --dim:#9a90b0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); font-size: 15px; line-height: 1.7; }
+    main { max-width: 820px; margin: 0 auto; padding: 48px 24px 96px; }
+    a { color: var(--gold); }
+    h1 { font-size: 30px; color: var(--gold); margin-bottom: 6px; }
+    h2 { font-size: 19px; margin: 36px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+    p, li { color: var(--dim); margin-bottom: 10px; }
+    strong { color: var(--text); }
+    ul { padding-left: 22px; margin-bottom: 10px; }
+    table { width: 100%; border-collapse: collapse; margin: 10px 0 16px; font-size: 14px; }
+    th, td { text-align: left; vertical-align: top; padding: 8px 10px; border: 1px solid var(--border); color: var(--dim); }
+    th { background: var(--panel); color: var(--text); }
+    .updated { font-size: 13px; color: var(--dim); }
+    .box { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; margin: 14px 0; }
+  </style>
+</head>
+<body>
+<main>
+  <p><a href="./">Back to the documentation</a></p>
+  <h1>Privacy notice</h1>
+  <p class="updated">GIM Companion: the in-game plugin and the website. Last updated: November 2026.</p>
+
+  <h2>Who is responsible</h2>
+  <p>GIM Companion is run by an independent developer (RuneScape community and GitHub name <strong>thosjo95</strong>), not by Jagex.
+  The person responsible for your data is the developer. Contact, including every request below:
+  <a href="mailto:rs3groupiron@pm.me"><strong>rs3groupiron@pm.me</strong></a>.</p>
+
+  <h2>What the plugin sends</h2>
+  <p>You choose to connect the plugin. It only sends data about <strong>your own character</strong>, and never anything about other players.</p>
+  <table>
+    <tr><th>Data</th><th>Why</th></tr>
+    <tr><td>Character name, skills and levels</td><td>Show your progress to your group</td></tr>
+    <tr><td>Backpack, worn items, bank, the group storage contents and what you put in or take out of it</td><td>Group Vault and Bank Journal</td></tr>
+    <tr><td>Quest states, completed achievements and area tasks, the Group Ironman Journey</td><td>Progress pages and goal tracking</td></tr>
+    <tr><td>Boss and slayer kill counts, notable drops</td><td>Leaderboards and the Drops chest</td></tr>
+    <tr><td>World and position, and when the plugin last sent data</td><td>Show who is playing right now</td></tr>
+    <tr><td>A personal token (stored only as a one-way hash)</td><td>Prove that an update comes from your plugin</td></tr>
+  </table>
+  <p>The plugin does <strong>not</strong> send chat messages, friends or clan lists, your RuneScape login, password or payment details, or anything from outside the RuneScape client.</p>
+
+  <h2>What the website collects</h2>
+  <ul>
+    <li><strong>Public hiscores data</strong> of the group's characters (skills, XP, ranks, clue scrolls) and the public Adventurer's Log events, which Jagex publishes for any character.</li>
+    <li><strong>Things your group writes</strong> in the dashboard: goals, notes, item requests, competitions, and the group secret (stored only as a salted hash).</li>
+    <li><strong>Technical data</strong>: the web server records your IP address, the time and the address requested, to run and protect the service.</li>
+  </ul>
+  <p>Group pages show hiscores data to anyone who opens the group. Everything that comes from the plugin (banks, quests, kills, drops, who is online) is visible only to people who unlocked the group with its secret.</p>
+
+  <h2>Why, and the legal basis</h2>
+  <ul>
+    <li><strong>Providing the service you asked for</strong> (showing your group its progress): your <strong>consent</strong>, given when you connect the plugin and allow its network access. You can withdraw it at any time by removing the plugin or by contacting me.</li>
+    <li><strong>Running and securing the service</strong> (access logs, rate limits, backups): <strong>legitimate interests</strong>, which are keeping the service working and safe.</li>
+  </ul>
+  <p>Data is not sold, used for advertising or profiling, or shared for any other purpose.</p>
+
+  <h2>Who receives it</h2>
+  <ul>
+    <li><strong>Hetzner Online GmbH</strong>, the hosting provider (server in <strong>Helsinki, Finland</strong>, in the EU), acts as a processor and stores the data.</li>
+    <li><strong>Discord</strong>, only if your group's owner chooses to connect a Discord webhook. Then short event messages (for example "level 99 reached", "goal completed", a drop) are sent to the channel they chose. You can ask your group not to enable this.</li>
+    <li>Nobody else. There are no advertising or analytics services.</li>
+  </ul>
+
+  <h2>Where it is stored, and transfers</h2>
+  <p>The plugin sends data over HTTPS to <strong>https://api.groupiron.com</strong>, a server in Finland. Your data stays inside the EU/EEA. The only transfer outside it is the optional Discord webhook above, which your group's owner controls.</p>
+
+  <h2>How it is protected</h2>
+  <ul>
+    <li>All traffic uses HTTPS.</li>
+    <li>Plugin tokens belong to one character and can only send that character's data; only a hash of a token is stored, and a token can be replaced at any time, which stops the old one.</li>
+    <li>Group secrets are stored as salted hashes; the plugin never sees them.</li>
+    <li>Limits on how often requests are accepted, checks that an update really comes from the character it claims, and strict validation of everything received.</li>
+    <li>The server runs under an unprivileged account with a firewall, automatic security updates and regular backups.</li>
+    <li>Only the developer has administrative access.</li>
+  </ul>
+
+  <h2>How long it is kept</h2>
+  <table>
+    <tr><th>Data</th><th>Kept</th></tr>
+    <tr><td>A group and everything in it</td><td>Until the group is removed. A group nobody has used for <strong>30 days</strong> is deleted automatically.</td></tr>
+    <tr><td>A member's data</td><td>Until that member is removed from the group (this deletes their plugin data, history and goals at once) or you ask me to delete it.</td></tr>
+    <tr><td>Progress snapshots used for leaderboards</td><td>At most <strong>120 days</strong> (older than a week they are thinned to one per day).</td></tr>
+    <tr><td>Web server logs (IP addresses)</td><td>About <strong>14 days</strong>.</td></tr>
+    <tr><td>Backups</td><td>The 14 newest daily backups plus the provider's backups; deleted data disappears from them as they are replaced (within a few weeks).</td></tr>
+  </table>
+
+  <h2>Your rights</h2>
+  <p>You can ask to see your data, to have it corrected or deleted, to restrict or object to its use, to receive it in a portable format, and to withdraw consent at any time. Write to <a href="mailto:rs3groupiron@pm.me">rs3groupiron@pm.me</a>; I answer within one month. For a quick removal, a group member with access can use <strong>Manage group</strong> on the website to remove you, which deletes your data immediately.</p>
+  <p>You also have the right to complain to your data protection supervisory authority.</p>
+
+  <h2>Changes</h2>
+  <p>If this notice changes in a way that matters to you, the date above changes and the plugin listing is updated.</p>
+
+  <div class="box"><strong>Not affiliated with Jagex.</strong> RuneScape is a trademark of Jagex Ltd. The development and any use of the plugin is at all times subject to the Jagex EULA (<a href="https://legal.jagex.com">legal.jagex.com</a>).</div>
+</main>
+</body>
+</html>

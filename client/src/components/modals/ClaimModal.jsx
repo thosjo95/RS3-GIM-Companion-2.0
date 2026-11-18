@@ -72,7 +72,7 @@ export default function ClaimModal({ group, onConfirm, onCancel }) {
           ) : (
             <>
               <p style={{color:'var(--text-dim)',fontSize:13,marginBottom:16}}>
-                Group claimed! Here's your secret — copy it and share with your group members. <strong style={{color:'var(--gold)'}}>This is the only time it will be shown.</strong>
+                Group claimed! Here's your secret — copy it and share with your group members. <strong style={{color:'var(--gold)'}}>Save it somewhere safe: only this browser remembers it, and it cannot be looked up again.</strong>
               </p>
               <div style={{
                 display:'flex', alignItems:'center', gap:8,
@@ -86,9 +86,13 @@ export default function ClaimModal({ group, onConfirm, onCancel }) {
                   {copied ? '✓ Copied!' : 'Copy'}
                 </button>
               </div>
-              <p style={{color:'var(--text-dim)',fontSize:11}}>
-                Members go to the site, find the group, and click the lock icon to enter this secret and identify themselves.
-              </p>
+              <div style={{color:'var(--text-dim)',fontSize:12,lineHeight:1.6,display:'flex',flexDirection:'column',gap:6}}>
+                <div>Every member uses this secret in two places:</div>
+                <div><strong style={{color:'var(--text-bright)'}}>On this website:</strong> open the group and press <strong>Unlock</strong> to enter it.</div>
+                <div><strong style={{color:'var(--text-bright)'}}>In RuneScape:</strong> install and enable <strong>GIM Companion</strong> in the Plugin Hub,
+                  then log in. A GIM Companion window asks for the secret: type it and press <strong>Connect</strong>.</div>
+                <div>It is also kept in this browser: <strong>Plugin</strong> in the top bar shows it again.</div>
+              </div>
             </>
           )}
         </div>

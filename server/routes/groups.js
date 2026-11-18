@@ -209,21 +209,17 @@ router.post('/:id/refresh-roster', lookupLimiter, async (req, res) => {
       return res.status(502).json({ error: 'Could not extract member list from RS3 hiscores. Try again in a moment.' });
     }
 
-    const currentPlayers = db.prepare('SELECT id, rsn FROM players WHERE group_id = ?').all(group.id);
-    const currentMap = new Map(currentPlayers.map(p => [p.rsn.toLowerCase().trim(), p]));
-    const freshMap   = new Map(freshMembers.map(m => [m.rsn.toLowerCase().trim(), m]));
-
-    const added   = freshMembers.filter(m => !currentMap.has(m.rsn.toLowerCase().trim()));
-    const removed = currentPlayers.filter(p => !freshMap.has(p.rsn.toLowerCase().trim()));
-
-    for (const player of removed) {
-      db.prepare('DELETE FROM players WHERE id = ?').run(player.id);
-    }
+    // Names are compared with every unicode space treated as a normal space (the hiscores write "Degree\u00a0C", the
+    // app stores "Degree C"). Nobody is ever deleted here: a name mismatch once removed a player together with all
+    // of their data. Removing a member is done by hand from the player card.
+    const key = n => String(n).replace(/\s/g, ' ').trim().toLowerCase();
+    const have = new Set(db.prepare('SELECT rsn FROM players WHERE group_id = ?').all(group.id).map(p => key(p.rsn)));
+    const added = freshMembers.filter(m => !have.has(key(m.rsn)));
     for (const member of added) {
       db.prepare('INSERT OR IGNORE INTO players (rsn, group_id) VALUES (?, ?)').run(member.rsn, group.id);
     }
 
-    res.json({ added: added.map(m => m.rsn), removed: removed.map(p => p.rsn) });
+    res.json({ added: added.map(m => m.rsn), removed: [] });
   } catch (err) {
     res.status(502).json({ error: err.message });
   }

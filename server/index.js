@@ -116,9 +116,14 @@ cron.schedule('30 3 * * *', async () => {
   catch (e) { console.error('[roster] failed:', e.message); }
 });
 
-// ── Daily snapshot cron ────────────────────────────────────────────────────────
-// Runs at midnight every day — syncs hiscores (skills, clue scrolls, RuneScore).
-cron.schedule('0 0 * * *', async () => {
+// ── Hiscores sync (hourly) and daily snapshot ─────────────────────────────────
+// Syncs every player's hiscores (skills, clue scrolls, RuneScore) and Adventurer's Log events, so nobody has to press
+// Sync by hand. The same run stores the daily snapshot (one per player and day).
+let hiscoresRunning = false;
+async function syncAllHiscores(label) {
+  if (hiscoresRunning) return;          // a slow run must not overlap the next one
+  hiscoresRunning = true;
+  try {
   const { fetchHiscores, fetchPlayerEvents, calcCombatLevel } = require('./services/runescape');
   const { saveActivities, autoLogDrops, autoDetectDiaries, autoCountBossKills, autoDetectLevelMilestones, autoCompleteQuestGoals } = require('./services/activitySync');
 
@@ -177,12 +182,16 @@ cron.schedule('0 0 * * *', async () => {
         }
       }
 
-      console.log(`[daily cron] Snapshotted ${player.rsn}`);
+      console.log(`[${label}] Synced ${player.rsn}`);
     } catch (err) {
-      console.error(`[daily cron] Failed ${player.rsn}: ${err.message}`);
+      console.error(`[${label}] Failed ${player.rsn}: ${err.message}`);
     }
+    await new Promise(r => setTimeout(r, 700));       // be gentle with the hiscores site
   }
-});
+  } finally { hiscoresRunning = false; }
+}
+cron.schedule('5 * * * *', () => { syncAllHiscores('hourly sync').catch(e => console.error('[hourly sync] failed:', e.message)); });
+cron.schedule('0 0 * * *', () => { syncAllHiscores('daily sync').catch(e => console.error('[daily sync] failed:', e.message)); });
 
 // ── Cleanup cron ───────────────────────────────────────────────────────────────
 // Runs at 2am every day — removes groups inactive for 30+ days.

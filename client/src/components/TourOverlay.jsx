@@ -32,7 +32,7 @@ const TOUR_STEPS = [
   {
     target: null,
     title: '5 · Install the plugin and paste the token',
-    body: '1) In the RuneScape client open the plugin browser, search for "GIM Companion" and install it. 2) Enable it and allow network access when the game asks. 3) Paste the token you just copied into the plugin's settings. That is all: your numbers appear here within a minute and the dot in Plugin setup turns green. The plugin only sends your own character's data, and you can pause or remove it in the game at any time.',
+    body: '1) In the RuneScape client open the plugin browser, search for "GIM Companion" and install it. 2) Enable it and allow network access when the game asks. 3) Paste the token you just copied into the plugin settings. That is all: your numbers appear here within a minute and the dot in Plugin setup turns green. The plugin only sends your own character data, and you can pause or remove it in the game at any time.',
   },
   // ── The front page ───────────────────────────────────────────────────────
   {

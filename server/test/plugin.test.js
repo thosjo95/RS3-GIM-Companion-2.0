@@ -196,3 +196,41 @@ test('responses are gzip compressed when the browser accepts it', async () => {
   assert.ok(true);                                                                  // fetch decodes transparently; the header proves it
   assert.match(res.headers.get('content-encoding') ?? 'identity', /gzip|identity/);
 });
+
+// ── linking with a code ──────────────────────────────────────────────────────
+test('a plugin can be linked with a code shown in the game; the token is handed over once', async () => {
+  const start = await (await call('POST', '/plugin/pair/start', { body: { rsn: 'PlayerOpen' } })).json();
+  assert.match(start.code, /^[A-Z2-9]{4}-[A-Z2-9]{4}$/);
+  assert.ok(start.device_secret.length > 20);
+
+  const poll = secret => call('POST', '/plugin/pair/poll', { body: { device_secret: secret } }).then(r => r.json());
+  assert.equal((await poll(start.device_secret)).status, 'pending');
+  assert.equal((await poll('not-the-secret')).status, 'expired');
+
+  // claiming needs the group's secret, the right character and a live code
+  assert.equal((await call('POST', '/plugin/pair/claim', { body: { player_id: pA, code: start.code } })).status, 401);
+  assert.equal((await call('POST', '/plugin/pair/claim', { headers: asGroup(openGroup), body: { player_id: pOpen, code: 'ZZZZ-ZZZZ' } })).status, 404);
+  const other = Number(db.prepare('INSERT INTO players (rsn, group_id) VALUES (?, ?)').run('Somebody Else', openGroup).lastInsertRowid);
+  const wrong = await call('POST', '/plugin/pair/claim', { headers: asGroup(openGroup), body: { player_id: other, code: start.code } });
+  assert.equal(wrong.status, 409);                                              // the code belongs to another character
+  const ok = await call('POST', '/plugin/pair/claim', { headers: asGroup(openGroup), body: { player_id: pOpen, code: start.code.toLowerCase() } });
+  assert.equal(ok.status, 200);
+
+  const ready = await poll(start.device_secret);
+  assert.equal(ready.status, 'ready');
+  assert.match(ready.token, /^gimp_/);
+  assert.equal((await poll(start.device_secret)).status, 'expired');             // handed over once
+  const ingest = await call('POST', '/plugin/ingest', { headers: bearer(ready.token), body: { v: 1, rsn: 'PlayerOpen' } });
+  assert.equal(ingest.status, 200);                                              // and the token works
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM plugin_pairings WHERE token IS NOT NULL').get().n, 0, 'no plaintext token is left behind');
+});
+
+test('a code expires, and a newer request for the same character replaces the old one', async () => {
+  const first = await (await call('POST', '/plugin/pair/start', { body: { rsn: 'Expiring One' } })).json();
+  const second = await (await call('POST', '/plugin/pair/start', { body: { rsn: 'Expiring One' } })).json();
+  assert.notEqual(first.code, second.code);
+  const p = Number(db.prepare('INSERT INTO players (rsn, group_id) VALUES (?, ?)').run('Expiring One', openGroup).lastInsertRowid);
+  assert.equal((await call('POST', '/plugin/pair/claim', { headers: asGroup(openGroup), body: { player_id: p, code: first.code } })).status, 404);
+  db.prepare('UPDATE plugin_pairings SET expires_at = ? WHERE code = ?').run(Date.now() - 1000, second.code.replace('-', ''));
+  assert.equal((await call('POST', '/plugin/pair/claim', { headers: asGroup(openGroup), body: { player_id: p, code: second.code } })).status, 404);
+});

@@ -4,7 +4,7 @@
   "version": "0.1.0-dev",
   "description": "Lua plugin for the RuneScape client plus a mock-API test harness",
   "scripts": {
-    "test": "node test/e2e.js"
+    "test": "node test/e2e.js && node test/pairing.js"
   },
   "devDependencies": {
     "fengari": "^0.1.4"

@@ -491,12 +491,8 @@ npm run dev            # API on :3001, dashboard on :5173</code></pre>
       <li><strong>Get the beta client.</strong> Launch the RuneScape beta from the link in the
         <a href="https://developer.runescape.com/rs/tutorial/1helloworld.html" target="_blank" rel="noopener">official tutorial</a>,
         log in, click <em>import save</em> in the lobby (once an hour is allowed), then relaunch. This creates <code>C:\ProgramData\Jagex\RuneScape-BETA</code>.</li>
-      <li><strong>Start the dashboard</strong> (<code>npm run dev</code>), unlock your group, click <strong>Plugin</strong> in the top bar and press <em>Connect</em> next to your player.
-        The token starts with <code>gimp_</code> and is shown <strong>once</strong>.</li>
-      <li><strong>Install:</strong> <code>powershell -File plugin\install-dev.ps1</code>, then paste the token into the <code>config.lua</code> it creates:
-<pre><code>return {
-    token = "gimp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-}</code></pre></li>
+      <li><strong>Start the dashboard</strong> (<code>npm run dev</code>) and unlock your group.</li>
+      <li><strong>Install:</strong> <code>powershell -File plugin\install-dev.ps1</code> (the copy points at the dashboard on your own computer).</li>
       <li><strong>Open the console</strong> in the beta client: <strong>Alt + the key under Esc</strong>. The console's first lines name the keys on your layout
         (for example Alt-§, Alt-² or Alt-ø on a Nordic keyboard). Then enable the plugin:
 <pre><code>prf                                   # refresh the plugin list
@@ -512,8 +508,13 @@ pon gim-companion                     # enable it</code></pre></li>
       <tr><td><code>ppr</code> &lt;name&gt;</td><td>Request the manifest's permissions.</td></tr>
       <tr><td><code>ppe</code> / <code>ppd</code> &lt;name&gt; &lt;permission&gt;</td><td>Grant / revoke a permission (<code>httpAccess</code>, <code>chatAccess</code>, <code>trackingAccess</code>).</td></tr>
     </table>
+    <h3>Link your character with a code</h3>
+    <p>Log in with the plugin enabled. A small window in the game shows a link code such as <code>K7M2-9QXA</code>. On the website open the
+      <strong>Plugin</strong> window, press <strong>Link with code</strong> next to your character and type it. The plugin then collects its token by itself and
+      remembers it on that computer (per character). The code lives for 10 minutes and only works for the character that shows it, and linking needs the group's secret.
+      If you prefer a file, <strong>Advanced</strong> creates a personal token that you paste into <code>config.lua</code>; a token there is used first.</p>
     <p>
-      The plugin prints <code>[GIM]</code> lines. A healthy start looks like <code>httpAccess granted: true</code> and
+      The plugin prints <code>[GIM]</code> lines. A healthy start looks like <code>httpAccess granted: true</code> and, once linked,
       <code>GIM Companion started</code>. Open the group's <strong>Plugin</strong> window to see the green dot and "last update".
     </p>
 

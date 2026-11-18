@@ -12,7 +12,7 @@ Both names point at the same backend (one process, one database). The dashboard 
 
 ## 1. Create the server (Hetzner Cloud)
 
-- Location **Falkenstein or Nuremberg (Germany)**, so the data stays in the EU (data protection "Case 2" for Jagex).
+- Location in the EU (**Helsinki, Finland** or Germany), so the data stays in the EU (data protection "Case 2" for Jagex). The privacy notice and listing name Helsinki, Finland.
 - **Ubuntu 24.04**, type **CX22** (2 vCPU, 4 GB, 40 GB) is plenty for about 150 groups. Pick the next size up if you want headroom.
 - Add your **SSH key** and switch on Hetzner's **automatic backups** (about 20% extra) as the second safety net on top of the nightly database backup below.
 - Optional but sensible: a Hetzner Cloud Firewall allowing only ports 22, 80 and 443.

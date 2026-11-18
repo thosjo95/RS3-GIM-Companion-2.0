@@ -43,7 +43,9 @@ config = { Obj = { FromID = function(i) return DEFS[i] end } }
 id = {
   Inv = { INV = 93, WORN = 94, BANK = 95, GROUP_IRONMAN_STORAGE_CLAN_TEMP = 96 },
   Interface = { BANK = 762, GROUP_IRONMAN_STORAGE = 1500, STOCKMARKET = 1,  STOCKCOLLECT = 2, SHOP_MAIN = 3, TRADEMAIN = 4, TRADECONFIRM = 5 },
-  Component = { TOPLEVEL_V2_TARGET_INFO__NAME = 9001, TOPLEVEL_V2_TARGET_INFO__ENTITY_HEALTH_LEFT = 9002 },
+  Component = { TOPLEVEL_V2_TARGET_INFO__NAME = 9001, TOPLEVEL_V2_TARGET_INFO__ENTITY_HEALTH_LEFT = 9002, TOPLEVEL_V2__PLUGIN_BUILD_LAYER_TOP = 9100 },
+  StyleSheet = { DEFAULT = 1, BUTTON_DEFAULT = 2 },
+  Font = { MUSEO_SANS_15PT_REGULAR = 3 },
 }
 
 -- Quests (QUESTS is replaced by the harness to simulate progress)
@@ -107,7 +109,29 @@ Inventory = { Find = function(t)
   return nil
 end }
 
-ui = { Interfaces = { GetComponent = function(self, which)
+-- a UI component that remembers what it was given (the link window is built from these)
+UI_LOG = { created = {}, destroyed = 0 }
+local function component(kind)
+  local c = { kind = kind, children = {} }
+  function c:SetSize() end function c:SetPos() end function c:SetHeaderLayout() end function c:AlignTo() end
+  function c:Subscribe(hook, fn) self.pressed = fn end
+  function c:Destroy() UI_LOG.destroyed = UI_LOG.destroyed + 1 end
+  UI_LOG.created[#UI_LOG.created + 1] = c
+  return c
+end
+-- a store like the game's PersistentDB (kept between logins)
+STORE = {}
+PersistentDB = {
+  SetString = function(self, k, v) STORE[k] = v; return true end,
+  GetString = function(self, k) return STORE[k] end,
+  Delete = function(self, k) local had = STORE[k] ~= nil; STORE[k] = nil; return had end,
+}
+HTTP_RESPONSES = {}   -- path -> canned response body, set by the harness
+
+ui = { GroupBox = { new = function() return component("group") end }, Text = { new = function() return component("text") end },
+Button = { new = function() return component("button") end }, AlignMode = { CENTRE = 1 }, Hook = { ONBUTTONPRESSED = 1 },
+Interfaces = { GetComponent = function(self, which)
+  if which == id.Component.TOPLEVEL_V2__PLUGIN_BUILD_LAYER_TOP then return {} end
   if which == id.Component.TOPLEVEL_V2_TARGET_INFO__NAME then return { text = "<col=ffffff>" .. TARGET_NAME .. "</col>" } end
   if which == id.Component.TOPLEVEL_V2_TARGET_INFO__ENTITY_HEALTH_LEFT then return { text = TARGET_HP } end
   return nil
@@ -137,6 +161,7 @@ HTTPRequest = { new = function(base, path)
     CAPTURE(self.path, self.headers["Authorization"], self.headers["Content-Type"], body)
     self.responseCode = HTTP_STATUS
     self.successful = HTTP_STATUS == 200
+    self.data = HTTP_RESPONSES[self.path]
     onOk(self)   -- completion callback (fires on success AND failure, like the real API)
   end
   return r

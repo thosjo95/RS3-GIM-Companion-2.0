@@ -282,7 +282,21 @@ function LedgerView({ ledger, colorOf, selectedPlayerId }) {
 // ── Plugin setup ──────────────────────────────────────────────────────────────
 
 function SetupView({ state, canWrite, onToast, reload }) {
-  const [fresh, setFresh] = useState(null); // { player_id, rsn, token } — shown once
+  const [fresh, setFresh] = useState(null); // { player_id, rsn, token } — shown once (manual token)
+  const [linking, setLinking] = useState(null); // the player whose code is being typed
+  const [code, setCode] = useState('');
+  const [linkBusy, setLinkBusy] = useState(false);
+  const [linked, setLinked] = useState(null);   // { rsn } after a successful link
+  const [advanced, setAdvanced] = useState(false);
+
+  async function link(p) {
+    setLinkBusy(true);
+    try {
+      await api.claimPluginCode(p.player_id, code);
+      setLinked({ rsn: p.rsn }); setLinking(null); setCode('');
+      reload(); setTimeout(reload, 4000);
+    } catch (e) { onToast?.(e.message, 'error'); } finally { setLinkBusy(false); }
+  }
 
   async function mint(p) {
     try {
@@ -300,9 +314,17 @@ function SetupView({ state, canWrite, onToast, reload }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div className="callout callout-info" style={{ fontSize: 12, lineHeight: 1.6, padding: 12, border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}>
-        Each member installs the GIM Companion plugin in the RuneScape client and pastes their own token into it. A token can only submit
-        that one player's data — it can't read anything or touch the rest of the group. Tokens are shown once; generating a new one disables the old.
+        Each member installs the GIM Companion plugin in the RuneScape client and links their character with a short code: start the plugin
+        in the game, a window shows a code, press <strong>Link with code</strong> next to your name below and type it. The plugin then connects
+        by itself. It can only send that one character's data, nothing else.
       </div>
+
+      {linked && (
+        <div style={{ padding: 12, border: '1px solid rgba(76,175,80,0.4)', borderRadius: 'var(--radius)', background: 'rgba(76,175,80,0.08)', fontSize: 12 }}>
+          Linked. <strong>{linked.rsn}</strong>'s plugin picks it up within a few seconds, and the dot turns green once it sends its first update.
+          <button className="btn btn-ghost btn-sm" style={{ marginLeft: 8 }} onClick={() => setLinked(null)}>Done</button>
+        </div>
+      )}
 
       {fresh && (
         <div style={{ padding: 12, border: '1px solid var(--gold-dark)', borderRadius: 'var(--radius)', background: 'rgba(200,168,75,0.08)' }}>
@@ -325,12 +347,32 @@ function SetupView({ state, canWrite, onToast, reload }) {
               <span style={{ fontSize: 11, color: 'var(--text-dim)', flex: 1 }}>
                 {p.updated_at ? `last update ${timeAgo(p.updated_at)}${p.world ? ` · world ${p.world}` : ''}` : p.has_token ? 'token created — waiting for the plugin' : 'not connected'}
               </span>
-              {canWrite && <button className="btn btn-secondary btn-sm" onClick={() => mint(p)}>{p.has_token ? 'New token' : 'Connect'}</button>}
-              {canWrite && p.has_token && <button className="btn btn-ghost btn-sm" onClick={() => revoke(p)}>Disconnect</button>}
+              {canWrite && linking !== p.player_id && <button className="btn btn-secondary btn-sm" onClick={() => { setLinking(p.player_id); setCode(''); setLinked(null); }}>{p.has_token ? 'Link again' : 'Link with code'}</button>}
+              {canWrite && linking === p.player_id && (
+                <>
+                  <input className="form-input" autoFocus value={code} onChange={e => setCode(e.target.value.toUpperCase())} onKeyDown={e => e.key === 'Enter' && code.trim() && link(p)}
+                    placeholder="ABCD-2345" maxLength={9} style={{ width: 110, fontFamily: 'monospace', letterSpacing: 1, textAlign: 'center' }} />
+                  <button className="btn btn-primary btn-sm" disabled={linkBusy || code.replace(/[^A-Z0-9]/g, '').length !== 8} onClick={() => link(p)}>Link</button>
+                  <button className="btn btn-ghost btn-sm" onClick={() => setLinking(null)}>Cancel</button>
+                </>
+              )}
+              {canWrite && p.has_token && linking !== p.player_id && <button className="btn btn-ghost btn-sm" onClick={() => revoke(p)}>Disconnect</button>}
             </div>
           );
         })}
       </div>
+
+      {canWrite && (
+        <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+          <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={() => setAdvanced(a => !a)}>{advanced ? 'Hide' : 'Advanced'}: use a token instead of a code</button>
+          {advanced && (
+            <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+              <span>Paste a token into the plugin's config.lua instead. Create one for:</span>
+              {state.map(p => <button key={p.player_id} className="btn btn-secondary btn-sm" onClick={() => mint(p)}>{p.rsn}</button>)}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

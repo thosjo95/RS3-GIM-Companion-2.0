@@ -20,8 +20,8 @@ It only **reads** the game. It never clicks, never sends input to the game and n
 Group storage is the group's shared chest. The plugin sends its contents and what **you** put in or take out; it
 does not look at what other members do.
 
-Every update carries your personal **token**. A token can only send data for the one character it was created for.
-The website stores only a hash of it. Data is sent over HTTPS to the single address declared in `plugin.json`
+Every update carries a personal **token** that the plugin receives when you link it. A token can only send data for the one
+character it was created for. The website stores only a hash of it. Data is sent over HTTPS to the single address declared in `plugin.json`
 (`https://api.groupiron.com`).
 
 ## Permission
@@ -33,12 +33,15 @@ stays idle and does nothing. You can withdraw it at any time in the plugin setti
 
 1. In the RuneScape client open the plugin browser, search for **GIM Companion** and install it.
 2. Enable it and allow network access (httpAccess) when the game asks.
-3. On the website: unlock your group, press **Plugin** in the top bar, then **Connect** next to your name.
-   A token is shown **once**: copy it.
-4. Paste the token into the plugin's `config.lua` between the quotes (`config.example.lua` shows how).
+3. Log in. A small window in the game shows a **link code** (for example `K7M2-9QXA`).
+4. On the website: unlock your group, press **Plugin** in the top bar, then **Link with code** next to your name and type the code.
 
-Within a minute your numbers appear on the dashboard and the dot next to your name turns green.
-If the token leaks, press **Connect** again: the old one stops working at once.
+The plugin connects by itself within seconds and the dot next to your name turns green. You do this once per
+character; the plugin remembers the link on that computer. If the link ever stops working (for example it was
+revoked), the plugin shows a new code.
+
+Prefer a file? Press **Advanced** in Plugin setup to create a personal token and paste it into the plugin's
+`config.lua` instead (`config.example.lua` shows how). A token in `config.lua` is used first.
 
 ## Your data
 

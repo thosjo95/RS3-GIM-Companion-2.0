@@ -29,11 +29,13 @@ end
 
 -- ── 1. Settings ───────────────────────────────────────────────────────────────
 -- NB: `config` is the game API's own global (config.Obj ...), so our settings use another name.
+-- config.lua is optional. Normally the plugin links itself with a code shown in the game (section 2b); a token pasted into
+-- config.lua still works and is used first.
 local okSettings, settings = pcall(require, "config")
-if not okSettings or type(settings) ~= "table" or type(settings.token) ~= "string" or not settings.token:find("^gimp_") then
-    log("[GIM] config.lua missing or invalid - copy config.example.lua to config.lua and paste your token. Plugin idle.")
-    return
-end
+if not okSettings or type(settings) ~= "table" then settings = {} end
+local token = nil            -- the personal token: from config.lua, or learned by linking (section 2b)
+local tokenFromConfig = false
+if type(settings.token) == "string" and settings.token:find("^gimp_") then token = settings.token; tokenFromConfig = true end
 
 log("[GIM] httpAccess granted: " .. tostring(Plugin.HasPermission(PluginPermissions.httpAccess)))
 if settings.dryRun ~= true and not Plugin.HasPermission(PluginPermissions.httpAccess) then
@@ -209,6 +211,122 @@ end
 
 local function near(a, b, tiles)
     return a ~= nil and b ~= nil and a.level == b.level and math.abs(a.x - b.x) <= tiles and math.abs(a.y - b.y) <= tiles
+end
+
+-- ── 2b. Linking this character ───────────────────────────────────────────────
+-- No token yet: ask the server for a short code, show it in the game, and wait until someone enters it on the website
+-- (Plugin > Connect). The plugin then collects its token and keeps it in the game's persistent store, per character.
+local PAIR_POLL_TICKS  = 8        -- poll about every 5 seconds (ServerLogic fires about every 0.6 s)
+local PAIR_RETRY_TICKS = 100      -- after a failed request, wait this long
+local pair = nil                  -- { code, secret, busy, nextAt } while a code is on offer
+local pairWindow = nil
+local pairRetryAt = 0
+local storedKey = nil             -- persistent-store key of the token that is in use (nil when it came from config.lua)
+
+local function tokenKey(rsn) return "token_" .. rsn:lower():gsub("%s+", " ") end
+
+local function closePairWindow()
+    if pairWindow ~= nil then pcall(function() pairWindow:Destroy() end); pairWindow = nil end
+end
+
+-- A small window in the game: the code, where to enter it, and a Hide button. Built exactly like Jagex's UI tutorial;
+-- if anything in it is not available the code is still printed to the console.
+local function showPairWindow(code)
+    closePairWindow()
+    local ok, err = pcall(function()
+        local parent = ui.Interfaces:GetComponent(id.Component.TOPLEVEL_V2__PLUGIN_BUILD_LAYER_TOP)
+        local box = ui.GroupBox.new(parent)
+        box.stylesheetID = id.StyleSheet.DEFAULT
+        box:SetHeaderLayout(0, 0, 0, 0, 0)
+        box:SetSize(400, 190)
+        box:SetPos(0, 0, 0.5, 0.3, 0.5, 0.5)
+        local function line(content, top, height)
+            local t = ui.Text.new(box)
+            t:SetSize(0, 0, 1.0, height)
+            t:SetPos(0, 0, 0, top)
+            t.content = content
+            t.font = id.Font.MUSEO_SANS_15PT_REGULAR
+            t:AlignTo(ui.AlignMode.CENTRE)
+            return t
+        end
+        line("GIM Companion: link this character", 0.04, 0.16)
+        line(code, 0.22, 0.24)
+        line("On the website: Plugin > Connect, then enter this code", 0.48, 0.16)
+        local hide = ui.Button.new(box)
+        hide:SetPos(0, 0, 0.35, 0.74)
+        hide:SetSize(0, 0, 0.3, 0.2)
+        hide.label = "Hide"
+        hide.stylesheetID = id.StyleSheet.BUTTON_DEFAULT
+        hide:Subscribe(ui.Hook.ONBUTTONPRESSED, function() box.hidden = true end)
+        pairWindow = box
+    end)
+    if not ok then log("[GIM] could not draw the link window (" .. tostring(err) .. ")") end
+end
+
+local function adoptToken(newToken, key, persist)
+    token = newToken; storedKey = key
+    if persist and key then pcall(function() PersistentDB:SetString(key, newToken) end) end
+    closePairWindow(); pair = nil
+    dirty.skills, dirty.items = true, true      -- the first update goes out right away
+end
+
+-- Called when the server no longer accepts a linked token: forget it and start over.
+local function forgetToken()
+    if storedKey then pcall(function() PersistentDB:Delete(storedKey) end) end
+    token, storedKey, pair = nil, nil, nil
+    pairRetryAt = 0
+end
+
+-- Runs on every tick while there is no token.
+local function pairStep()
+    if not Plugin.HasPermission(PluginPermissions.httpAccess) or not Player.IsAvailable() then return end
+    local rsn = characterName()
+    if rsn == nil then return end
+
+    -- this character was linked before on this computer
+    if pair == nil then
+        local okGet, saved = pcall(function() return PersistentDB:GetString(tokenKey(rsn)) end)
+        if okGet and type(saved) == "string" and saved:find("^gimp_") then adoptToken(saved, tokenKey(rsn), false); return end
+    end
+
+    if pair == nil then
+        if ticks < pairRetryAt then return end
+        pair = { busy = true, nextAt = 0 }
+        local okReq, request = newRequest(Plugin.urls.gim, "/api/plugin/pair/start")
+        if not okReq or request == nil then pair = nil; pairRetryAt = ticks + PAIR_RETRY_TICKS; return end
+        request:AddHeader("Content-Type", "application/json")
+        request:Post(json.encode({ rsn = rsn }), function()
+            local okJ, doc = pcall(json.decode, request.data or "")
+            if request.successful and request.responseCode == 200 and okJ and type(doc) == "table" and doc.code and doc.device_secret then
+                pair = { code = doc.code, secret = doc.device_secret, busy = false, nextAt = ticks + PAIR_POLL_TICKS }
+                log("[GIM] Link code for " .. rsn .. ": " .. doc.code .. "  (website: Plugin > Connect)")
+                showPairWindow(doc.code)
+            else
+                pair = nil; pairRetryAt = ticks + PAIR_RETRY_TICKS
+                log("[GIM] could not get a link code (HTTP " .. tostring(request.responseCode) .. "), trying again soon")
+            end
+        end)
+        return
+    end
+
+    if pair.busy or pair.secret == nil or ticks < pair.nextAt then return end
+    pair.busy = true
+    local okReq, request = newRequest(Plugin.urls.gim, "/api/plugin/pair/poll")
+    if not okReq or request == nil then pair.busy = false; pair.nextAt = ticks + PAIR_RETRY_TICKS; return end
+    request:AddHeader("Content-Type", "application/json")
+    request:Post(json.encode({ device_secret = pair.secret }), function()
+        local okJ, doc = pcall(json.decode, request.data or "")
+        if pair == nil then return end
+        pair.busy = false; pair.nextAt = ticks + PAIR_POLL_TICKS
+        if request.successful and request.responseCode == 200 and okJ and type(doc) == "table" then
+            if doc.status == "ready" and type(doc.token) == "string" and doc.token:find("^gimp_") then
+                adoptToken(doc.token, tokenKey(rsn), true)
+                log("[GIM] linked: " .. rsn .. " is now connected to the dashboard.")
+            elseif doc.status == "expired" then
+                closePairWindow(); pair = nil; pairRetryAt = 0       -- the code ran out: get a new one
+            end
+        end
+    end)
 end
 
 -- ── 3. Changes in the bank and group storage ──────────────────────────────────
@@ -789,9 +907,10 @@ end
 
 local function fetchRules()
     rulesAskedAt = ticks
+    if token == nil then return end
     local okReq, request = newRequest(Plugin.urls.gim, "/api/plugin/config")
     if not okReq or request == nil then return end
-    request:AddHeader("Authorization", "Bearer " .. settings.token)
+    request:AddHeader("Authorization", "Bearer " .. token)
     local function done()
         if request.successful and request.responseCode == 200 then
             local okJ, doc = pcall(json.decode, request.data or "")
@@ -808,6 +927,7 @@ end
 -- ── 7. Sending ────────────────────────────────────────────────────────────────
 local function send()
     if inFlight or stopped then return end
+    if token == nil and not DRY_RUN then return end
     local rsn = characterName()
     if rsn == nil or not Player.IsAvailable() then return end   -- not in a world yet
 
@@ -909,7 +1029,7 @@ local function send()
 
     local okReq, request = newRequest(Plugin.urls.gim, "/api/plugin/ingest")
     if not okReq or request == nil then log("[GIM] could not create request: " .. tostring(request)); return end
-    request:AddHeader("Authorization", "Bearer " .. settings.token)
+    request:AddHeader("Authorization", "Bearer " .. token)
     request:AddHeader("Content-Type", "application/json")
 
     local sentSkills = payload.skills ~= nil
@@ -964,8 +1084,13 @@ local function send()
         local status = request.responseCode
         if status == 401 or status == 409 then
             -- Revoked token, or the token belongs to a different character. Retrying cannot help.
-            stopped = true
-            log("[GIM] the server rejected this token (HTTP " .. tostring(status) .. "). Check config.lua and that you are logged in as the right character. Sending stopped.")
+            if tokenFromConfig then
+                stopped = true
+                log("[GIM] the server rejected the token in config.lua (HTTP " .. tostring(status) .. "). Check it and that you are logged in as the right character. Sending stopped.")
+            else
+                forgetToken()
+                log("[GIM] the server no longer accepts this character's link (HTTP " .. tostring(status) .. "). Link it again with the new code.")
+            end
         else
             log("[GIM] send failed (HTTP " .. tostring(status) .. ") " .. tostring(request.errorInfo or "") .. " - will retry")
         end
@@ -996,12 +1121,14 @@ Event.GameStateChanged.Subscribe("gim_state", function(event)
         bossHeld, bossChanged, lastBossCheck = {}, nil, -BOSS_RECHECK
         engagedName, lastHp, recentKills, fromGround, packBefore = nil, nil, {}, {}, nil
         rules = nil
+        if not tokenFromConfig then closePairWindow(); token, storedKey, pair = nil, nil, nil end   -- the next character may be another one
         dirty.skills, dirty.items = true, true
     end
 end)
 
 Event.ServerLogic.Subscribe("gim_tick", function()
     ticks = ticks + 1
+    if token == nil and not DRY_RUN then pairStep(); return end
     if FEATURES.kills and ticks % 2 == 0 then readTarget() end
 
     if FEATURES.quests and Player.IsAvailable() then

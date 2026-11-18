@@ -213,11 +213,70 @@ router.post('/tokens', (req, res) => {
   if (!player.group_id) return res.status(403).json({ error: 'Player is not attached to a group' });
   if (!checkGroupAuth(req, res, player.group_id)) return;
 
-  // One live token per player: minting a new one invalidates the old (lost-token recovery).
+  res.status(201).json({ player_id: player.id, token: mintToken(player.id) }); // shown once — only the hash is stored
+});
+
+// One live token per player: minting a new one invalidates the old (lost-token recovery).
+function mintToken(playerId) {
   const token = TOKEN_PREFIX + crypto.randomBytes(32).toString('base64url');
-  db.prepare('UPDATE plugin_tokens SET revoked = 1 WHERE player_id = ?').run(player.id);
-  db.prepare('INSERT INTO plugin_tokens (player_id, token_hash) VALUES (?, ?)').run(player.id, hashToken(token));
-  res.status(201).json({ player_id: player.id, token }); // shown once — only the hash is stored
+  db.prepare('UPDATE plugin_tokens SET revoked = 1 WHERE player_id = ?').run(playerId);
+  db.prepare('INSERT INTO plugin_tokens (player_id, token_hash) VALUES (?, ?)').run(playerId, hashToken(token));
+  return token;
+}
+
+// ── Linking with a code (device pairing) ──────────────────────────────────────
+// 1. The plugin asks for a code (pair/start) and shows it in the game; it keeps a secret only it knows.
+// 2. Someone with the group unlocked types the code on the website next to the right character (pair/claim).
+//    The server checks that the character name matches and mints the plugin's token.
+// 3. The plugin polls (pair/poll) with its secret and receives the token once. The code lives 10 minutes.
+const pairStartLimiter = createRateLimiter({ windowMs: 60_000, max: 12, message: 'Too many link requests. Wait a minute.' });
+const pairPollLimiter = createRateLimiter({ windowMs: 60_000, max: 60, message: 'Polling too fast.' });
+const pairClaimLimiter = createRateLimiter({ windowMs: 60_000, max: 20, message: 'Too many attempts. Wait a minute.' });
+const PAIR_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';      // no 0/O, 1/I/L
+const PAIR_TTL_MS = 10 * 60 * 1000;
+const sameName = (a, b) => String(a).replace(/\s/g, ' ').trim().toLowerCase() === String(b).replace(/\s/g, ' ').trim().toLowerCase();
+const cleanCode = c => String(c ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+const prettyCode = c => c.slice(0, 4) + '-' + c.slice(4);
+
+router.post('/pair/start', pairStartLimiter, (req, res) => {
+  const rsn = String(req.body?.rsn ?? '').replace(/\s/g, ' ').trim();
+  if (!rsn || rsn.length > 40) return res.status(400).json({ error: 'rsn required' });
+  const now = Date.now();
+  db.prepare('DELETE FROM plugin_pairings WHERE expires_at < ? OR status = ?').run(now - 60_000, 'collected');   // housekeeping
+  db.prepare("DELETE FROM plugin_pairings WHERE status = 'pending' AND rsn = ?").run(rsn);                      // a newer request replaces the old one
+  let code;
+  do { code = Array.from(crypto.randomBytes(8), b => PAIR_ALPHABET[b % PAIR_ALPHABET.length]).join(''); }
+  while (db.prepare("SELECT 1 FROM plugin_pairings WHERE code = ? AND status = 'pending'").get(code));
+  const secret = crypto.randomBytes(24).toString('base64url');
+  db.prepare('INSERT INTO plugin_pairings (code, device_hash, rsn, expires_at) VALUES (?, ?, ?, ?)').run(code, hashToken(secret), rsn, now + PAIR_TTL_MS);
+  res.json({ code: prettyCode(code), device_secret: secret, expires_in: PAIR_TTL_MS / 1000 });
+});
+
+router.post('/pair/poll', pairPollLimiter, (req, res) => {
+  const secret = String(req.body?.device_secret ?? '');
+  if (!secret) return res.status(400).json({ error: 'device_secret required' });
+  const row = db.prepare('SELECT * FROM plugin_pairings WHERE device_hash = ?').get(hashToken(secret));
+  if (!row || row.expires_at < Date.now() || row.status === 'collected') return res.json({ status: 'expired' });
+  if (row.status === 'claimed') {
+    db.prepare("UPDATE plugin_pairings SET status = 'collected', token = NULL WHERE id = ?").run(row.id);   // handed over once
+    return res.json({ status: 'ready', token: row.token });
+  }
+  res.json({ status: 'pending' });
+});
+
+router.post('/pair/claim', pairClaimLimiter, (req, res) => {
+  const player = db.prepare('SELECT id, rsn, group_id FROM players WHERE id = ?').get(Number(req.body?.player_id));
+  if (!player) return res.status(404).json({ error: 'Player not found' });
+  if (!player.group_id) return res.status(403).json({ error: 'Player is not attached to a group' });
+  if (!checkGroupAuth(req, res, player.group_id)) return;
+  const code = cleanCode(req.body?.code);
+  const row = code.length === 8 ? db.prepare("SELECT * FROM plugin_pairings WHERE code = ? AND status = 'pending'").get(code) : null;
+  if (!row || row.expires_at < Date.now()) return res.status(404).json({ error: 'That code was not found or has expired. Start the plugin in the game to get a new one.' });
+  if (!sameName(row.rsn, player.rsn)) {
+    return res.status(409).json({ error: `That code is shown by the character "${row.rsn}", not "${player.rsn}". Pick the matching player.` });
+  }
+  db.prepare("UPDATE plugin_pairings SET status = 'claimed', token = ?, player_id = ? WHERE id = ?").run(mintToken(player.id), player.id, row.id);
+  res.json({ ok: true, rsn: player.rsn });
 });
 
 router.delete('/tokens/:playerId', (req, res) => {

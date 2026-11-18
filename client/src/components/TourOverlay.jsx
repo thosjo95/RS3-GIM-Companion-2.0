@@ -26,13 +26,13 @@ const TOUR_STEPS = [
   },
   {
     target: '[data-tour="plugin"]',
-    title: '4 · Plugin setup: get your token',
-    body: 'The plugin reads what the web APIs cannot give: bank, group storage, backpack, worn gear, quests, achievements, boss and slayer kills, drops. Open Plugin setup (the group must be unlocked), find your name and press Connect. A personal token appears ONCE: copy it right away. A token only lets the plugin send your own data, and a new token replaces the old one.',
+    title: '4 · Plugin setup: link your character',
+    body: 'The plugin reads what the web APIs cannot give: bank, group storage, backpack, worn gear, quests, achievements, boss and slayer kills, drops. Every member links their own character once. Open Plugin setup (the group must be unlocked), then press Link with code next to your name. You type the code that the plugin shows in the game, as the next step explains. The plugin can only send data for the one character it is linked to.',
   },
   {
     target: null,
-    title: '5 · Install the plugin and paste the token',
-    body: '1) In the RuneScape client open the plugin browser, search for "GIM Companion" and install it. 2) Enable it and allow network access when the game asks. 3) Paste the token you just copied into the plugin settings. That is all: your numbers appear here within a minute and the dot in Plugin setup turns green. The plugin only sends your own character data, and you can pause or remove it in the game at any time.',
+    title: '5 · Install the plugin and enter the code',
+    body: '1) In the RuneScape client open the plugin browser, search for "GIM Companion" and install it. 2) Enable it and allow network access when the game asks. 3) Log in: a small window appears in the game with a short code like K7M2-9QXA. 4) On the website press Link with code next to your name and type the code. The plugin connects by itself within seconds and the dot in Plugin setup turns green. You only do this once per character. The plugin only sends your own character data, and you can pause or remove it in the game at any time.',
   },
   // ── The front page ───────────────────────────────────────────────────────
   {

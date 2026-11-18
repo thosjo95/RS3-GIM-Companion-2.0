@@ -339,6 +339,22 @@ for (const col of ['description TEXT', 'reward TEXT', 'tally_progress INTEGER', 
   try { db.exec('ALTER TABLE player_achievements ADD COLUMN ' + col); } catch {}
 }
 
+// Linking a plugin to a character with a short code shown in the game (no token to copy around).
+db.exec(`
+  CREATE TABLE IF NOT EXISTS plugin_pairings (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    code        TEXT    NOT NULL,        -- 8 characters, shown to the player in the game
+    device_hash TEXT    NOT NULL,        -- sha256 of the secret only the plugin knows
+    rsn         TEXT    NOT NULL,        -- the character name the plugin reported
+    expires_at  INTEGER NOT NULL,        -- ms since epoch
+    status      TEXT    NOT NULL DEFAULT 'pending',   -- pending | claimed | collected
+    token       TEXT,                    -- only between the claim and the plugin picking it up
+    player_id   INTEGER
+  );
+  CREATE INDEX IF NOT EXISTS idx_plugin_pairings_code ON plugin_pairings(code);
+  CREATE INDEX IF NOT EXISTS idx_plugin_pairings_device ON plugin_pairings(device_hash);
+`);
+
 // Group leaderboard: periodic snapshots of every player's metrics, and the competitions a group sets up.
 db.exec(`
   CREATE TABLE IF NOT EXISTS metric_snapshots (

@@ -2,38 +2,86 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 
 // ── Tour steps ────────────────────────────────────────────────────────────────
-const TOUR_STEPS = [
-  // ── Getting started ──────────────────────────────────────────────────────
+// The main tour starts with one question (new or existing group), then the setup steps for that answer, then the
+// feature steps. A step with `action` gets a button that clicks its target (opens the claim, unlock or Plugin window);
+// the tour then waits as a small floating pill until the player continues it.
+
+const WELCOME_STEP = {
+  target: null,
+  title: 'Welcome to GIM Companion 2.0',
+  body: 'First a quick setup for your group and the game plugin (about five minutes), then a walk through everything the dashboard can do. Is your group new here, or did you already use GIM Companion?',
+  choices: [
+    { path: 'new',      label: 'New group',      hint: 'First time here' },
+    { path: 'existing', label: 'Existing group', hint: 'We used GIM Companion before' },
+  ],
+  skipLabel: 'Just show me around',
+};
+
+// The plugin steps are the same for both answers.
+const PLUGIN_STEPS = [
   {
     target: null,
-    title: 'Welcome to GIM Companion 2.0',
-    body: 'This tour first shows how to set up your group and connect the game plugin (about five minutes), then walks through everything the dashboard can do. Use Next → to continue, or skip and replay it later with the ? button in the top bar.',
-  },
-  {
-    target: '[data-tour="groups"]',
-    title: '1 · Find or create your group',
-    body: 'Open "Find or Manage Groups". Search for your Group Ironman by its name or one of its members to add it to this list, or create a custom group by typing the RuneScape names of your players. Groups you add appear in this menu and are remembered in this browser.',
-  },
-  {
-    target: '[data-tour="lock"]',
-    title: '2 · Claim the group and share the secret',
-    body: 'Click the lock to claim a group nobody has claimed yet. You get a secret code: it is shown once, so save it. Everyone in your group enters it with the same lock button to unlock editing. Without the secret the group is read-only, and private things (bank, storage, quests from the game) stay hidden.',
-  },
-  {
-    target: '[data-tour="rsn"]',
-    title: '3 · Tell the app which character is yours',
-    body: 'Set your character name here. Your player card gets the gold YOU badge, and new goals default to you.',
+    title: '4 · Install GIM Companion and type the secret',
+    body: 'The plugin reads what the web cannot: bank, group storage, backpack, worn gear, quests, achievements, boss and slayer kills, drops. In the RuneScape client open the plugin browser, search for "GIM Companion", install it and enable it, and allow network access when the game asks. Log in: a GIM Companion window asks for your group secret, the same one that unlocks this website. Type it and press Connect. Every member does this once per computer. The plugin only sends your own character, and only if your character is a member of this group.',
   },
   {
     target: '[data-tour="plugin"]',
-    title: '4 · Plugin setup: link your character',
-    body: 'The plugin reads what the web APIs cannot give: bank, group storage, backpack, worn gear, quests, achievements, boss and slayer kills, drops. Every member links their own character once. Open Plugin setup (the group must be unlocked), then press Link with code next to your name. You type the code that the plugin shows in the game, as the next step explains. The plugin can only send data for the one character it is linked to.',
+    title: '5 · Check who is connected',
+    body: 'Plugin shows the same steps, the group secret (to copy or show to a member), and a dot per member that turns green once their plugin sends data. Disconnect stops one member\'s plugin; it asks for the secret again at their next login.',
+    action: 'Open Plugin now',
   },
-  {
-    target: null,
-    title: '5 · Install the plugin and enter the code',
-    body: '1) In the RuneScape client open the plugin browser, search for "GIM Companion" and install it. 2) Enable it and allow network access when the game asks. 3) Log in: a small window appears in the game with a short code like K7M2-9QXA. 4) On the website press Link with code next to your name and type the code. The plugin connects by itself within seconds and the dot in Plugin setup turns green. You only do this once per character. The plugin only sends your own character data, and you can pause or remove it in the game at any time.',
-  },
+];
+
+const SETUP_STEPS = {
+  new: [
+    {
+      target: '[data-tour="groups"]',
+      title: '1 · Find or create your group',
+      body: 'Open "Find or Manage Groups". Search for your Group Ironman by its name or one of its members to add it to this list, or create a custom group by typing the RuneScape names of your players. Groups you add appear in this menu and are remembered in this browser.',
+      action: 'Find my group now',
+    },
+    {
+      target: '[data-tour="lock"]',
+      title: '2 · Claim the group and share the secret',
+      body: 'Claim the group to protect it. You get a secret code that is shown once, so save it and share it with your members (on Discord, for example). The secret does two things: everyone unlocks the website with it, and everyone types it into the plugin in the game. Without the secret the group is read-only, and private things (bank, storage, quests from the game) stay hidden.',
+      action: 'Claim now',
+      missing: 'Pick your group first (previous step). If the group is already unlocked in this browser, there is nothing to do here.',
+    },
+    {
+      target: '[data-tour="rsn"]',
+      title: '3 · Tell the app which character is yours',
+      body: 'Set your character name here. Your player card gets the gold YOU badge, and new goals default to you.',
+      action: 'Set my character now',
+      missing: 'This button appears once the group is unlocked.',
+    },
+    ...PLUGIN_STEPS,
+  ],
+  existing: [
+    {
+      target: '[data-tour="groups"]',
+      title: '1 · Open your group',
+      body: 'Your group and its history (skills, activity, goals, drops, notes) came along from the old site. If it is not in the list on the left yet, open "Find or Manage Groups" and search for its name or one of its members.',
+      action: 'Find my group now',
+    },
+    {
+      target: '[data-tour="lock"]',
+      title: '2 · Unlock with your group secret',
+      body: 'If your group was claimed before, press Unlock and enter the secret you already have; it still works, and it is also what you type into the plugin. If nobody ever claimed it, press Claim group now: you get a new secret, shown once, to save and share with your members. Without the secret the group is read-only and private things stay hidden.',
+      action: 'Claim or unlock now',
+      missing: 'Pick your group first (previous step). If the group is already unlocked in this browser, there is nothing to do here.',
+    },
+    {
+      target: '[data-tour="rsn"]',
+      title: '3 · Tell the app which character is yours',
+      body: 'Set your character name here if you have not already. Your player card gets the gold YOU badge, and new goals default to you.',
+      action: 'Set my character now',
+      missing: 'This button appears once the group is unlocked.',
+    },
+    ...PLUGIN_STEPS,
+  ],
+};
+
+const FEATURE_STEPS = [
   // ── The front page ───────────────────────────────────────────────────────
   {
     target: '[data-tour="header-stats"]',
@@ -98,14 +146,20 @@ const TOUR_STEPS = [
   },
 ];
 
+function mainTour(path) {
+  return [WELCOME_STEP, ...(SETUP_STEPS[path] || []), ...FEATURE_STEPS];
+}
+
 const PAD  = 10;
 const TT_W = 360;
 const TT_H = 230; // conservative tooltip height for placement math
 
 export default function TourOverlay({ steps: stepsProp, onComplete }) {
-  const steps = stepsProp ?? TOUR_STEPS;
+  const [path, setPath]           = useState(null);    // 'new' | 'existing' | null (main tour only)
+  const steps = stepsProp ?? mainTour(path);
   const [stepIndex, setStepIndex] = useState(0);
   const [rect, setRect]           = useState(null);
+  const [paused, setPaused]       = useState(false);   // true while a window opened by an action button is in use
 
   const step     = steps[stepIndex];
   const isFirst  = stepIndex === 0;
@@ -132,7 +186,7 @@ export default function TourOverlay({ steps: stepsProp, onComplete }) {
       window.removeEventListener('resize', measure);
       window.removeEventListener('scroll', measure, true);
     };
-  }, [stepIndex]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [stepIndex, path, paused]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Tooltip placement ─────────────────────────────────────────────────────
   function tooltipPos() {
@@ -164,6 +218,44 @@ export default function TourOverlay({ steps: stepsProp, onComplete }) {
   }
 
   const pos = tooltipPos();
+  const targetExists = !!(step.target && document.querySelector(step.target));
+
+  function choose(choice) {
+    setPath(choice);
+    setStepIndex(1);
+  }
+  function skipSetup() {
+    setPath(null);
+    setStepIndex(1);                    // without a path the next step is the first feature step
+  }
+  // Hide the tour, open the window behind the highlighted button, and wait for the player to continue.
+  function runAction() {
+    const el = step.target && document.querySelector(step.target);
+    if (!el) return;
+    setPaused(true);
+    setTimeout(() => el.click(), 0);
+  }
+  function resume() {
+    setPaused(false);
+    if (!isLast) setStepIndex(s => s + 1);
+  }
+
+  const goldBtn = { padding:'7px 18px', fontSize:13, fontWeight:700, background:'var(--gold)', color:'#111', border:'none', borderRadius:'var(--radius)', cursor:'pointer' };
+  const quietBtn = { padding:'7px 14px', fontSize:12, fontWeight:600, background:'transparent', border:'1px solid var(--border)', borderRadius:'var(--radius)', color:'var(--text-dim)', cursor:'pointer' };
+
+  // While paused only a small pill floats in the corner, so the window the player opened can be used.
+  if (paused) {
+    return createPortal(
+      <div style={{ position:'fixed', zIndex:2147483647, right:20, bottom:20, display:'flex', alignItems:'center', gap:10,
+                    background:'var(--bg-panel)', border:'1px solid var(--gold-dark)', borderRadius:'var(--radius-lg)',
+                    padding:'10px 12px 10px 16px', boxShadow:'0 8px 32px rgba(0,0,0,0.6)' }}>
+        <span style={{ fontSize:12, color:'var(--text-dim)' }}>Done here?</span>
+        <button type="button" onClick={resume} style={goldBtn}>{isLast ? 'Finish the tour' : 'Continue the tour'}</button>
+        <button type="button" onClick={onComplete} style={{ ...quietBtn, border:'none', padding:'4px 6px' }}>End</button>
+      </div>,
+      document.body
+    );
+  }
 
   // ── Render via portal so we're completely outside the app's stacking context
   return createPortal(
@@ -214,6 +306,30 @@ export default function TourOverlay({ steps: stepsProp, onComplete }) {
           {step.body}
         </div>
 
+        {/* First page: new or existing group */}
+        {step.choices && (
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:16 }}>
+            {step.choices.map(c => (
+              <button key={c.path} type="button" onClick={() => choose(c.path)}
+                style={{ textAlign:'left', padding:'10px 12px', cursor:'pointer', borderRadius:'var(--radius)',
+                         background:'rgba(200,168,75,0.10)', border:'1px solid rgba(200,168,75,0.45)', fontFamily:'inherit' }}>
+                <div style={{ fontSize:13, fontWeight:700, color:'var(--gold)' }}>{c.label}</div>
+                <div style={{ fontSize:11, color:'var(--text-dim)', marginTop:2 }}>{c.hint}</div>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* "Do it now": opens the window behind the highlighted button */}
+        {step.action && targetExists && (
+          <button type="button" onClick={runAction} style={{ ...goldBtn, width:'100%', marginBottom:14 }}>
+            {step.action}
+          </button>
+        )}
+        {step.action && !targetExists && step.missing && (
+          <div style={{ fontSize:12, color:'var(--text-dim)', fontStyle:'italic', marginBottom:14 }}>{step.missing}</div>
+        )}
+
         {/* Progress dots */}
         <div style={{ display:'flex', gap:5, marginBottom:14, alignItems:'center' }}>
           {steps.map((_, i) => (
@@ -247,12 +363,18 @@ export default function TourOverlay({ steps: stepsProp, onComplete }) {
                 Back
               </button>
             )}
-            <button
-              type="button"
-              onClick={() => isLast ? onComplete() : setStepIndex(s => s + 1)}
-              style={{ padding:'7px 18px', fontSize:13, fontWeight:700, background:'var(--gold)', color:'#111', border:'none', borderRadius:'var(--radius)', cursor:'pointer' }}>
-              {isLast ? 'Done' : 'Next'}
-            </button>
+            {step.choices ? (
+              <button type="button" onClick={skipSetup} style={quietBtn}>
+                {step.skipLabel || 'Next'}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => isLast ? onComplete() : setStepIndex(s => s + 1)}
+                style={goldBtn}>
+                {isLast ? 'Done' : 'Next'}
+              </button>
+            )}
           </div>
         </div>
       </div>

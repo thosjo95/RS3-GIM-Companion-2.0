@@ -1,9 +1,9 @@
--- You normally do NOT need this file: the plugin shows a link code in the game and you enter it on the website
--- (top bar -> Plugin -> Link with code). Use this file only if you prefer to paste a personal token:
--- website -> Plugin -> Advanced -> create a token, then copy this file to config.lua and paste it below.
--- Never share your token: anyone who has it can send data as you. If it leaks, create a new one.
+-- You normally do NOT need this file: the first time you log in, the plugin asks for your group's secret in a small
+-- window in the game. Use this file only if you prefer to put the secret here: copy it to config.lua (same folder)
+-- and fill in the secret below. It is the same secret that unlocks your group on the website.
+-- The plugin sends it once to join, then keeps only a key for your own character.
 return {
-    token = "gimp_PASTE_YOUR_TOKEN_HERE",
+    -- groupSecret = "XXXX-XXXX-XXXX",
 
     -- Optional, for testing only:
     -- debug = true,     -- print a line before each step (and remember the last step in the game's data store)

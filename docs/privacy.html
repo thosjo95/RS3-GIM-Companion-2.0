@@ -43,7 +43,8 @@
     <tr><td>Quest states, completed achievements and area tasks, the Group Ironman Journey</td><td>Progress pages and goal tracking</td></tr>
     <tr><td>Boss and slayer kill counts, notable drops</td><td>Leaderboards and the Drops chest</td></tr>
     <tr><td>World and position, and when the plugin last sent data</td><td>Show who is playing right now</td></tr>
-    <tr><td>A personal token (stored only as a one-way hash)</td><td>Prove that an update comes from your plugin</td></tr>
+    <tr><td>Your group's secret, once, when you connect the plugin</td><td>Check that your character is a member of the group (it is compared with the stored hash and not kept)</td></tr>
+    <tr><td>A key for your character (stored only as a one-way hash)</td><td>Prove that an update comes from your plugin</td></tr>
   </table>
   <p>The plugin does <strong>not</strong> send chat messages, friends or clan lists, your RuneScape login, password or payment details, or anything from outside the RuneScape client.</p>
 
@@ -75,8 +76,8 @@
   <h2>How it is protected</h2>
   <ul>
     <li>All traffic uses HTTPS.</li>
-    <li>Plugin tokens belong to one character and can only send that character's data; only a hash of a token is stored, and a token can be replaced at any time, which stops the old one.</li>
-    <li>Group secrets are stored as salted hashes; the plugin never sees them.</li>
+    <li>The plugin sends the group secret once to connect and keeps only a key for your character. A key can only send that character's data while the character is a member of the group; only a hash of it is stored, and the group can disconnect it at any time.</li>
+    <li>Group secrets are stored as salted hashes. Attempts to connect with a wrong secret are rate limited.</li>
     <li>Limits on how often requests are accepted, checks that an update really comes from the character it claims, and strict validation of everything received.</li>
     <li>The server runs under an unprivileged account with a firewall, automatic security updates and regular backups.</li>
     <li>Only the developer has administrative access.</li>
@@ -88,7 +89,6 @@
     <tr><td>A group and everything in it</td><td>Until the group is removed. A group nobody has used for <strong>30 days</strong> is deleted automatically.</td></tr>
     <tr><td>A member's data</td><td>Until that member is removed from the group (this deletes their plugin data, history and goals at once) or you ask me to delete it.</td></tr>
     <tr><td>Progress snapshots used for leaderboards</td><td>At most <strong>120 days</strong> (older than a week they are thinned to one per day).</td></tr>
-    <tr><td>Link codes shown in the game</td><td>10 minutes, or until used.</td></tr>
     <tr><td>Web server logs (IP addresses)</td><td>About <strong>14 days</strong>.</td></tr>
     <tr><td>Backups</td><td>The 14 newest daily backups plus the provider's backups; deleted data disappears from them as they are replaced (within a few weeks).</td></tr>
   </table>

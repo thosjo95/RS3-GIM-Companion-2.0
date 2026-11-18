@@ -41,7 +41,7 @@ if port 3001 stays busy after a restart, kill the old node process.
 
 ## How data flows
 
-Plugin (Lua, in the game) -> `POST /api/plugin/ingest` with a per-player token (`gimp_...`, only a hash stored) ->
+Plugin (Lua, in the game) -> `POST /api/plugin/ingest` with a per-player key (`gimp_...`, only a hash stored) ->
 `player_live_state`, `player_quests`, `player_achievements`, `player_boss_kills`, `player_kill_vars`, `storage_ledger`, `drops`.
 Public data comes from hiscores and the Adventurer's Log (`services/runescape.js`, `hiscoresSync.js`, `activitySync.js`).
 Reads of private data need the group secret (`utils/auth.js checkGroupAuth`); hiscores-derived data is public.
@@ -49,10 +49,14 @@ Important services: `goalTracker.js` (auto-completes goals, progress), `recommen
 competitions), `gimRank.js` (rank on the official Group Ironman hiscores), `slayerKills.js` (only 8 creature counters matched
 so far), `itemIndex.js` (item name to id), `discord.js` (webhooks).
 
-**Linking a character to the plugin:** the plugin shows a code in the game (device-code flow, `routes/plugin.js` `pair/start`,
-`pair/poll`, `pair/claim`); the website's Plugin window has "Link with code"; "Advanced" still creates a manual token for
-`config.lua`. The in-game window follows Jagex's UI tutorial but is **untested in the real client**; it falls back to
-printing the code in the console.
+**Connecting the plugin (owner's choice, like the OSRS Group Ironmen tracker):** players only ever use ONE thing, the group
+secret (`XXXX-XXXX-XXXX`, made when the group is claimed; it also unlocks the website). The plugin shows a window with an
+Input Field, the player types the secret, and the plugin sends it once with the character name to `POST /api/plugin/join`.
+The server checks that the character is a member of a claimed group with that secret and returns a per-character key, which
+the plugin keeps in `PersistentDB` (per character) instead of the secret. Several computers per character are allowed;
+"Disconnect" in the website's Plugin window revokes all of a member's keys. `config.lua` may hold `groupSecret` instead of
+typing it. The old link-code flow and the website's manual tokens were removed (`POST /tokens` stays for tests). The masked
+Input Field modes return no text to Lua, so the box shows what is typed. The window is **untested in the real client**.
 
 ## Plugin rules (Jagex) and lessons from the beta client
 
@@ -65,7 +69,7 @@ device, not per character (keys include the character name).
 
 ## State of the work (Nov 2026)
 
-**Done and pushed:** server API with plugin ingest and tokens; code linking; dashboard (player cards with inspect panel for
+**Done and pushed:** server API with plugin ingest and keys; joining with the group secret; listing image; docs updated; dashboard (player cards with inspect panel for
 backpack/equipment/skills, online indicator, Drops chest, Leaderboard and Goals tiles as floating panels, Group Stats grid,
 Group Vault with banks and group storage and Bank Journal, Goals with auto-tracking and recommendations, Quests and Tasks with
 the Journey, Leaderboards incl. Slayer Kills, group leaderboard and competitions, Manage group, top bar rearrangement, new
@@ -75,26 +79,20 @@ for release (probes removed, debug off, manifest 1.0.0, `https://api.groupiron.c
 notice (`docs/privacy.html`); mod.io listing text; deploy files for a fresh server.
 
 **Open, in this order:**
-1. Owner: finish the new Hetzner server (CPX12, Helsinki, EU). Status: DNS records `api` and `beta` exist (DNS only), the
-   server is bootstrapped, the app runs under PM2 as `gim2` and `http://127.0.0.1:3001/api/health` answers, the dashboard is built.
-   **Left: enable the nginx site and run certbot** (`deploy/README.md` step 5; the default nginx page still shows because
-   `/etc/nginx/sites-enabled/default` is not yet replaced). Then `https://api.groupiron.com/api/health` and
-   `https://beta.groupiron.com` must work. Reviewers need a live server. The server database starts empty.
-2. Test the in-game link window in the RS3 beta client (re-run `install-dev.ps1`, `prl gim-companion`). Fix the UI code if the
-   real API differs. A Plugin Hub screenshot showed the dev plugin as "Loading..." with author "NOT AVAILABLE": check the
-   client console for errors.
-3. 16:9 listing image (min 512x288, `plugin/submission/listing-image.png`), referenced in `listing.md`.
-4. Update `docs/index.html` for features added since it was written (Leaderboard tile, Manage group, multi-select compare,
-   Worn gear panel, link codes are already covered). The docs site has no icons or emoji; keep it that way.
+1. Server (Hetzner CPX12, Helsinki, 2.29.193.18): live. `https://api.groupiron.com/api/health` answers (owner checked
+   2026-11-18) and beta.groupiron.com is set up. Deploy the latest `main` there before submitting (the owner deploys).
+2. Test the in-game join window in the RS3 beta client (re-run `install-dev.ps1`, remove `token` from the beta
+   `config.lua`, `prl gim-companion`). Fix the UI code if the real Input Field differs. The beta folder held an old
+   pre-release copy (version "0.1.0-dev"), the likely cause of "Loading..." in the Plugin Hub; the current copy is installed.
+3. (done) listing image; (done) docs site.
 5. The owner must read through `main.lua` before submitting (AI policy); offer a section-by-section walkthrough.
 6. Submit on mod.io (steps in `listing.md`); do not change files while Jagex has a freeze on.
 7. The live 1.x site's announcement popup was changed on the LOCAL `main` branch of the old 1.x code (commit `275b135`,
    worktree `../GIM-1x-announce`): it now promotes 2.0 at https://beta.groupiron.com instead of another tracker. It is **not pushed
    and not deployed**: the owner decides when (push to `origin main`, then the owner runs the production deploy). The popup was
    removed from the 2.0 code.
-8. Re-link the owner's own character (its token and plugin data were lost to an old refresh-roster bug, since fixed).
-9. Optional: more slayer creature counters (needs another beta probe), a "RuneScape 3 GIM" cross-group hiscore page, a paste-token
-   input in the plugin (Input Field component, docs page not read yet).
+8. Reconnect the owner's own character with the group secret (its plugin data were lost to an old refresh-roster bug, since fixed).
+9. Optional: more slayer creature counters (needs another beta probe), a "RuneScape 3 GIM" cross-group hiscore page.
 
 ## Migration (do not start before approval)
 

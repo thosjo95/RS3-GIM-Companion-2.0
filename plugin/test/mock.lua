@@ -44,7 +44,7 @@ id = {
   Inv = { INV = 93, WORN = 94, BANK = 95, GROUP_IRONMAN_STORAGE_CLAN_TEMP = 96 },
   Interface = { BANK = 762, GROUP_IRONMAN_STORAGE = 1500, STOCKMARKET = 1,  STOCKCOLLECT = 2, SHOP_MAIN = 3, TRADEMAIN = 4, TRADECONFIRM = 5 },
   Component = { TOPLEVEL_V2_TARGET_INFO__NAME = 9001, TOPLEVEL_V2_TARGET_INFO__ENTITY_HEALTH_LEFT = 9002, TOPLEVEL_V2__PLUGIN_BUILD_LAYER_TOP = 9100 },
-  StyleSheet = { DEFAULT = 1, BUTTON_DEFAULT = 2 },
+  StyleSheet = { DEFAULT = 1, BUTTON_DEFAULT = 2, INPUT_DEFAULT = 4 },
   Font = { MUSEO_SANS_15PT_REGULAR = 3 },
 }
 
@@ -114,7 +114,8 @@ UI_LOG = { created = {}, destroyed = 0 }
 local function component(kind)
   local c = { kind = kind, children = {} }
   function c:SetSize() end function c:SetPos() end function c:SetHeaderLayout() end function c:AlignTo() end
-  function c:Subscribe(hook, fn) self.pressed = fn end
+  function c:Subscribe(hook, fn) self.hooks = self.hooks or {}; self.hooks[hook] = fn; if hook == ui.Hook.ONBUTTONPRESSED then self.pressed = fn end end
+  function c:Setup(visibility, filter, maxLength) self.visibility = visibility end
   function c:Destroy() UI_LOG.destroyed = UI_LOG.destroyed + 1 end
   UI_LOG.created[#UI_LOG.created + 1] = c
   return c
@@ -129,7 +130,10 @@ PersistentDB = {
 HTTP_RESPONSES = {}   -- path -> canned response body, set by the harness
 
 ui = { GroupBox = { new = function() return component("group") end }, Text = { new = function() return component("text") end },
-Button = { new = function() return component("button") end }, AlignMode = { CENTRE = 1 }, Hook = { ONBUTTONPRESSED = 1 },
+Button = { new = function() return component("button") end }, InputField = { new = function() local c = component("input"); c.content = ""; return c end },
+AlignMode = { CENTRE = 1 }, Hook = { ONBUTTONPRESSED = 1, ONCONTENTCHANGED = 2 },
+TextContentVisibilityMode = { VISIBLE = 0, SHOW_LAST = 1, HIDDEN = 2 }, InputFieldFilterMode = { NONE = 0 },
+InputFieldActionResult = { NONE = 0, ERROR = 1, CONTENT_CHANGE = 2, SUBMIT = 3 },
 Interfaces = { GetComponent = function(self, which)
   if which == id.Component.TOPLEVEL_V2__PLUGIN_BUILD_LAYER_TOP then return {} end
   if which == id.Component.TOPLEVEL_V2_TARGET_INFO__NAME then return { text = "<col=ffffff>" .. TARGET_NAME .. "</col>" } end

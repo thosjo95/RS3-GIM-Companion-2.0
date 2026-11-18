@@ -1,8 +1,9 @@
 /**
  * GIM 2.0 — endpoints used by the in-game RuneScape plugin and the dashboard views built on it.
  *
- *   POST   /api/plugin/tokens          create an ingest token for one player   (group write auth)
- *   DELETE /api/plugin/tokens/:playerId revoke a player's tokens                (group write auth)
+ *   POST   /api/plugin/join            the plugin joins the group: character name + group secret -> that character's key
+ *   POST   /api/plugin/tokens          create a key for one player by hand (tests, developers) (group write auth)
+ *   DELETE /api/plugin/tokens/:playerId disconnect a player's plugin                (group write auth)
  *   POST   /api/plugin/ingest          the plugin pushes its data               (Bearer token)
  *   GET    /api/plugin/state?group_id  latest live state per player             (group auth)
  *   GET    /api/plugin/ledger?group_id group storage in/out (the Bank Journal)  (group auth)
@@ -14,7 +15,8 @@
  *   GET    /api/plugin/kill-vars?group_id     the game's kill tracker values, raw    (group auth)
  *
  * Design rules:
- *  - A token belongs to exactly one player and can only write that player's data.
+ *  - Players only ever use the group secret. The plugin trades it once for a key (token) that belongs to exactly one
+ *    player and can only write that player's data; the plugin keeps the key, not the secret.
  *  - Every field is validated; unknown fields are ignored; a bad section rejects the request with
  *    a message the plugin author can act on.
  *  - Reads are group-authenticated (a bank is private to the group, unlike the public hiscores data).
@@ -23,7 +25,7 @@ const express = require('express');
 const crypto  = require('crypto');
 const router  = express.Router();
 const db      = require('../database');
-const { checkGroupAuth } = require('../utils/auth');
+const { checkGroupAuth, verifyGroupPassword } = require('../utils/auth');
 const { createRateLimiter } = require('../utils/rateLimit');
 const { SKILLS } = require('../services/runescape');
 const sync = require('../services/pluginSync');
@@ -216,67 +218,51 @@ router.post('/tokens', (req, res) => {
   res.status(201).json({ player_id: player.id, token: mintToken(player.id) }); // shown once — only the hash is stored
 });
 
-// One live token per player: minting a new one invalidates the old (lost-token recovery).
-function mintToken(playerId) {
+// A key made by hand replaces the player's old keys (lost-key recovery). Joining with the group secret adds a key
+// instead, so the same character can play on two computers.
+function mintToken(playerId, { replace = true } = {}) {
   const token = TOKEN_PREFIX + crypto.randomBytes(32).toString('base64url');
-  db.prepare('UPDATE plugin_tokens SET revoked = 1 WHERE player_id = ?').run(playerId);
+  if (replace) db.prepare('UPDATE plugin_tokens SET revoked = 1 WHERE player_id = ?').run(playerId);
   db.prepare('INSERT INTO plugin_tokens (player_id, token_hash) VALUES (?, ?)').run(playerId, hashToken(token));
   return token;
 }
 
-// ── Linking with a code (device pairing) ──────────────────────────────────────
-// 1. The plugin asks for a code (pair/start) and shows it in the game; it keeps a secret only it knows.
-// 2. Someone with the group unlocked types the code on the website next to the right character (pair/claim).
-//    The server checks that the character name matches and mints the plugin's token.
-// 3. The plugin polls (pair/poll) with its secret and receives the token once. The code lives 10 minutes.
-const pairStartLimiter = createRateLimiter({ windowMs: 60_000, max: 12, message: 'Too many link requests. Wait a minute.' });
-const pairPollLimiter = createRateLimiter({ windowMs: 60_000, max: 60, message: 'Polling too fast.' });
-const pairClaimLimiter = createRateLimiter({ windowMs: 60_000, max: 20, message: 'Too many attempts. Wait a minute.' });
-const PAIR_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';      // no 0/O, 1/I/L
-const PAIR_TTL_MS = 10 * 60 * 1000;
-const sameName = (a, b) => String(a).replace(/\s/g, ' ').trim().toLowerCase() === String(b).replace(/\s/g, ' ').trim().toLowerCase();
-const cleanCode = c => String(c ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-const prettyCode = c => c.slice(0, 4) + '-' + c.slice(4);
+// ── Joining the group with the group secret ───────────────────────────────────
+// The group has one secret (made when the group is claimed; members use it to unlock the website). A player types it
+// into the plugin once. The plugin sends it here with the character name. If that character is a member of a claimed
+// group whose secret matches, the server answers with a key for that one character. The plugin stores the key, not
+// the secret. Failed attempts are rate-limited, and the answer never says whether the name or the secret was wrong.
+const joinLimiter = createRateLimiter({ windowMs: 60_000, max: 10, message: 'Too many attempts. Wait a minute and try again.' });
+// RuneScape treats spaces, underscores, hyphens and non-breaking spaces in names as the same character.
+const normName = s => String(s ?? '').toLowerCase().replace(/[\s_-]+/g, ' ').trim();
+// Secrets are made as XXXX-XXXX-XXXX; accept them typed in lower case or without the dashes too.
+function secretForms(raw) {
+  const typed = String(raw ?? '').trim();
+  const forms = [typed];
+  const compact = typed.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (compact.length === 12) forms.push(compact.match(/.{4}/g).join('-'));
+  return [...new Set(forms)].filter(Boolean);
+}
 
-router.post('/pair/start', pairStartLimiter, (req, res) => {
+router.post('/join', joinLimiter, (req, res) => {
   const rsn = String(req.body?.rsn ?? '').replace(/\s/g, ' ').trim();
+  const secret = String(req.body?.group_secret ?? '');
   if (!rsn || rsn.length > 40) return res.status(400).json({ error: 'rsn required' });
-  const now = Date.now();
-  db.prepare('DELETE FROM plugin_pairings WHERE expires_at < ? OR status = ?').run(now - 60_000, 'collected');   // housekeeping
-  db.prepare("DELETE FROM plugin_pairings WHERE status = 'pending' AND rsn = ?").run(rsn);                      // a newer request replaces the old one
-  let code;
-  do { code = Array.from(crypto.randomBytes(8), b => PAIR_ALPHABET[b % PAIR_ALPHABET.length]).join(''); }
-  while (db.prepare("SELECT 1 FROM plugin_pairings WHERE code = ? AND status = 'pending'").get(code));
-  const secret = crypto.randomBytes(24).toString('base64url');
-  db.prepare('INSERT INTO plugin_pairings (code, device_hash, rsn, expires_at) VALUES (?, ?, ?, ?)').run(code, hashToken(secret), rsn, now + PAIR_TTL_MS);
-  res.json({ code: prettyCode(code), device_secret: secret, expires_in: PAIR_TTL_MS / 1000 });
-});
+  if (!secret.trim() || secret.length > 100) return res.status(400).json({ error: 'group_secret required' });
 
-router.post('/pair/poll', pairPollLimiter, (req, res) => {
-  const secret = String(req.body?.device_secret ?? '');
-  if (!secret) return res.status(400).json({ error: 'device_secret required' });
-  const row = db.prepare('SELECT * FROM plugin_pairings WHERE device_hash = ?').get(hashToken(secret));
-  if (!row || row.expires_at < Date.now() || row.status === 'collected') return res.json({ status: 'expired' });
-  if (row.status === 'claimed') {
-    db.prepare("UPDATE plugin_pairings SET status = 'collected', token = NULL WHERE id = ?").run(row.id);   // handed over once
-    return res.json({ status: 'ready', token: row.token });
+  const wanted = normName(rsn);
+  const candidates = db.prepare(`SELECT p.id, p.rsn, g.id AS group_id, g.name AS group_name, g.password_hash, g.password_salt
+      FROM players p JOIN groups g ON g.id = p.group_id WHERE g.password_hash IS NOT NULL`).all()
+    .filter(p => normName(p.rsn) === wanted);
+  const forms = secretForms(secret);
+  for (const p of candidates) {
+    const group = { id: p.group_id, password_hash: p.password_hash, password_salt: p.password_salt };
+    if (forms.some(f => verifyGroupPassword(f, group))) {
+      const token = mintToken(p.id, { replace: false });
+      return res.json({ token, rsn: p.rsn, group: p.group_name });
+    }
   }
-  res.json({ status: 'pending' });
-});
-
-router.post('/pair/claim', pairClaimLimiter, (req, res) => {
-  const player = db.prepare('SELECT id, rsn, group_id FROM players WHERE id = ?').get(Number(req.body?.player_id));
-  if (!player) return res.status(404).json({ error: 'Player not found' });
-  if (!player.group_id) return res.status(403).json({ error: 'Player is not attached to a group' });
-  if (!checkGroupAuth(req, res, player.group_id)) return;
-  const code = cleanCode(req.body?.code);
-  const row = code.length === 8 ? db.prepare("SELECT * FROM plugin_pairings WHERE code = ? AND status = 'pending'").get(code) : null;
-  if (!row || row.expires_at < Date.now()) return res.status(404).json({ error: 'That code was not found or has expired. Start the plugin in the game to get a new one.' });
-  if (!sameName(row.rsn, player.rsn)) {
-    return res.status(409).json({ error: `That code is shown by the character "${row.rsn}", not "${player.rsn}". Pick the matching player.` });
-  }
-  db.prepare("UPDATE plugin_pairings SET status = 'claimed', token = ?, player_id = ? WHERE id = ?").run(mintToken(player.id), player.id, row.id);
-  res.json({ ok: true, rsn: player.rsn });
+  res.status(401).json({ error: `No claimed group with ${rsn} as a member has that secret. Check the secret, and that ${rsn} is on the group's website.` });
 });
 
 router.delete('/tokens/:playerId', (req, res) => {

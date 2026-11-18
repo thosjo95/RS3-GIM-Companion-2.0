@@ -20,8 +20,10 @@ It only **reads** the game. It never clicks, never sends input to the game and n
 Group storage is the group's shared chest. The plugin sends its contents and what **you** put in or take out; it
 does not look at what other members do.
 
-Every update carries a personal **token** that the plugin receives when you link it. A token can only send data for the one
-character it was created for. The website stores only a hash of it. Data is sent over HTTPS to the single address declared in `plugin.json`
+You connect the plugin with your group's **secret** (the same one that unlocks the website). The plugin sends it once,
+and the server answers with a **key** for your character only, which the plugin keeps instead of the secret. The key can
+only send data for that one character, and only while that character is a member of the group. The website stores only a
+hash of it. Data is sent over HTTPS to the single address declared in `plugin.json`
 (`https://api.groupiron.com`).
 
 ## Permission
@@ -33,15 +35,15 @@ stays idle and does nothing. You can withdraw it at any time in the plugin setti
 
 1. In the RuneScape client open the plugin browser, search for **GIM Companion** and install it.
 2. Enable it and allow network access (httpAccess) when the game asks.
-3. Log in. A small window in the game shows a **link code** (for example `K7M2-9QXA`).
-4. On the website: unlock your group, press **Plugin** in the top bar, then **Link with code** next to your name and type the code.
+3. Log in. A small **GIM Companion** window asks for your group's secret (for example `K7M2-9QXA-4HTR`). It is the
+   secret your group got when it claimed the group on the website; members find it under **Plugin** in the top bar.
+4. Type it and press **Connect** (or Enter).
 
-The plugin connects by itself within seconds and the dot next to your name turns green. You do this once per
-character; the plugin remembers the link on that computer. If the link ever stops working (for example it was
-revoked), the plugin shows a new code.
+The dot next to your name in the website's **Plugin** window turns green within a minute. You do this once per character
+and computer; the plugin remembers the key. If the group presses **Disconnect** for you, the plugin asks for the secret again.
 
-Prefer a file? Press **Advanced** in Plugin setup to create a personal token and paste it into the plugin's
-`config.lua` instead (`config.example.lua` shows how). A token in `config.lua` is used first.
+Prefer a file? Copy `config.example.lua` to `config.lua` and put the secret in it (`groupSecret = "..."`); the window
+is then not shown.
 
 ## Your data
 
@@ -59,7 +61,8 @@ write to **rs3groupiron@pm.me**. The privacy notice is on the project's document
 ## How it works
 
 ```
-RuneScape client (this plugin, HTTPS POST with your token)  ->  /api/plugin/ingest  ->  database  ->  dashboard
+RuneScape client (this plugin)  --once: name + group secret-->  /api/plugin/join    -> key for this character
+RuneScape client (this plugin)  --HTTPS POST with the key--->  /api/plugin/ingest  -> database -> dashboard
 ```
 
 `main.lua` is one file, read top to bottom in numbered sections: settings, reading the game, bank and group-storage

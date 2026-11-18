@@ -30,9 +30,9 @@ GIM Companion connects the RuneScape client to a web dashboard for Group Ironman
 The plugin only reads the game. It never presses anything, never sends input to the game and never changes anything. It does not read or send anything about other players.
 
 GETTING STARTED
-1. Install and enable the plugin, and allow network access (httpAccess) when the game asks.
-2. Open the website (https://groupiron.com), unlock your group and press "Plugin", then "Connect" next to your character name. A short code appears in the game window; enter it on the website. (Or paste a personal token into the plugin's config.lua.)
-3. Your numbers appear on the dashboard within a minute.
+1. On the website (https://groupiron.com) one member claims your group and gets the group secret, and shares it with the group.
+2. Install and enable GIM Companion, and allow network access (httpAccess) when the game asks.
+3. Log in. A GIM Companion window asks for the group secret: type it and press Connect. Your numbers appear on the dashboard within a minute.
 
 EMAIL
 rs3groupiron@pm.me (also for data deletion requests)
@@ -47,13 +47,13 @@ PERMISSIONS
 httpAccess: sends your own character's game data to the website https://api.groupiron.com, which is the only address the plugin can contact. The information sent is listed under Data Protection below. The website uses it to show your Group Ironman team its progress (items, quests, kills, drops, goals and leaderboards) and who is playing right now. Without this permission the plugin does nothing. No other permission is requested, and httpAccess is not combined with any other permission.
 
 DATA PROTECTION (data is sent to a destination in the EU: server in Helsinki, Finland)
-Information used and sent, for your own character only: character name; skill levels; backpack, worn items, bank and group storage contents and what you put in or take out of the group storage; quest, achievement and area task progress including the Group Ironman Journey; boss and slayer kill counts; notable drops; world and position; and a personal token (stored on the server only as a one-way hash). The plugin does not send chat, friends or clan lists, login or payment details, or anything about other players.
+Information used and sent, for your own character only: character name; skill levels; backpack, worn items, bank and group storage contents and what you put in or take out of the group storage; quest, achievement and area task progress including the Group Ironman Journey; boss and slayer kill counts; notable drops; world and position. To connect, the group secret you type is sent once; the plugin then uses a key for your character only (stored on the server only as a one-way hash). The plugin does not send chat, friends or clan lists, login or payment details, or anything about other players.
 Endpoint: https://api.groupiron.com (hosted by Hetzner Online GmbH in Helsinki, Finland).
 Privacy notice: https://thosjo95.github.io/RS3-GIM-Companion-2.0/privacy.html
-Security: all traffic uses HTTPS; a token can only send data for the one character it was created for and only its hash is stored; group secrets are stored as salted hashes; requests are rate limited and strictly validated; the server runs under an unprivileged account with a firewall and automatic security updates; only the developer has administrative access. Group pages show public hiscores data to anyone; everything that comes from the plugin is visible only to people who unlocked the group.
+Security: all traffic uses HTTPS; the plugin keeps a key, not the group secret; a key can only send data for its one character while that character is a member of the group, and only its hash is stored; group secrets are stored as salted hashes; requests are rate limited and strictly validated; the server runs under an unprivileged account with a firewall and automatic security updates; only the developer has administrative access. Group pages show public hiscores data to anyone; everything that comes from the plugin is visible only to people who unlocked the group.
 Retention: a member's data is deleted when they are removed from the group, a group unused for 30 days is deleted, and progress snapshots are kept for at most 120 days. Full details are in the privacy notice.
 Requests about your data (access, correction, deletion, withdrawal of consent) go to rs3groupiron@pm.me.
-The plugin does not store game information on your computer between sessions; it only stores your personal token as a setting.
+The plugin does not store game information on your computer between sessions; it only stores the key for your character as a setting.
 ```
 
 ## Step 4: Upload

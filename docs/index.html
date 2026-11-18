@@ -306,7 +306,7 @@
       <div class="feature-card"><h4>Exact boss kills</h4><p>Lifetime counts straight from the game's own kill tracker.</p></div>
       <div class="feature-card"><h4>Drops</h4><p>Valuable drops detected after your kills, logged once each.</p></div>
       <div class="feature-card"><h4>One player filter</h4><p>Pick a player card at the top and every page follows. Pick several to compare them.</p></div>
-      <div class="feature-card"><h4>Private by design</h4><p>Own character only, per-player tokens, nothing about other players.</p></div>
+      <div class="feature-card"><h4>Private by design</h4><p>Own character only, one secret per group, nothing about other players.</p></div>
     </div>
 
     <!-- ── NEWS ─────────────────────────────────────────── -->
@@ -328,10 +328,10 @@
       selected you see everyone. See <a href="#player-bar">Player cards &amp; filter</a>.
     </p>
 
-    <h3>Link the plugin with a code</h3>
+    <h3>One group secret for the website and the plugin</h3>
     <p>
-      No more copying tokens into files. The plugin shows a short code in the game; a member types it on the website with
-      <strong>Link with code</strong> and the plugin connects by itself. See <a href="#plugin-install">Install &amp; connect</a>.
+      The secret your group gets when it claims the group unlocks the website and connects the plugin. In the game the plugin
+      asks for it once; type it and press <strong>Connect</strong>. See <a href="#plugin-install">Install &amp; connect</a>.
     </p>
 
     <h3>Drops, Goals and Leaderboard tiles</h3>
@@ -376,13 +376,14 @@
 <pre>RuneScape client                      Your server                            Browser
 ┌─────────────────────┐   HTTPS POST  ┌──────────────────────────┐  GET   ┌───────────────┐
 │ GIM Companion (Lua) │ ────────────▶ │ /api/plugin/ingest       │ ◀───── │ Dashboard     │
-│ reads YOUR character│  Bearer token │  validates, stores,      │ group  │ (React + Vite)│
+│ reads YOUR character│  Bearer key   │  validates, stores,      │ group  │ (React + Vite)│
 │ every ~30 s         │               │  de-duplicates           │ auth   └───────────────┘
 └─────────────────────┘               │ SQLite database          │
                                       └──────────────────────────┘</pre>
     <ul>
       <li><strong>The plugin only reads.</strong> It never sends actions back into the game and never touches other players.</li>
-      <li><strong>Each member has their own token.</strong> It can only write that one player's data. The group secret never goes into the plugin.</li>
+      <li><strong>One secret per group.</strong> Members type the group secret into the plugin once. The plugin trades it for a key that can only write
+        that member's own character while the character is in the group, and keeps the key instead of the secret.</li>
       <li><strong>Sends are retry-safe.</strong> A lost response can never count a kill, a deposit or a drop twice.</li>
       <li><strong>The dashboard reads with the group secret.</strong> Bank data and live items are private to the group.</li>
     </ul>
@@ -401,7 +402,7 @@ npm run dev            # API on :3001, dashboard on :5173</code></pre>
     <h4>Connect the real plugin</h4>
     <ol>
       <li>Open the dashboard, unlock your group and click <strong>Plugin</strong> in the top bar.</li>
-      <li>Follow <a href="#plugin-install">Install &amp; connect</a>, then press <strong>Link with code</strong> next to your player and type the code the game shows.</li>
+      <li>Follow <a href="#plugin-install">Install &amp; connect</a>: the plugin asks for the group secret in the game.</li>
     </ol>
 
     <!-- ── DASHBOARD ────────────────────────────────────── -->
@@ -436,8 +437,8 @@ npm run dev            # API on :3001, dashboard on :5173</code></pre>
         Group Ironman hiscores (the rank links to the group there). This used to be a heading on every page.</li>
       <li><strong>+</strong> (unlocked groups) opens <strong>Manage group</strong>: add a character by hand (this is how you build a
         custom group), correct a character name, or remove a member. Removing asks for confirmation and deletes that player's data.</li>
-      <li><strong>Plugin</strong> opens the plugin setup window: every member, their connection status, <strong>Link with code</strong>,
-        and under <strong>Advanced</strong> a manual token for <code>config.lua</code>.</li>
+      <li><strong>Plugin</strong> opens the plugin setup window: how to connect, the group secret (hidden until you press Show, with Copy),
+        every member's connection status and <strong>Disconnect</strong>.</li>
       <li><strong>Group notes</strong>, <strong>Discord notifications</strong>, <strong>?</strong> tour, <strong>Docs</strong>, <strong>Discord</strong>, <strong>Sync All</strong> as in 1.x.</li>
     </ul>
 
@@ -522,7 +523,7 @@ npm run dev            # API on :3001, dashboard on :5173</code></pre>
       <tr><td><code>plugin.json</code></td><td>The manifest: name, contact address, permission (<code>httpAccess</code>) and the server URL.</td></tr>
       <tr><td><code>main.lua</code></td><td>The plugin: reading the game, batching, sending.</td></tr>
       <tr><td><code>json.lua</code></td><td>A small JSON encoder/decoder (the game provides none).</td></tr>
-      <tr><td><code>config.lua</code></td><td>Your personal token and optional test settings. <strong>Never share it, never commit it.</strong></td></tr>
+      <tr><td><code>config.lua</code></td><td>Optional: the group secret (instead of typing it in the game) and test settings. <strong>Never share it, never commit it.</strong></td></tr>
       <tr><td><code>install-dev.ps1</code></td><td>Copies the plugin into the beta client's <code>dev_plugins</code> folder (keeps your <code>config.lua</code>).</td></tr>
     </table>
 
@@ -548,14 +549,15 @@ pon gim-companion                     # enable it</code></pre></li>
       <tr><td><code>ppr</code> &lt;name&gt;</td><td>Request the manifest's permissions.</td></tr>
       <tr><td><code>ppe</code> / <code>ppd</code> &lt;name&gt; &lt;permission&gt;</td><td>Grant / revoke a permission (<code>httpAccess</code>, <code>chatAccess</code>, <code>trackingAccess</code>).</td></tr>
     </table>
-    <h3>Link your character with a code</h3>
-    <p>Log in with the plugin enabled. A small window in the game shows a link code such as <code>K7M2-9QXA</code>. On the website open the
-      <strong>Plugin</strong> window, press <strong>Link with code</strong> next to your character and type it. The plugin then collects its token by itself and
-      remembers it on that computer (per character). The code lives for 10 minutes and only works for the character that shows it, and linking needs the group's secret.
-      If you prefer a file, <strong>Advanced</strong> creates a personal token that you paste into <code>config.lua</code>; a token there is used first.</p>
+    <h3>Connect with the group secret</h3>
+    <p>Log in with the plugin enabled. A small <strong>GIM Companion</strong> window asks for your group's secret, the one that unlocks the website
+      (members see it under <strong>Plugin</strong> in the top bar). Type it and press <strong>Connect</strong> or Enter. The plugin sends it once to
+      <code>/api/plugin/join</code> with the character name. If that character is a member of the group with that secret, the server returns a key for that
+      character only; the plugin keeps the key (per character, on that computer) and forgets the secret. The box shows what you type, because the game
+      gives a plugin no text from a masked box. Prefer a file? Put <code>groupSecret = "XXXX-XXXX-XXXX"</code> in <code>config.lua</code> and no window is shown.</p>
     <p>
-      The plugin prints <code>[GIM]</code> lines. A healthy start looks like <code>httpAccess granted: true</code> and, once linked,
-      <code>GIM Companion started</code>. Open the group's <strong>Plugin</strong> window to see the green dot and "last update".
+      The plugin prints <code>[GIM]</code> lines. A healthy start looks like <code>httpAccess granted: true</code> and, once connected,
+      <code>... joined &lt;group&gt;. Sending to the dashboard.</code> Open the group's <strong>Plugin</strong> window to see the green dot and "last update".
     </p>
 
     <h2 id="plugin-data">What the plugin reads</h2>
@@ -582,10 +584,11 @@ pon gim-companion                     # enable it</code></pre></li>
     <h2 id="plugin-privacy">Privacy &amp; safety</h2>
     <p>The full <a href="privacy.html">privacy notice</a> explains what is collected, why, where it is stored, how long it is kept and how to have it deleted.</p>
     <ul>
-      <li><strong>Own character only.</strong> Every update names the character; the server refuses it (HTTP 409) if the token belongs to someone else, so a token can't store another character's data when you log into an alt.</li>
+      <li><strong>Own character only.</strong> Every update names the character; the server refuses it (HTTP 409) if the key belongs to someone else, so a key can't store another character's data when you log into an alt. An alt that is not in the group cannot join at all.</li>
       <li><strong>Read-only.</strong> The plugin never sends clicks, chat or actions into the game, and never reads chat. It asks for one permission: <code>httpAccess</code>.</li>
       <li><strong>Nothing about other players.</strong> No friends list, no nearby players' names or data. Kill/drop logic looks at monsters and item drops, never at other players.</li>
-      <li><strong>Per-player tokens.</strong> Stored hashed (SHA-256) on the server, shown once, revocable. The group secret never goes into the plugin.</li>
+      <li><strong>One secret, per-character keys.</strong> The group secret is sent once to join and not kept by the plugin. The key it gets back is stored hashed
+        (SHA-256) on the server and can be disconnected per member. Wrong secrets are rate limited (10 attempts a minute).</li>
       <li><strong>Where data goes.</strong> Only to the address in <code>plugin.json</code> (<code>urls</code>). Group data is readable only with the group secret.</li>
       <li><strong>No clock, no files.</strong> The game's Lua has no <code>os</code> library and plugins cannot write files, so the plugin cannot do either.</li>
     </ul>
@@ -657,10 +660,11 @@ pon gim-companion                     # enable it</code></pre></li>
     <h2 id="plugin-trouble">Troubleshooting</h2>
     <h3>"httpAccess permission not granted"</h3>
     <p>Run <code>ppe gim-companion httpAccess</code> after the plugin is loaded, then <code>prl gim-companion</code>. Remember <code>prf</code> resets it. The plugin prints <code>httpAccess granted: true</code> at start when it is right.</p>
-    <h3>"the server rejected this token (HTTP 401)"</h3>
-    <p>The token in <code>config.lua</code> is wrong, revoked, or still the placeholder text. Create a new one in <strong>Plugin</strong> → <em>New token</em> (this disables the old) and paste it between the quotes.</p>
-    <h3>"HTTP 409" / "different character"</h3>
-    <p>You are logged in as a character other than the one the token was made for. Log in as the right character or make a token for the current one.</p>
+    <h3>"No claimed group with ... as a member has that secret"</h3>
+    <p>Check the secret (letters and digits; dashes and lower case do not matter), that the group is claimed, and that this character is a member on the
+      website. A character added to the group later can connect as soon as it appears in the member list.</p>
+    <h3>"the server no longer accepts this character's key"</h3>
+    <p>Someone pressed <strong>Disconnect</strong> for this member, or the member was removed. The window asks for the secret again.</p>
     <h3>The game closes when the plugin starts</h3>
     <p>Create requests with the wrapped form (see <a href="#plugin-api">Lessons</a>). If it still happens, set <code>dryRun = true</code> to see whether reading is safe, then <code>probe = "local"</code> for the network, and report the last <code>[GIM] &gt;</code> line (or read <code>gim_last_step</code> from <code>PluginData.db</code>).</p>
     <h3>Nothing appears on the dashboard</h3>
@@ -676,23 +680,24 @@ pon gim-companion                     # enable it</code></pre></li>
     <p>The plugin is not submitted yet. Jagex's guidelines for submission (from the official guide) and where we stand:</p>
     <table>
       <tr><th>Requirement</th><th>Status</th></tr>
-      <tr><td>Real contact email in <code>plugin.json</code> (a separate address is recommended)</td><td><span class="tag-gold">to do</span> currently a placeholder</td></tr>
-      <tr><td>Production URL in <code>urls</code> (https, not localhost)</td><td><span class="tag-gold">to do</span></td></tr>
-      <tr><td><code>httpAccess</code> is subject to review: explain why in plain language</td><td><span class="tag-gold">to do</span> (text drafted in this page)</td></tr>
-      <tr><td>Data protection notice (EU server → case 2: list endpoints and security measures, privacy notice)</td><td><span class="tag-gold">to do</span></td></tr>
+      <tr><td>Real contact email in <code>plugin.json</code> (a separate address is recommended)</td><td><span class="tag-green">met</span> rs3groupiron@pm.me</td></tr>
+      <tr><td>Production URL in <code>urls</code> (https, not localhost)</td><td><span class="tag-green">met</span> https://api.groupiron.com</td></tr>
+      <tr><td><code>httpAccess</code> is subject to review: explain why in plain language</td><td><span class="tag-green">met</span> in the mod.io listing text</td></tr>
+      <tr><td>Data protection notice (EU server → case 2: list endpoints and security measures, privacy notice)</td><td><span class="tag-green">met</span> <a href="privacy.html">privacy notice</a></td></tr>
       <tr><td>Own character only, read-only</td><td><span class="tag-green">met</span></td></tr>
       <tr><td>Readable, commented code; no unvetted AI-generated code</td><td><span class="tag-gold">review</span> every line must be reviewed and understood by the submitter</td></tr>
-      <tr><td>A way to enter the token in-game (instead of editing a file)</td><td><span class="tag-gold">to do</span> see the plugin UI tutorial</td></tr>
-      <tr><td>Remove debug output and probes from the release build</td><td><span class="tag-gold">to do</span></td></tr>
+      <tr><td>A way to connect in-game (instead of editing a file)</td><td><span class="tag-gold">to test</span> a window asks for the group secret; not yet tried in the real client</td></tr>
+      <tr><td>Remove debug output and probes from the release build</td><td><span class="tag-green">met</span></td></tr>
     </table>
 
     <!-- ── REFERENCE ────────────────────────────────────── -->
     <h2 id="server-api">Server API (plugin)</h2>
-    <p>All under <code>/api/plugin</code>. <strong>Bearer</strong> = the member's <code>gimp_…</code> token; <strong>group</strong> = unlocked group (secret).</p>
+    <p>All under <code>/api/plugin</code>. <strong>Bearer</strong> = the member's <code>gimp_…</code> key (from <code>/join</code>); <strong>group</strong> = unlocked group (secret).</p>
     <table>
       <tr><th>Endpoint</th><th>Auth</th><th>Purpose</th></tr>
-      <tr><td><code>POST /tokens</code></td><td>group</td><td>Create a token for a player (disables the previous one).</td></tr>
-      <tr><td><code>DELETE /tokens/:playerId</code></td><td>group</td><td>Revoke a player's tokens.</td></tr>
+      <tr><td><code>POST /join</code></td><td>group secret in the body</td><td>The plugin joins: character name + group secret → a key for that member. 10 attempts/min.</td></tr>
+      <tr><td><code>POST /tokens</code></td><td>group</td><td>Create a key for a player by hand (tests and developers; disables the previous ones).</td></tr>
+      <tr><td><code>DELETE /tokens/:playerId</code></td><td>group</td><td>Disconnect a player's plugin (all of its keys).</td></tr>
       <tr><td><code>POST /ingest</code></td><td>Bearer</td><td>The plugin's data (below). 1 MB, 60 requests/min.</td></tr>
       <tr><td><code>GET /config</code></td><td>Bearer</td><td>Drop rules for the plugin.</td></tr>
       <tr><td><code>GET /state</code></td><td>group</td><td>Live state per player (skills, items, bank, group storage, position).</td></tr>
@@ -732,7 +737,8 @@ pon gim-companion                     # enable it</code></pre></li>
 
     <h2 id="security">Security</h2>
     <ul>
-      <li>Per-player ingest tokens, hashed; only that player's data can be written.</li>
+      <li>One group secret for people; the plugin trades it once for a per-player key, stored hashed, that can only write that player's data.</li>
+      <li>Joining is rate limited and answers the same way whether the name or the secret was wrong.</li>
       <li>The character name is checked on every update.</li>
       <li>Strict validation and limits on every section; unknown fields ignored.</li>
       <li>Rate limiting on ingest.</li>
@@ -763,8 +769,6 @@ npm run build --prefix client</code></pre>
     <h4>Next</h4>
     <ul>
       <li>Slayer creature kills (name ↔ packed counter mapping).</li>
-      <li>In-game token entry (plugin UI) and a first-run help window.</li>
-      <li>Release hardening: remove debug and probes, real contact email, https URL, privacy notice.</li>
       <li>A live map from the position data (opt-in), HP/prayer, XP history graphs.</li>
       <li>Submission to mod.io.</li>
     </ul>
@@ -806,7 +810,7 @@ npm run build --prefix client</code></pre>
       <li>Drops, Goals and Leaderboard tiles open as floating panels; the Leaderboard tile counts running competitions.</li>
       <li>Manage group window (+ in the top bar) for adding, renaming and removing members; the roster updates itself nightly.</li>
       <li>Player cards show who is online, and the magnifying glass opens backpack, worn equipment and skills.</li>
-      <li>Link the plugin with a code shown in the game instead of pasting a token.</li>
+      <li>Connect the plugin with the group secret in a window in the game; no tokens to copy.</li>
       <li>Items refresh by themselves every few seconds.</li>
     </ul>
 

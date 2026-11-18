@@ -5,7 +5,8 @@
 -- sends actions back into the game. It only reads. Data goes only to the address in plugin.json "urls".
 --
 -- Layout of this file (one idea per section):
---   1. Settings     - read the personal token from config.lua
+--   1. Settings     - optional settings from config.lua
+--      Joining       - the player types the group secret once; the plugin trades it for this character's key
 --   2. Reading      - skills, inventories, position
 --   3. Bank changes - what moved in/out of the bank and group storage
 --   4. Quests       - quest progress from the game's quest definitions
@@ -29,13 +30,15 @@ end
 
 -- ── 1. Settings ───────────────────────────────────────────────────────────────
 -- NB: `config` is the game API's own global (config.Obj ...), so our settings use another name.
--- config.lua is optional. Normally the plugin links itself with a code shown in the game (section 2b); a token pasted into
--- config.lua still works and is used first.
+-- config.lua is optional. Normally the player types the group secret into a small window in the game (section 2b).
+-- config.lua may hold it instead (groupSecret = "XXXX-XXXX-XXXX"). Developers can also put a key there (token = "gimp_...").
 local okSettings, settings = pcall(require, "config")
 if not okSettings or type(settings) ~= "table" then settings = {} end
-local token = nil            -- the personal token: from config.lua, or learned by linking (section 2b)
+local token = nil            -- this character's key: learned by joining (section 2b), or from config.lua
 local tokenFromConfig = false
 if type(settings.token) == "string" and settings.token:find("^gimp_") then token = settings.token; tokenFromConfig = true end
+local configSecret = type(settings.groupSecret) == "string" and settings.groupSecret:match("^%s*(.-)%s*$") or nil
+if configSecret == "" then configSecret = nil end
 
 log("[GIM] httpAccess granted: " .. tostring(Plugin.HasPermission(PluginPermissions.httpAccess)))
 if settings.dryRun ~= true and not Plugin.HasPermission(PluginPermissions.httpAccess) then
@@ -213,32 +216,79 @@ local function near(a, b, tiles)
     return a ~= nil and b ~= nil and a.level == b.level and math.abs(a.x - b.x) <= tiles and math.abs(a.y - b.y) <= tiles
 end
 
--- ── 2b. Linking this character ───────────────────────────────────────────────
--- No token yet: ask the server for a short code, show it in the game, and wait until someone enters it on the website
--- (top bar: Plugin > Link with code). The plugin then collects its token and keeps it in the game's persistent store, per character.
-local PAIR_POLL_TICKS  = 8        -- poll about every 5 seconds (ServerLogic fires about every 0.6 s)
-local PAIR_RETRY_TICKS = 100      -- after a failed request, wait this long
-local pair = nil                  -- { code, secret, busy, nextAt } while a code is on offer
-local pairWindow = nil
-local pairRetryAt = 0
-local storedKey = nil             -- persistent-store key of the token that is in use (nil when it came from config.lua)
+-- ── 2b. Joining the group ────────────────────────────────────────────────────
+-- The group has ONE secret, made on the website when the group is claimed (members also use it to unlock the website).
+-- The first time a character plays with the plugin, a small window asks for that secret. The plugin sends it ONCE,
+-- with the character's name, to /api/plugin/join. The server checks that this character is a member of the group with
+-- that secret and answers with a key that can only send this one character's data. The plugin keeps that key in the
+-- game's persistent store (per character) and forgets the secret, so the group secret is not kept on the computer.
+local JOIN_RETRY_TICKS = 100      -- after a failed attempt with the secret from config.lua, wait about a minute
+local joinWindow, joinField, joinStatus = nil, nil, nil
+local joining = false             -- a join request is on its way
+local joinRetryAt = 0
+local joinHidden = false          -- the player pressed Hide: do not show the window again until the next login
+local storedKey = nil             -- persistent-store key of the key in use (nil when it came from config.lua)
 
 local function tokenKey(rsn) return "token_" .. rsn:lower():gsub("%s+", " ") end
 
-local function closePairWindow()
-    if pairWindow ~= nil then pcall(function() pairWindow:Destroy() end); pairWindow = nil end
+local function closeJoinWindow()
+    if joinWindow ~= nil then pcall(function() joinWindow:Destroy() end) end
+    joinWindow, joinField, joinStatus = nil, nil, nil
 end
 
--- A small window in the game: the code, where to enter it, and a Hide button. Built exactly like Jagex's UI tutorial;
--- if anything in it is not available the code is still printed to the console.
-local function showPairWindow(code)
-    closePairWindow()
+local function setJoinStatus(message)
+    if joinStatus ~= nil then pcall(function() joinStatus.content = message end) end
+end
+
+local function adoptToken(newToken, key, persist)
+    token = newToken; storedKey = key
+    if persist and key then pcall(function() PersistentDB:SetString(key, newToken) end) end
+    closeJoinWindow()
+    dirty.skills, dirty.items = true, true      -- the first update goes out right away
+end
+
+-- Called when the server no longer accepts this character's key (for example the group pressed Disconnect).
+local function forgetToken()
+    if storedKey then pcall(function() PersistentDB:Delete(storedKey) end) end
+    token, storedKey = nil, nil
+    joinRetryAt, joinHidden = 0, false
+end
+
+-- Send the group secret once and receive this character's key.
+local function join(rsn, secret)
+    joining = true
+    setJoinStatus("Connecting...")
+    local okReq, request = newRequest(Plugin.urls.gim, "/api/plugin/join")
+    if not okReq or request == nil then joining = false; joinRetryAt = ticks + JOIN_RETRY_TICKS; return end
+    request:AddHeader("Content-Type", "application/json")
+    request:Post(json.encode({ rsn = rsn, group_secret = secret }), function()
+        joining = false
+        local okJ, doc = pcall(json.decode, request.data or "")
+        if request.successful and request.responseCode == 200 and okJ and type(doc) == "table"
+            and type(doc.token) == "string" and doc.token:find("^gimp_") then
+            adoptToken(doc.token, tokenKey(rsn), true)
+            log("[GIM] " .. rsn .. " joined " .. tostring(doc.group or "the group") .. ". Sending to the dashboard.")
+        else
+            local why = (okJ and type(doc) == "table" and type(doc.error) == "string") and doc.error
+                or ("the server did not answer (HTTP " .. tostring(request.responseCode) .. ")")
+            log("[GIM] could not join: " .. why)
+            setJoinStatus(why)
+            joinRetryAt = ticks + JOIN_RETRY_TICKS
+        end
+    end)
+end
+
+-- A small window in the game: where to find the secret, a box to type it in, Connect and Hide. Built like Jagex's UI
+-- tutorial. The box shows what is typed: the game returns no text from a masked box. If anything here is not available,
+-- the console explains how to put the secret in config.lua instead.
+local function showJoinWindow(rsn)
+    closeJoinWindow()
     local ok, err = pcall(function()
         local parent = ui.Interfaces:GetComponent(id.Component.TOPLEVEL_V2__PLUGIN_BUILD_LAYER_TOP)
         local box = ui.GroupBox.new(parent)
         box.stylesheetID = id.StyleSheet.DEFAULT
         box:SetHeaderLayout(0, 0, 0, 0, 0)
-        box:SetSize(400, 190)
+        box:SetSize(420, 230)
         box:SetPos(0, 0, 0.5, 0.3, 0.5, 0.5)
         local function line(content, top, height)
             local t = ui.Text.new(box)
@@ -249,84 +299,72 @@ local function showPairWindow(code)
             t:AlignTo(ui.AlignMode.CENTRE)
             return t
         end
-        line("GIM Companion: link this character", 0.04, 0.16)
-        line(code, 0.22, 0.24)
-        line("Website: Plugin > Link with code, then type this code", 0.48, 0.16)
+        line("GIM Companion: join your group", 0.03, 0.13)
+        line("Type your group's secret (the one that unlocks the website)", 0.17, 0.13)
+
+        local field = ui.InputField.new(box)
+        field.stylesheetID = id.StyleSheet.INPUT_DEFAULT
+        field:Setup(ui.TextContentVisibilityMode.VISIBLE, ui.InputFieldFilterMode.NONE, 40)
+        field.emptyText = "XXXX-XXXX-XXXX"
+        field:SetSize(0, 0, 0.7, 0.15)
+        field:SetPos(0, 0, 0.15, 0.34)
+
+        local status = line("Joining " .. rsn .. " to the group's dashboard", 0.53, 0.13)
+
+        local function connect()
+            local secret = (field.content or ""):match("^%s*(.-)%s*$")
+            if secret == "" then setJoinStatus("Type the secret first"); return end
+            if not joining then join(rsn, secret) end
+        end
+        -- Enter in the box connects too
+        field:Subscribe(ui.Hook.ONCONTENTCHANGED, function(_, cause)
+            if cause == ui.InputFieldActionResult.SUBMIT then connect() end
+        end)
+
+        local connectBtn = ui.Button.new(box)
+        connectBtn:SetPos(0, 0, 0.17, 0.74)
+        connectBtn:SetSize(0, 0, 0.3, 0.18)
+        connectBtn.label = "Connect"
+        connectBtn.stylesheetID = id.StyleSheet.BUTTON_DEFAULT
+        connectBtn:Subscribe(ui.Hook.ONBUTTONPRESSED, connect)
+
         local hide = ui.Button.new(box)
-        hide:SetPos(0, 0, 0.35, 0.74)
-        hide:SetSize(0, 0, 0.3, 0.2)
+        hide:SetPos(0, 0, 0.53, 0.74)
+        hide:SetSize(0, 0, 0.3, 0.18)
         hide.label = "Hide"
         hide.stylesheetID = id.StyleSheet.BUTTON_DEFAULT
-        hide:Subscribe(ui.Hook.ONBUTTONPRESSED, function() box.hidden = true end)
-        pairWindow = box
+        hide:Subscribe(ui.Hook.ONBUTTONPRESSED, function() joinHidden = true; closeJoinWindow() end)
+
+        joinWindow, joinField, joinStatus = box, field, status
     end)
-    if not ok then log("[GIM] could not draw the link window (" .. tostring(err) .. ")") end
+    if not ok then
+        log("[GIM] could not draw the join window (" .. tostring(err) .. ")")
+        log("[GIM] Put your group secret in config.lua instead:  groupSecret = \"XXXX-XXXX-XXXX\"   then  prl gim-companion")
+        joinHidden = true
+    end
 end
 
-local function adoptToken(newToken, key, persist)
-    token = newToken; storedKey = key
-    if persist and key then pcall(function() PersistentDB:SetString(key, newToken) end) end
-    closePairWindow(); pair = nil
-    dirty.skills, dirty.items = true, true      -- the first update goes out right away
-end
-
--- Called when the server no longer accepts a linked token: forget it and start over.
-local function forgetToken()
-    if storedKey then pcall(function() PersistentDB:Delete(storedKey) end) end
-    token, storedKey, pair = nil, nil, nil
-    pairRetryAt = 0
-end
-
--- Runs on every tick while there is no token.
-local function pairStep()
+-- Runs on every tick while this character has no key.
+local function joinStep()
     if not Plugin.HasPermission(PluginPermissions.httpAccess) or not Player.IsAvailable() then return end
     local rsn = characterName()
-    if rsn == nil then return end
+    if rsn == nil or joining then return end
 
-    -- this character was linked before on this computer
-    if pair == nil then
-        local okGet, saved = pcall(function() return PersistentDB:GetString(tokenKey(rsn)) end)
-        if okGet and type(saved) == "string" and saved:find("^gimp_") then adoptToken(saved, tokenKey(rsn), false); return end
-    end
+    -- this character joined before on this computer
+    local okGet, saved = pcall(function() return PersistentDB:GetString(tokenKey(rsn)) end)
+    if okGet and type(saved) == "string" and saved:find("^gimp_") then adoptToken(saved, tokenKey(rsn), false); return end
 
-    if pair == nil then
-        if ticks < pairRetryAt then return end
-        pair = { busy = true, nextAt = 0 }
-        local okReq, request = newRequest(Plugin.urls.gim, "/api/plugin/pair/start")
-        if not okReq or request == nil then pair = nil; pairRetryAt = ticks + PAIR_RETRY_TICKS; return end
-        request:AddHeader("Content-Type", "application/json")
-        request:Post(json.encode({ rsn = rsn }), function()
-            local okJ, doc = pcall(json.decode, request.data or "")
-            if request.successful and request.responseCode == 200 and okJ and type(doc) == "table" and doc.code and doc.device_secret then
-                pair = { code = doc.code, secret = doc.device_secret, busy = false, nextAt = ticks + PAIR_POLL_TICKS }
-                log("[GIM] Link code for " .. rsn .. ": " .. doc.code .. "  (website: Plugin > Link with code)")
-                showPairWindow(doc.code)
-            else
-                pair = nil; pairRetryAt = ticks + PAIR_RETRY_TICKS
-                log("[GIM] could not get a link code (HTTP " .. tostring(request.responseCode) .. "), trying again soon")
-            end
-        end)
+    -- the secret is in config.lua: use it (again after a pause if it was refused)
+    if configSecret ~= nil then
+        if ticks >= joinRetryAt then join(rsn, configSecret) end
         return
     end
 
-    if pair.busy or pair.secret == nil or ticks < pair.nextAt then return end
-    pair.busy = true
-    local okReq, request = newRequest(Plugin.urls.gim, "/api/plugin/pair/poll")
-    if not okReq or request == nil then pair.busy = false; pair.nextAt = ticks + PAIR_RETRY_TICKS; return end
-    request:AddHeader("Content-Type", "application/json")
-    request:Post(json.encode({ device_secret = pair.secret }), function()
-        local okJ, doc = pcall(json.decode, request.data or "")
-        if pair == nil then return end
-        pair.busy = false; pair.nextAt = ticks + PAIR_POLL_TICKS
-        if request.successful and request.responseCode == 200 and okJ and type(doc) == "table" then
-            if doc.status == "ready" and type(doc.token) == "string" and doc.token:find("^gimp_") then
-                adoptToken(doc.token, tokenKey(rsn), true)
-                log("[GIM] linked: " .. rsn .. " is now connected to the dashboard.")
-            elseif doc.status == "expired" then
-                closePairWindow(); pair = nil; pairRetryAt = 0       -- the code ran out: get a new one
-            end
-        end
-    end)
+    -- otherwise ask for it in the game, once per login unless the player hid the window
+    if joinWindow == nil and not joinHidden then
+        showJoinWindow(rsn)
+        log("[GIM] " .. rsn .. " is not connected yet: type your group secret in the GIM Companion window.")
+    end
 end
 
 -- ── 3. Changes in the bank and group storage ──────────────────────────────────
@@ -1089,7 +1127,7 @@ local function send()
                 log("[GIM] the server rejected the token in config.lua (HTTP " .. tostring(status) .. "). Check it and that you are logged in as the right character. Sending stopped.")
             else
                 forgetToken()
-                log("[GIM] the server no longer accepts this character's link (HTTP " .. tostring(status) .. "). Link it again with the new code.")
+                log("[GIM] the server no longer accepts this character's key (HTTP " .. tostring(status) .. "). Type the group secret again to reconnect.")
             end
         else
             log("[GIM] send failed (HTTP " .. tostring(status) .. ") " .. tostring(request.errorInfo or "") .. " - will retry")
@@ -1121,14 +1159,14 @@ Event.GameStateChanged.Subscribe("gim_state", function(event)
         bossHeld, bossChanged, lastBossCheck = {}, nil, -BOSS_RECHECK
         engagedName, lastHp, recentKills, fromGround, packBefore = nil, nil, {}, {}, nil
         rules = nil
-        if not tokenFromConfig then closePairWindow(); token, storedKey, pair = nil, nil, nil end   -- the next character may be another one
+        if not tokenFromConfig then closeJoinWindow(); token, storedKey, joinHidden, joinRetryAt = nil, nil, false, 0 end   -- the next character may be another one
         dirty.skills, dirty.items = true, true
     end
 end)
 
 Event.ServerLogic.Subscribe("gim_tick", function()
     ticks = ticks + 1
-    if token == nil and not DRY_RUN then pairStep(); return end
+    if token == nil and not DRY_RUN then joinStep(); return end
     if FEATURES.kills and ticks % 2 == 0 then readTarget() end
 
     if FEATURES.quests and Player.IsAvailable() then

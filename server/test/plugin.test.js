@@ -197,40 +197,43 @@ test('responses are gzip compressed when the browser accepts it', async () => {
   assert.match(res.headers.get('content-encoding') ?? 'identity', /gzip|identity/);
 });
 
-// ── linking with a code ──────────────────────────────────────────────────────
-test('a plugin can be linked with a code shown in the game; the token is handed over once', async () => {
-  const start = await (await call('POST', '/plugin/pair/start', { body: { rsn: 'PlayerOpen' } })).json();
-  assert.match(start.code, /^[A-Z2-9]{4}-[A-Z2-9]{4}$/);
-  assert.ok(start.device_secret.length > 20);
+// ── joining with the group secret ────────────────────────────────────────────
+test('a plugin joins with the group secret and gets a key for its own character only', async () => {
+  const join = body => call('POST', '/plugin/join', { body });
+  // wrong secret, a character that is not in the group, an unclaimed group: all refused the same way
+  assert.equal((await join({ rsn: 'PlayerA', group_secret: 'WRONG-WRONG-WRNG' })).status, 401);
+  assert.equal((await join({ rsn: 'Not A Member', group_secret: SECRET })).status, 401);
+  assert.equal((await join({ rsn: 'PlayerOpen', group_secret: SECRET })).status, 401);
+  assert.equal((await join({ rsn: 'PlayerA', group_secret: SECRET_B })).status, 401);   // group B's secret, group A's member
+  assert.equal((await join({ rsn: 'PlayerA' })).status, 400);
 
-  const poll = secret => call('POST', '/plugin/pair/poll', { body: { device_secret: secret } }).then(r => r.json());
-  assert.equal((await poll(start.device_secret)).status, 'pending');
-  assert.equal((await poll('not-the-secret')).status, 'expired');
+  // a real secret (XXXX-XXXX-XXXX) is accepted in lower case and without dashes, and the name with an underscore
+  const pw = require('../utils/auth').hashPassword('ABCD-EFGH-JK23');
+  const g = Number(db.prepare("INSERT INTO groups (name, gim_type, gim_size, password_hash, password_salt) VALUES ('Typed', 'custom', 2, ?, ?)").run(pw.hash, pw.salt).lastInsertRowid);
+  db.prepare('INSERT INTO players (rsn, group_id) VALUES (?, ?)').run('Typed Player', g);
+  const typed = await join({ rsn: 'typed_player', group_secret: ' abcdefghjk23 ' });
+  assert.equal(typed.status, 200);
+  assert.equal((await typed.json()).rsn, 'Typed Player');
 
-  // claiming needs the group's secret, the right character and a live code
-  assert.equal((await call('POST', '/plugin/pair/claim', { body: { player_id: pA, code: start.code } })).status, 401);
-  assert.equal((await call('POST', '/plugin/pair/claim', { headers: asGroup(openGroup), body: { player_id: pOpen, code: 'ZZZZ-ZZZZ' } })).status, 404);
-  const other = Number(db.prepare('INSERT INTO players (rsn, group_id) VALUES (?, ?)').run('Somebody Else', openGroup).lastInsertRowid);
-  const wrong = await call('POST', '/plugin/pair/claim', { headers: asGroup(openGroup), body: { player_id: other, code: start.code } });
-  assert.equal(wrong.status, 409);                                              // the code belongs to another character
-  const ok = await call('POST', '/plugin/pair/claim', { headers: asGroup(openGroup), body: { player_id: pOpen, code: start.code.toLowerCase() } });
+  const ok = await join({ rsn: 'PlayerA', group_secret: SECRET });
   assert.equal(ok.status, 200);
+  const doc = await ok.json();
+  assert.match(doc.token, /^gimp_/);
+  assert.equal(doc.rsn, 'PlayerA');
+  assert.equal(doc.group, 'A');
 
-  const ready = await poll(start.device_secret);
-  assert.equal(ready.status, 'ready');
-  assert.match(ready.token, /^gimp_/);
-  assert.equal((await poll(start.device_secret)).status, 'expired');             // handed over once
-  const ingest = await call('POST', '/plugin/ingest', { headers: bearer(ready.token), body: { v: 1, rsn: 'PlayerOpen' } });
-  assert.equal(ingest.status, 200);                                              // and the token works
-  assert.equal(db.prepare('SELECT COUNT(*) n FROM plugin_pairings WHERE token IS NOT NULL').get().n, 0, 'no plaintext token is left behind');
+  // the key writes that character's data, and cannot be used as another character
+  assert.equal((await call('POST', '/plugin/ingest', { headers: bearer(doc.token), body: { v: 1, rsn: 'PlayerA' } })).status, 200);
+  assert.equal((await call('POST', '/plugin/ingest', { headers: bearer(doc.token), body: { v: 1, rsn: 'PlayerB' } })).status, 409);
+  // only a hash of the key is stored, and the secret is never stored anywhere new
+  assert.equal(db.prepare('SELECT COUNT(*) n FROM plugin_tokens WHERE token_hash = ?').get(require('crypto').createHash('sha256').update(doc.token).digest('hex')).n, 1);
 });
 
-test('a code expires, and a newer request for the same character replaces the old one', async () => {
-  const first = await (await call('POST', '/plugin/pair/start', { body: { rsn: 'Expiring One' } })).json();
-  const second = await (await call('POST', '/plugin/pair/start', { body: { rsn: 'Expiring One' } })).json();
-  assert.notEqual(first.code, second.code);
-  const p = Number(db.prepare('INSERT INTO players (rsn, group_id) VALUES (?, ?)').run('Expiring One', openGroup).lastInsertRowid);
-  assert.equal((await call('POST', '/plugin/pair/claim', { headers: asGroup(openGroup), body: { player_id: p, code: first.code } })).status, 404);
-  db.prepare('UPDATE plugin_pairings SET expires_at = ? WHERE code = ?').run(Date.now() - 1000, second.code.replace('-', ''));
-  assert.equal((await call('POST', '/plugin/pair/claim', { headers: asGroup(openGroup), body: { player_id: p, code: second.code } })).status, 404);
+test('joining from a second computer keeps the first one connected; Disconnect stops both', async () => {
+  const one = (await (await call('POST', '/plugin/join', { body: { rsn: 'PlayerB', group_secret: SECRET_B } })).json()).token;
+  const two = (await (await call('POST', '/plugin/join', { body: { rsn: 'PlayerB', group_secret: SECRET_B } })).json()).token;
+  assert.notEqual(one, two);
+  for (const t of [one, two]) assert.equal((await call('POST', '/plugin/ingest', { headers: bearer(t), body: { v: 1, rsn: 'PlayerB' } })).status, 200);
+  assert.equal((await call('DELETE', `/plugin/tokens/${pB}`, { headers: asGroup(groupB) })).status, 200);
+  for (const t of [one, two]) assert.equal((await call('POST', '/plugin/ingest', { headers: bearer(t), body: { v: 1, rsn: 'PlayerB' } })).status, 401);
 });

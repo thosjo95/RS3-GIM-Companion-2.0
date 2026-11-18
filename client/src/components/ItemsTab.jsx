@@ -280,60 +280,47 @@ function LedgerView({ ledger, colorOf, selectedPlayerId }) {
 }
 
 // ── Plugin setup ──────────────────────────────────────────────────────────────
+// Members connect the plugin with the group secret: the plugin asks for it once in the game and trades it for a key that
+// can only send that member's own character. This list shows who is connected; Disconnect stops a member's plugin.
 
-function SetupView({ state, canWrite, onToast, reload }) {
-  const [fresh, setFresh] = useState(null); // { player_id, rsn, token } — shown once (manual token)
-  const [linking, setLinking] = useState(null); // the player whose code is being typed
-  const [code, setCode] = useState('');
-  const [linkBusy, setLinkBusy] = useState(false);
-  const [linked, setLinked] = useState(null);   // { rsn } after a successful link
-  const [advanced, setAdvanced] = useState(false);
+// The group secret this browser unlocked the group with (saved by the unlock screen).
+function storedSecret(groupId) {
+  try { return JSON.parse(localStorage.getItem('groupPasswords') || '{}')[groupId] || null; } catch { return null; }
+}
 
-  async function link(p) {
-    setLinkBusy(true);
-    try {
-      await api.claimPluginCode(p.player_id, code);
-      setLinked({ rsn: p.rsn }); setLinking(null); setCode('');
-      reload(); setTimeout(reload, 4000);
-    } catch (e) { onToast?.(e.message, 'error'); } finally { setLinkBusy(false); }
-  }
+function SetupView({ state, groupId, canWrite, onToast, reload }) {
+  const [showSecret, setShowSecret] = useState(false);
+  const secret = storedSecret(groupId);
 
-  async function mint(p) {
-    try {
-      const r = await api.createPluginToken(p.player_id);
-      setFresh({ ...r, rsn: p.rsn });
-      reload();
-    } catch (e) { onToast?.(e.message, 'error'); }
-  }
   async function revoke(p) {
-    if (!window.confirm(`Disconnect ${p.rsn}'s plugin? Their token stops working immediately.`)) return;
-    try { await api.revokePluginToken(p.player_id); setFresh(null); reload(); onToast?.('Token revoked', 'success'); }
+    if (!window.confirm(`Disconnect ${p.rsn}'s plugin? It stops sending at once, and asks for the group secret again the next time ${p.rsn} logs in.`)) return;
+    try { await api.revokePluginToken(p.player_id); reload(); onToast?.(`${p.rsn} disconnected`, 'success'); }
     catch (e) { onToast?.(e.message, 'error'); }
   }
 
+  const step = { display: 'flex', gap: 10, alignItems: 'baseline' };
+  const num = { flexShrink: 0, width: 20, height: 20, borderRadius: '50%', border: '1px solid var(--gold-dark)', color: 'var(--gold)',
+                fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' };
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div className="callout callout-info" style={{ fontSize: 12, lineHeight: 1.6, padding: 12, border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}>
-        Each member installs the GIM Companion plugin in the RuneScape client and links their character with a short code: start the plugin
-        in the game, a window shows a code, press <strong>Link with code</strong> next to your name below and type it. The plugin then connects
-        by itself. It can only send that one character's data, nothing else.
+      <div style={{ fontSize: 12, lineHeight: 1.6, padding: 12, border: '1px solid var(--border)', borderRadius: 'var(--radius)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={step}><span style={num}>1</span><span>In the RuneScape client open the plugin browser, search for <strong>GIM Companion</strong>, install it and enable it. Allow network access when the game asks.</span></div>
+        <div style={step}><span style={num}>2</span><span>Log in. A <strong>GIM Companion</strong> window asks for your group's secret: the same secret that unlocks this website. Type it and press <strong>Connect</strong>.</span></div>
+        <div style={step}><span style={num}>3</span><span>Done. The dot next to your name below turns green within a minute. Each member does this once per computer.</span></div>
+        <div style={{ color: 'var(--text-dim)', fontSize: 11 }}>
+          The plugin only sends the logged-in character's own data, and only for characters that are members of this group. It keeps a key for that
+          one character, not the secret.
+        </div>
       </div>
 
-      {linked && (
-        <div style={{ padding: 12, border: '1px solid rgba(76,175,80,0.4)', borderRadius: 'var(--radius)', background: 'rgba(76,175,80,0.08)', fontSize: 12 }}>
-          Linked. <strong>{linked.rsn}</strong>'s plugin picks it up within a few seconds, and the dot turns green once it sends its first update.
-          <button className="btn btn-ghost btn-sm" style={{ marginLeft: 8 }} onClick={() => setLinked(null)}>Done</button>
-        </div>
-      )}
-
-      {fresh && (
-        <div style={{ padding: 12, border: '1px solid var(--gold-dark)', borderRadius: 'var(--radius)', background: 'rgba(200,168,75,0.08)' }}>
-          <div style={{ fontSize: 12, marginBottom: 6 }}>Token for <strong>{fresh.rsn}</strong> — copy it now, it won't be shown again:</div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <input className="form-input" readOnly value={fresh.token} onFocus={e => e.target.select()} style={{ fontFamily: 'monospace', fontSize: 12 }} />
-            <button className="btn btn-primary btn-sm" onClick={() => { navigator.clipboard?.writeText(fresh.token); onToast?.('Copied', 'success'); }}>Copy</button>
-            <button className="btn btn-ghost btn-sm" onClick={() => setFresh(null)}>Done</button>
-          </div>
+      {canWrite && secret && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+          <span style={{ color: 'var(--text-dim)' }}>Group secret:</span>
+          <code style={{ fontSize: 13, letterSpacing: 1, padding: '3px 8px', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}>
+            {showSecret ? secret : secret.replace(/[^-]/g, '•')}
+          </code>
+          <button className="btn btn-ghost btn-sm" onClick={() => setShowSecret(s => !s)}>{showSecret ? 'Hide' : 'Show'}</button>
+          <button className="btn btn-ghost btn-sm" onClick={() => { navigator.clipboard?.writeText(secret); onToast?.('Copied', 'success'); }}>Copy</button>
         </div>
       )}
 
@@ -345,34 +332,13 @@ function SetupView({ state, canWrite, onToast, reload }) {
               <span style={{ width: 8, height: 8, borderRadius: '50%', background: live ? 'var(--green-bright)' : p.has_token ? 'var(--orange)' : 'var(--border)' }} />
               <strong style={{ fontSize: 13, minWidth: 130 }}>{p.rsn}</strong>
               <span style={{ fontSize: 11, color: 'var(--text-dim)', flex: 1 }}>
-                {p.updated_at ? `last update ${timeAgo(p.updated_at)}${p.world ? ` · world ${p.world}` : ''}` : p.has_token ? 'token created — waiting for the plugin' : 'not connected'}
+                {p.updated_at ? `last update ${timeAgo(p.updated_at)}${p.world ? ` · world ${p.world}` : ''}` : p.has_token ? 'connected, waiting for the first update' : 'not connected yet'}
               </span>
-              {canWrite && linking !== p.player_id && <button className="btn btn-secondary btn-sm" onClick={() => { setLinking(p.player_id); setCode(''); setLinked(null); }}>{p.has_token ? 'Link again' : 'Link with code'}</button>}
-              {canWrite && linking === p.player_id && (
-                <>
-                  <input className="form-input" autoFocus value={code} onChange={e => setCode(e.target.value.toUpperCase())} onKeyDown={e => e.key === 'Enter' && code.trim() && link(p)}
-                    placeholder="ABCD-2345" maxLength={9} style={{ width: 110, fontFamily: 'monospace', letterSpacing: 1, textAlign: 'center' }} />
-                  <button className="btn btn-primary btn-sm" disabled={linkBusy || code.replace(/[^A-Z0-9]/g, '').length !== 8} onClick={() => link(p)}>Link</button>
-                  <button className="btn btn-ghost btn-sm" onClick={() => setLinking(null)}>Cancel</button>
-                </>
-              )}
-              {canWrite && p.has_token && linking !== p.player_id && <button className="btn btn-ghost btn-sm" onClick={() => revoke(p)}>Disconnect</button>}
+              {canWrite && p.has_token && <button className="btn btn-ghost btn-sm" onClick={() => revoke(p)}>Disconnect</button>}
             </div>
           );
         })}
       </div>
-
-      {canWrite && (
-        <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
-          <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={() => setAdvanced(a => !a)}>{advanced ? 'Hide' : 'Advanced'}: use a token instead of a code</button>
-          {advanced && (
-            <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
-              <span>Paste a token into the plugin's config.lua instead. Create one for:</span>
-              {state.map(p => <button key={p.player_id} className="btn btn-secondary btn-sm" onClick={() => mint(p)}>{p.rsn}</button>)}
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }
@@ -424,7 +390,7 @@ export default function ItemsTab({ players, groupId, canWrite, onToast, selected
       {error && <div style={{ color: 'var(--red-bright)', fontSize: 12, marginBottom: 10 }}>Couldn't load plugin data: {error}</div>}
       {view === 'items'  && <ItemsView  state={state} colorOf={colorOf} selectedPlayerId={selectedPlayerId} />}
       {view === 'ledger' && <LedgerView ledger={ledger} colorOf={colorOf} selectedPlayerId={selectedPlayerId} />}
-      {view === 'setup'  && <SetupView  state={state} canWrite={canWrite} onToast={onToast} reload={load} />}
+      {view === 'setup'  && <SetupView  state={state} groupId={groupId} canWrite={canWrite} onToast={onToast} reload={load} />}
     </div>
   );
 }

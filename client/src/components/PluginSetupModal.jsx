@@ -3,8 +3,8 @@ import ItemsTab from './ItemsTab';
 import RsIcon from './RsIcon';
 
 // "Plugin setup" lives in the top bar (next to Docs / Discord) because it is about the group's connection to the
-// game, not about any one page: it lists every member, creates their personal plugin token and shows whether
-// their plugin has been heard from.
+// game, not about any one page: it explains how members connect the plugin with the group secret and shows whether
+// each member's plugin has been heard from.
 export default function PluginSetupModal({ group, canWrite, onClose, onToast }) {
   return (
     <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>

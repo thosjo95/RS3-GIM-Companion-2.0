@@ -292,6 +292,16 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_player_achievements_recent ON player_achievements(player_id, completed_at DESC);
 
+  -- Raw values of the game's own kill tracker variables (bslay_*), as reported by the plugin.
+  CREATE TABLE IF NOT EXISTS player_kill_vars (
+    player_id  INTEGER NOT NULL,
+    name       TEXT    NOT NULL,
+    value      INTEGER NOT NULL,
+    updated_at TEXT    NOT NULL,
+    PRIMARY KEY (player_id, name),
+    FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
+  );
+
   -- References of kill batches already applied, so a re-sent batch is ignored (cleaned after 7 days).
   CREATE TABLE IF NOT EXISTS plugin_kill_batches (
     player_id INTEGER NOT NULL,
@@ -311,6 +321,9 @@ db.exec(`
     FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
   );
 `);
+
+// Journey steps that are not done yet are stored too (completed = 0) so progress can show "3 of 5".
+try { db.exec('ALTER TABLE player_achievements ADD COLUMN completed INTEGER NOT NULL DEFAULT 1'); } catch {}
 
 // The group's shared storage contents (the same for every member; the newest snapshot from any member wins).
 try { db.exec('ALTER TABLE player_live_state ADD COLUMN group_storage_json TEXT'); } catch {}

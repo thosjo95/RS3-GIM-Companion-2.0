@@ -78,6 +78,15 @@ players.forEach((p, pi) => ACHS.forEach(([name, cat, sub, members, score], ai) =
   if (ai < [8, 5, 3][pi]) pa.run(p.id, 100 + ai, name, cat, sub, members, score, ai >= [6, 3, 2][pi] ? new Date(Date.now() - (ai + 1) * 3_600_000).toISOString() : null, new Date().toISOString());
 }));
 
+// Group Ironman journey (category 5483): tier achievements plus their steps; completed:false = not done yet.
+const STEPS = { 0: ['Collect Ironman Armour', 'Cooks assistant', 'Total level'], 1: ['Restless ghost', 'The Provider of Misthalin', 'Total level'], 2: ['Priest in Peril', 'Slayer 10', 'Total level', 'Lumbridge Set Tasks - Easy'],
+  3: ['Dragon Slayer', 'Total Quest Points', 'Total level', 'Wonderful Walls'], 4: ['King Black Dragon', 'One Small Favour', 'Total level'], 5: ['Desert Treasure', 'Kalphite Queen', 'Total level'] };
+const jIns = db.prepare('INSERT OR IGNORE INTO player_achievements (player_id, achievement_id, name, category, sub_category, members, rune_score, completed_at, seen_at, completed) VALUES (?, ?, ?, 5483, ?, 0, 0, NULL, ?, ?)');
+players.forEach((p, pi) => { let aid = 900; const upTo = [4, 2, 1][pi];
+  Object.entries(STEPS).forEach(([tier, steps]) => { const t = Number(tier);
+    jIns.run(p.id, aid++, 'Journey Tier ' + t, -1, new Date().toISOString(), t < upTo ? 1 : 0);
+    steps.forEach((step, si) => jIns.run(p.id, aid++, 'Journey Tier ' + t + ': ' + step, 5484 + t, new Date().toISOString(), t < upTo || (t === upTo && si < 2) ? 1 : 0)); }); });
+
 console.log(`Demo group "${NAME}" created (id ${gid}). Unlock it in the app with secret: ${SECRET}`);
 console.log('Plugin tokens for the simulator:');
 for (const t of tokens) console.log(`  ${t.rsn.padEnd(12)} ${t.token}`);

@@ -10,6 +10,7 @@
  *   GET    /api/plugin/quests?group_id quest progress per player                (group auth)
  *   GET    /api/plugin/kills?group_id  NPC kills counted by the plugin          (group auth)
  *   GET    /api/plugin/achievements?group_id  completed achievements / area tasks (group auth)
+ *   GET    /api/plugin/kill-vars?group_id     the game's kill tracker values, raw    (group auth)
  *
  * Design rules:
  *  - A token belongs to exactly one player and can only write that player's data.
@@ -135,10 +136,22 @@ function cleanPayload(b) {
       if (!a || !isInt(a.id, 0, 1e7)) throw new Error(`achievements[${i}].id must be an integer`);
       if (typeof a.name !== 'string' || !a.name.trim() || a.name.length > 160) throw new Error(`achievements[${i}].name must be a string`);
       const opt = v => (isInt(v, -1, 1e7) ? v : null);
-      return { id: a.id, name: a.name.trim(), category: opt(a.category), sub: opt(a.sub_category),
+      return { id: a.id, name: a.name.trim(), category: opt(a.category), sub: opt(a.sub_category), completed: a.completed !== false,
         members: a.members === undefined ? null : (a.members ? 1 : 0), score: isInt(a.rune_score, 0, 1e6) ? a.rune_score : null };
     });
     out.achievementsFull = b.achievements_full === true;
+  }
+
+  if (b.kill_vars !== undefined) {
+    const kv = b.kill_vars;
+    if (!kv || typeof kv !== 'object' || Array.isArray(kv)) throw new Error('kill_vars must be an object');
+    const entries = Object.entries(kv);
+    if (entries.length > 200) throw new Error('kill_vars has too many entries (max 200)');
+    out.killVars = entries.map(([name, value]) => {
+      if (!/^[a-z0-9_]{1,60}$/.test(name)) throw new Error(`kill_vars name "${name}" is not valid`);
+      if (!isInt(value, 0, 2147483647)) throw new Error(`kill_vars.${name} must be a non-negative integer`);
+      return [name, value];
+    });
   }
 
   if (b.kills !== undefined) {
@@ -251,6 +264,11 @@ router.post('/ingest', ingestLimiter, express.json({ limit: '1mb' }), (req, res)
     for (const c of freshChanges ? (data.changes ?? []).filter(x => x.store === 'group') : []) ledgerAdded += ins.run(playerId, c.store, c.id, c.name, c.delta, c.value, c.ts).changes;
 
     if (data.quests) applied.quests = sync.applyQuests(playerId, data.quests, data.questsFull, now);
+    if (data.killVars) {
+      const up = db.prepare('INSERT INTO player_kill_vars (player_id, name, value, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(player_id, name) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at');
+      for (const [name, value] of data.killVars) up.run(playerId, name, value, now);
+      applied.kill_vars = data.killVars.length;
+    }
     if (data.achievements) applied.achievements = sync.applyAchievements(playerId, data.achievements, data.achievementsFull, now);
     if (data.kills) applied.kills_applied = sync.applyKills(playerId, data.kills, data.killsRef, now);
     if (data.drops) applied.drops_added = sync.applyDrops(playerId, data.drops);
@@ -331,9 +349,20 @@ router.get('/achievements', (req, res) => {
   if (!groupId) return res.status(400).json({ error: 'group_id required' });
   if (!checkGroupAuth(req, res, groupId)) return;
   res.json(db.prepare(`
-    SELECT a.player_id, p.rsn, a.achievement_id, a.name, a.category, a.sub_category, a.members, a.rune_score, a.completed_at
+    SELECT a.player_id, p.rsn, a.achievement_id, a.name, a.category, a.sub_category, a.members, a.rune_score, a.completed_at, a.completed
     FROM player_achievements a JOIN players p ON p.id = a.player_id
     WHERE p.group_id = ? ORDER BY a.name, p.rsn
+  `).all(groupId));
+});
+
+router.get('/kill-vars', (req, res) => {
+  const groupId = parseInt(req.query.group_id, 10);
+  if (!groupId) return res.status(400).json({ error: 'group_id required' });
+  if (!checkGroupAuth(req, res, groupId)) return;
+  res.json(db.prepare(`
+    SELECT v.player_id, p.rsn, v.name, v.value, v.updated_at
+    FROM player_kill_vars v JOIN players p ON p.id = v.player_id
+    WHERE p.group_id = ? ORDER BY v.name, p.rsn
   `).all(groupId));
 });
 

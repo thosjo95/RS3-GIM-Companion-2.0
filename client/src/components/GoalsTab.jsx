@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { api } from '../api/client';
 import GoalModal from './GoalModal';
+import { IconLabel } from './RsIcon';
 import {
   GOAL_SUGGESTIONS, CATEGORIES, STAGES,
   detectStage, checkPlayerReadiness,
@@ -1169,10 +1170,10 @@ export default function GoalsTab({ group, goals, players, groupId, onRefresh, on
       {/* ── Section tabs ── */}
       <div data-tour="goals-sections" style={{ display: 'flex', gap: 6 }}>
         <button onClick={() => setActiveSection('browser')} style={sectionPillStyle(activeSection === 'browser')}>
-          💡 Goal Browser
+          <IconLabel name="browser" fallback="💡" size={16}>Goal Browser</IconLabel>
         </button>
         <button onClick={() => setActiveSection('active')} style={sectionPillStyle(activeSection === 'active')}>
-          📋 Active Goals
+          <IconLabel name="activeGoals" fallback="📋" size={16}>Active Goals</IconLabel>
           {goals.filter(g => g.status !== 'complete' && g.status !== 'vaulted').length > 0 && (
             <span style={{ marginLeft: 7, fontSize: 11, background: 'rgba(200,168,75,0.2)', borderRadius: 10, padding: '1px 7px' }}>
               {goals.filter(g => g.status !== 'complete' && g.status !== 'vaulted').length}

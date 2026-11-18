@@ -59,6 +59,14 @@ ACHS = {
   [11] = { name = "Varrock Set Tasks - Medium", category = 4766, subCategory = 2, isMembers = false, runeScore = 2, progress = 0 },
   [12] = { name = "Falador Set Tasks - Easy",  category = 4766, subCategory = 1, isMembers = false, runeScore = 1, progress = -2 },
 }
+-- Group Ironman journey: tier 0 done, tier 1 half done (one step still open)
+ACHS[20] = { name = "Journey Tier 0",                  category = 5483, subCategory = -1,   isMembers = false, runeScore = 0, progress = -2 }
+ACHS[21] = { name = "Journey Tier 1: Total level",     category = 5483, subCategory = 5485, isMembers = false, runeScore = 0, progress = 0 }
+ACHS[22] = { name = "Journey Tier 1: Restless ghost",  category = 5483, subCategory = 5485, isMembers = false, runeScore = 0, progress = -2 }
+-- The game's kill tracker variables (VARS is changed by the harness)
+id.VarPlayer = { BSLAY_BOSS_KILLS1 = 9001, BSLAY_MONSTER_KILLS1 = 9002, BSLAY_BOSS_KILLS2 = 9003 }
+VARS = { [9001] = 19, [9002] = 250, [9003] = 0 }
+var = { VarPlayer = { FromID = function(i) if VARS[i] == nil then return nil end return { value = VARS[i] } end } }
 config.Achievement = { FromID = function(i) return ACHS[i] end }
 config.Quest = { FromID = function(i) return QUESTS[i] end }
 

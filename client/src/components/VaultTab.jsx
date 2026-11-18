@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { api } from '../api/client';
 import GearLoadouts from './GearLoadouts';
 import ItemsTab from './ItemsTab';
+import { IconLabel } from './RsIcon';
 
 // ── Item icon map — name → wiki icon URL ──────────────────────────────────────
 function useItemIconMap() {
@@ -651,7 +652,7 @@ export default function VaultTab({ players, groupId, goals = [], onToast, canWri
   const [groupEquipment, setGroupEquip] = useState([]);
   // 'vault' = drops + gear loadouts (as before); the rest is the plugin's live data
   const [section, setSection] = useState('vault');
-  const SECTIONS = [['vault', '🏆 Drops & Gear'], ['items', '🏦 Group Vault'], ['ledger', '📒 Bank Journal'], ['setup', '🔌 Plugin setup']];
+  const SECTIONS = [['vault', 'Drops & Gear', 'drops', '🏆'], ['items', 'Group Vault', 'vault', '🏦'], ['ledger', 'Bank Journal', 'journal', '📒'], ['setup', 'Plugin setup', 'setup', '🔌']];
 
   const loadEquipment = useCallback(async () => {
     try { setGroupEquip(await api.getGroupEquipment(groupId)); }
@@ -663,8 +664,10 @@ export default function VaultTab({ players, groupId, goals = [], onToast, canWri
   return (
     <div style={{ position: 'relative' }}>
       <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
-        {SECTIONS.map(([id, label]) => (
-          <button key={id} onClick={() => setSection(id)} className={`chip${section === id ? ' active' : ''}`}>{label}</button>
+        {SECTIONS.map(([id, label, icon, fallback]) => (
+          <button key={id} onClick={() => setSection(id)} className={`chip${section === id ? ' active' : ''}`}>
+            <IconLabel name={icon} fallback={fallback} size={16}>{label}</IconLabel>
+          </button>
         ))}
       </div>
 

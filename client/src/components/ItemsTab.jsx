@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '../api/client';
 import { MEMBER_COLORS, fmtNum } from '../lib/rs3';
+import { IconLabel } from './RsIcon';
 
 // GIM 2.0 — live group items, the Bank Journal (group storage in/out) and plugin setup.
 // All data is pushed by the in-game RS3 plugin (see /plugin) and is private to the group.
@@ -8,7 +9,7 @@ import { MEMBER_COLORS, fmtNum } from '../lib/rs3';
 // What each filter shows. "Storage" (the default) is what a group vault is about: the shared group storage
 // plus everyone's bank. Backpack and equipped are the live items on the characters themselves.
 const SOURCES = [
-  { id: 'storage',   label: '🏦 Storage',    holds: ['group', 'bank'] },
+  { id: 'storage',   label: 'Storage',       icon: 'vault', fallback: '🏦', holds: ['group', 'bank'] },
   { id: 'group',     label: 'Group storage', holds: ['group'] },
   { id: 'bank',      label: 'Banks',         holds: ['bank'] },
   { id: 'inventory', label: 'Backpacks',     holds: ['inventory'] },
@@ -101,7 +102,7 @@ function ItemsView({ state, colorOf, selectedPlayerId }) {
     <div>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 10 }}>
         <input className="form-input" style={{ maxWidth: 240 }} placeholder="Search items…" value={search} onChange={e => setSearch(e.target.value)} />
-        {SOURCES.map(s => <button key={s.id} style={pillStyle(source === s.id)} onClick={() => setSource(s.id)}>{s.label}</button>)}
+        {SOURCES.map(s => <button key={s.id} style={pillStyle(source === s.id)} onClick={() => setSource(s.id)}>{s.icon ? <IconLabel name={s.icon} fallback={s.fallback} size={15}>{s.label}</IconLabel> : s.label}</button>)}
         <select className="form-select" style={{ maxWidth: 160 }} value={sort} onChange={e => setSort(e.target.value)}>
           <option value="count">Sort: quantity</option>
           <option value="value">Sort: total value</option>

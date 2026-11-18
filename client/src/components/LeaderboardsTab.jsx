@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
+import { IconLabel } from './RsIcon';
 import { api } from '../api/client';
 
 import { MEMBER_COLORS, parseRMDate } from '../lib/rs3';
@@ -1285,11 +1286,11 @@ export default function LeaderboardsTab({ players, groupId, canWrite, onToast, s
   const colorMap = Object.fromEntries(players.map((p, i) => [p.id, MEMBER_COLORS[i % MEMBER_COLORS.length]]));
 
   const SECTIONS = [
-    { id: 'firsts',     label: '🥇 Firsts' },
-    { id: 'milestones', label: '🏆 Milestones' },
-    { id: 'bosses',     label: '⚔️ Boss Kills' },
-    { id: 'clues',      label: '📜 Clue Scrolls' },
-    { id: 'mastery',    label: '⭐ Skill Mastery' },
+    { id: 'firsts',     label: 'Firsts',        fallback: '🥇' },
+    { id: 'milestones', label: 'Milestones',    fallback: '🏆' },
+    { id: 'bosses',     label: 'Boss Kills',    fallback: '⚔️' },
+    { id: 'clues',      label: 'Clue Scrolls',  fallback: '📜' },
+    { id: 'mastery',    label: 'Skill Mastery', fallback: '⭐' },
   ];
 
   if (players.length === 0) {
@@ -1311,7 +1312,7 @@ export default function LeaderboardsTab({ players, groupId, canWrite, onToast, s
             color: section === s.id ? '#111' : 'var(--text-dim)',
             fontWeight: section === s.id ? 700 : 400,
             transition: 'background 0.15s',
-          }}>{s.label}</button>
+          }}><IconLabel name={s.id} fallback={s.fallback} size={16}>{s.label}</IconLabel></button>
         ))}
       </div>
 

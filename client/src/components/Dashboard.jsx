@@ -33,6 +33,7 @@ import VaultTab from './VaultTab';
 import OverviewTab from './OverviewTab';
 import LeaderboardsTab from './LeaderboardsTab';
 import PlayerBar from './PlayerBar';
+import { IconLabel } from './RsIcon';
 import QuestsAreaTab from './QuestsAreaTab';
 import GoalsTab from './GoalsTab';
 import TourOverlay from './TourOverlay';
@@ -145,11 +146,11 @@ export default function Dashboard({ group, goals, pendingRequests, onRefresh, on
   const prevReplayKey               = useRef(0);
 
   const TABS = [
-    { id: 'overview',      label: '📊 Overview' },
-    { id: 'goals',         label: '🎯 Goals',               tour: 'tab-goals' },
-    { id: 'vault',         label: '🏆 Group Vault',         tour: 'tab-vault' },
-    { id: 'achievements',  label: '📜 Quests & Area Tasks', tour: 'tab-achievements' },
-    { id: 'leaderboards',  label: '🏅 Leaderboards',        tour: 'tab-leaderboards' },
+    { id: 'overview',      icon: 'overview',     fallback: '📊', label: 'Overview' },
+    { id: 'goals',         icon: 'goals',        fallback: '🎯', label: 'Goals',               tour: 'tab-goals' },
+    { id: 'vault',         icon: 'vault',        fallback: '🏆', label: 'Group Vault',         tour: 'tab-vault' },
+    { id: 'achievements',  icon: 'quests',       fallback: '📜', label: 'Quests & Area Tasks', tour: 'tab-achievements' },
+    { id: 'leaderboards',  icon: 'leaderboards', fallback: '🏅', label: 'Leaderboards',        tour: 'tab-leaderboards' },
   ];
 
   // Auto-trigger per-tab tour on first visit
@@ -207,7 +208,7 @@ export default function Dashboard({ group, goals, pendingRequests, onRefresh, on
               color: activeTab === t.id ? 'var(--gold)' : 'var(--text-dim)',
               paddingBottom: 8,
             }}>
-            {t.label}
+            <IconLabel name={t.icon} fallback={t.fallback} size={18} gap={7}>{t.label}</IconLabel>
           </button>
         ))}
       </div>

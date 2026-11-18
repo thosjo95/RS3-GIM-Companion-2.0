@@ -48,7 +48,7 @@ end
 --   dryRun = true              read the game and print what WOULD be sent, but make no network request at all
 local DRY_RUN = settings.dryRun == true
 local DEBUG = settings.debug ~= false
-local FEATURES = { quests = true, kills = true, drops = true, achievements = true }
+local FEATURES = { quests = true, kills = true, drops = true, achievements = true, killtracker = true }
 if type(settings.features) == "table" then
     for name in pairs(FEATURES) do if settings.features[name] == false then FEATURES[name] = false end end
 end
@@ -79,6 +79,8 @@ local ACH_RECHECK        = 600   -- re-read achievements this often (about 6 min
 local ACH_SCAN_LIMIT     = 8000  -- achievement ids are scanned from 0 up to this, in small steps
 local ACH_MISS_LIMIT     = 400   -- stop early after this many missing ids in a row
 local ACH_IDS_PER_TICK   = 50
+local KILLVAR_RECHECK     = 300    -- re-read the game's kill tracker variables this often (about 3 minutes)
+local JOURNEY_CATEGORY    = 5483   -- the Group Ironman "Journey" achievements: unfinished ones are reported too, so progress has a total
 local ACH_MAX_PER_SEND   = 1500  -- the server accepts at most this many per request; the rest follows next time
 
 -- Shared state
@@ -310,6 +312,7 @@ end
 -- and the character's progress; progress == -2 means complete. Like the quests they are scanned a few ids per tick;
 -- only COMPLETED ones are sent (a baseline once per login, then whatever is newly completed).
 local achHeld = {}              -- achievement id -> true once the server has accepted it as completed
+local achSeenOpen = {}          -- journey achievement id -> true once the server knows it exists (not yet completed)
 local achBaselineDone = false
 local lastAchCheck = -ACH_RECHECK
 local achScan, achChanges = nil, nil
@@ -361,6 +364,10 @@ local function achScanStep()
             if completed and not achHeld[achId] then
                 scan.changed[#scan.changed + 1] = { id = e.id, name = e.name, category = e.category, sub_category = e.sub_category,
                                                     members = e.members, rune_score = e.rune_score }
+            elseif not completed and e.category == JOURNEY_CATEGORY and not achSeenOpen[achId] then
+                -- A journey step that is not done yet: sent once (completed = false) so the dashboard knows the total.
+                scan.changed[#scan.changed + 1] = { id = e.id, name = e.name, category = e.category, sub_category = e.sub_category,
+                                                    members = e.members, rune_score = e.rune_score, completed = false }
             end
         end
     end
@@ -398,6 +405,52 @@ local function achScanStart()
     end
     achScan = { next = 0, seen = 0, misses = 0, completed = 0, changed = {}, categories = {}, samples = {} }
     trace("achievement scan started")
+end
+
+-- ── 4c. The game's own kill tracker ────────────────────────────────────────────────
+-- The game keeps LIFETIME kill counts for slayer monsters and bosses on the character, in player variables named
+-- bslay_monster_killsN and bslay_boss_killsN (plus *_prestigeN). Which monster each N is has to be worked out
+-- from real values, so the raw numbers are reported as they are. Nothing is derived from chat or the screen.
+local KILLVAR_NAMES = {}
+for n = 1, 20 do KILLVAR_NAMES[#KILLVAR_NAMES + 1] = "bslay_monster_kills" .. n end
+for n = 1, 19 do KILLVAR_NAMES[#KILLVAR_NAMES + 1] = "bslay_boss_kills" .. n end
+for n = 1, 10 do KILLVAR_NAMES[#KILLVAR_NAMES + 1] = "bslay_monster_prestige" .. n end
+for n = 1, 10 do KILLVAR_NAMES[#KILLVAR_NAMES + 1] = "bslay_boss_prestige" .. n end
+local killVarsHeld = {}         -- name -> value the server has accepted
+local killVarsChanged = nil     -- { name = value } waiting to be sent
+local lastKillVarCheck = -KILLVAR_RECHECK
+local killVarsPrinted = false
+
+local function readVarByName(name)
+    local okId, varId = pcall(function() return id.VarPlayer[string.upper(name)] end)
+    if not okId or type(varId) ~= "number" then return nil end
+    local okV, proxy = pcall(function() return var.VarPlayer.FromID(varId) end)
+    if not okV or proxy == nil then return nil end
+    local okVal, value = pcall(function() return proxy.value end)
+    if okVal and type(value) == "number" then return math.max(0, math.floor(value)) end
+    return nil
+end
+
+local function scanKillVars()
+    lastKillVarCheck = ticks
+    local changed, readable, nonzero, shown = nil, 0, 0, {}
+    for _, name in ipairs(KILLVAR_NAMES) do
+        local value = readVarByName(name)
+        if value ~= nil then
+            readable = readable + 1
+            if value > 0 then nonzero = nonzero + 1; if #shown < 40 then shown[#shown + 1] = name .. "=" .. value end end
+            if killVarsHeld[name] ~= value and (value > 0 or killVarsHeld[name] ~= nil) then
+                changed = changed or {}
+                changed[name] = value
+            end
+        end
+    end
+    if not killVarsPrinted then
+        killVarsPrinted = true
+        log("[GIM] kill tracker: " .. readable .. " of " .. #KILLVAR_NAMES .. " variables readable, " .. nonzero .. " not zero")
+        if #shown > 0 then log("[GIM] kill tracker values: " .. table.concat(shown, ", ")) end
+    end
+    if changed then killVarsChanged = changed; markItemsDirty() end
 end
 
 -- ── 5. Kills ──────────────────────────────────────────────────────────────────
@@ -664,6 +717,10 @@ local function send()
         if not achBaselineDone then payload.achievements_full = true end
     end
 
+    -- The game's own kill tracker variables (raw): whatever changed since the server last accepted them.
+    local sentKillVars = killVarsChanged
+    if sentKillVars then payload.kill_vars = sentKillVars end
+
     -- Kills: pending kills are frozen into one batch with its own reference. The batch is re-sent unchanged
     -- until the server confirms it, and the server ignores a reference it has already applied - so a lost
     -- response can never make one kill count twice.
@@ -723,8 +780,14 @@ local function send()
                 questBaselineDone = true
                 if questChanges == sentQuests then questChanges = nil end
             end
+            if sentKillVars then
+                for name, value in pairs(sentKillVars) do killVarsHeld[name] = value end
+                if killVarsChanged == sentKillVars then killVarsChanged = nil end
+            end
             if sentAch then
-                for _, a in ipairs(sentAch) do achHeld[a.id] = true end
+                for _, a in ipairs(sentAch) do
+                    if a.completed == false then achSeenOpen[a.id] = true else achHeld[a.id] = true end
+                end
                 local rest = {}
                 for i = #sentAch + 1, #achChanges do rest[#rest + 1] = achChanges[i] end
                 achChanges = #rest > 0 and rest or nil
@@ -797,7 +860,8 @@ Event.GameStateChanged.Subscribe("gim_state", function(event)
     if event.newState ~= GameState.GAME then
         for _, store in ipairs(STORES) do store.held = nil end
         questHeld, questBaselineDone, lastQuestCheck, questScan, questChanges = {}, false, -QUEST_RECHECK, nil, nil
-        achHeld, achBaselineDone, lastAchCheck, achScan, achChanges = {}, false, -ACH_RECHECK, nil, nil
+        achHeld, achSeenOpen, achBaselineDone, lastAchCheck, achScan, achChanges = {}, {}, false, -ACH_RECHECK, nil, nil
+        killVarsHeld, killVarsChanged, lastKillVarCheck = {}, nil, -KILLVAR_RECHECK
         engagedName, lastHp, recentKills, fromGround, packBefore = nil, nil, {}, {}, nil
         rules = nil
         dirty.skills, dirty.items = true, true
@@ -814,6 +878,8 @@ Event.ServerLogic.Subscribe("gim_tick", function()
     end
 
     -- Drop rules: fetch when logged in and missing; retry about every 3 minutes if the server did not answer.
+    if FEATURES.killtracker and Player.IsAvailable() and ticks - lastKillVarCheck >= KILLVAR_RECHECK then scanKillVars() end
+
     if FEATURES.achievements and Player.IsAvailable() then
         if achScan ~= nil then achScanStep()
         elseif ticks - lastAchCheck >= ACH_RECHECK then achScanStart() end

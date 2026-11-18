@@ -101,12 +101,23 @@ const check = (c, m) => { console.log((c ? 'PASS' : 'FAIL') + '  ' + m); if (!c)
 
   // 5b. achievements / area tasks: the baseline sends only COMPLETED ones; a later completion is sent on its own
   const achBaseline = captured.map(c => JSON.parse(c.body)).find(b => b.achievements);
-  check(achBaseline && achBaseline.achievements_full === true && achBaseline.achievements.length === 2
-    && achBaseline.achievements.every(a => a.id === 10 || a.id === 12) && achBaseline.achievements[0].name.includes('Set Tasks'),
-    'achievement baseline: only completed achievements, with names and categories');
+  const doneAch = (achBaseline?.achievements || []).filter(a => a.completed !== false);
+  check(achBaseline && achBaseline.achievements_full === true && doneAch.length === 4
+    && doneAch.every(a => [10, 12, 20, 22].includes(a.id)) && doneAch.some(a => a.name.includes('Set Tasks')),
+    'achievement baseline: completed achievements, with names and categories');
+  check(achBaseline.achievements.length === 5 && achBaseline.achievements.filter(a => a.completed === false).map(a => a.id).join() === '21',
+    'unfinished Group Ironman journey steps are reported once (completed = false); other unfinished achievements are not');
   dostr('ACHS[11].progress = -2; TICK(620)');
   const achLater = captured.map(c => JSON.parse(c.body)).filter(b => b.achievements).pop();
   check(achLater.achievements.length === 1 && achLater.achievements[0].id === 11 && !achLater.achievements_full, 'a newly completed achievement is sent on its own, without the baseline flag');
+
+  // 5c. the game's kill tracker variables are reported raw, then only when they change
+  const kvSend = captured.map(c => JSON.parse(c.body)).find(b => b.kill_vars);
+  check(kvSend && kvSend.kill_vars.bslay_boss_kills1 === 19 && kvSend.kill_vars.bslay_monster_kills1 === 250 && kvSend.kill_vars.bslay_boss_kills2 === undefined,
+    'the game\'s own kill tracker values are read (non-zero ones) and sent raw');
+  dostr('VARS[9001] = 21; TICK(320)');
+  const kvLater = captured.map(c => JSON.parse(c.body)).filter(b => b.kill_vars).pop();
+  check(kvLater.kill_vars.bslay_boss_kills1 === 21 && Object.keys(kvLater.kill_vars).length === 1, 'only the changed kill tracker value is sent again');
 
   // 6. kills and drops
   //    a) not our kill: a monster we are not fighting, and our target dying far away, are not counted
@@ -193,7 +204,8 @@ const check = (c, m) => { console.log((c ? 'PASS' : 'FAIL') + '  ' + m); if (!c)
 
   const achRows = await (await fetch(`${base}/plugin/achievements?group_id=${gid}`, { headers: gh })).json();
   const byId = Object.fromEntries(achRows.map(a => [a.achievement_id, a]));
-  check(achRows.length === 3 && byId[10].completed_at === null && byId[12].completed_at === null && byId[11].completed_at !== null && byId[11].category === 4766,
+  check(achRows.length === 6 && byId[10].completed_at === null && byId[12].completed_at === null && byId[11].completed_at !== null && byId[11].category === 4766
+    && byId[21].completed === 0 && byId[22].completed === 1 && byId[21].completed_at === null,
     'achievements stored: baseline ones have no completion time, the later one does');
   const diaryRows = db.prepare("SELECT key, achieved, achieved_at FROM achievements WHERE player_id = ? AND type = 'diary'").all(pid);
   const dk = Object.fromEntries(diaryRows.map(r => [r.key, r]));
@@ -204,6 +216,9 @@ const check = (c, m) => { console.log((c ? 'PASS' : 'FAIL') + '  ' + m); if (!c)
     && require(REPO + 'server/services/pluginSync').areaTaskOf("Seers' Village Set Tasks - Hard").key === 'diary_seers_village_hard'
     && require(REPO + 'server/services/pluginSync').areaTaskOf('Lumbridge Set Tasks - Beginner').key === 'diary_lumbridge_draynor_beginner',
     'journey steps are not mistaken for area task sets; names map onto the grid keys');
+
+  const kvRows = await (await fetch(`${base}/plugin/kill-vars?group_id=${gid}`, { headers: gh })).json();
+  check(kvRows.find(r => r.name === 'bslay_boss_kills1')?.value === 21 && kvRows.find(r => r.name === 'bslay_monster_kills1')?.value === 250, 'kill tracker values stored and readable');
 
   const npcKills = await (await fetch(`${base}/plugin/kills?group_id=${gid}`, { headers: gh })).json();
   check(npcKills.length === 1 && npcKills[0].npc === 'Araxxor' && npcKills[0].kills === 3, 'kills counted once per real kill (replay of retried sends does not double them)');

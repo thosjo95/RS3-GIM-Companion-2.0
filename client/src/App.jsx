@@ -329,41 +329,6 @@ export default function App() {
           )}
           {group ? (
             <>
-              <div className="page-title">{group.name}</div>
-              <div className="page-sub">
-                {/* Group type badge */}
-                {(() => {
-                  const type = group.gim_type ?? 'regular';
-                  if (type === 'custom') {
-                    return (
-                      <span title="Custom Group" style={{ marginRight: 10, display: 'inline-flex', alignItems: 'center', gap: 4, verticalAlign: 'middle' }}>
-                        <GimTypeLabel type="custom" size={16} />
-                      </span>
-                    );
-                  }
-                  const src = type === 'competitive'
-                    ? 'https://runescape.wiki/images/Competitive_Group_Ironman_badge.png'
-                    : 'https://runescape.wiki/images/Group_Ironman_badge.png';
-                  const label = type === 'competitive' ? 'Competitive GIM'
-                    : type === 'regular_unranked' ? 'Unranked GIM'
-                    : 'Regular GIM';
-                  return (
-                    <span title={label} style={{ marginRight: 10, display: 'inline-flex', alignItems: 'center', gap: 4, verticalAlign: 'middle' }}>
-                      <img src={src} alt={label} width={16} height={16} style={{ imageRendering: 'crisp-edges', verticalAlign: 'middle' }} />
-                      {type === 'regular_unranked' && (
-                        <span style={{ fontSize: 10, color: 'var(--text-dim)', fontStyle: 'italic' }}>Unranked</span>
-                      )}
-                    </span>
-                  );
-                })()}
-                {group.group_rsn && <span style={{marginRight:12}}>{group.group_rsn}</span>}
-                <span>{group.players?.length || 0} members</span>
-                {group.group_total_xp > 0 && (
-                  <span style={{marginLeft:12}}>
-                    · Rank: {group.group_total_xp?.toLocaleString()} total XP
-                  </span>
-                )}
-              </div>
               <Dashboard
                 group={group}
                 goals={goals}

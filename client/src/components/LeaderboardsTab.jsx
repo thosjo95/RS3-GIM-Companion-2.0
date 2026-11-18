@@ -408,11 +408,30 @@ function fmtDate(str) {
 
 // ── Firsts board ──────────────────────────────────────────────────────────────
 
+// A "first kill" milestone and the boss it is about (the keys of /api/boss-kills). Only clear one-to-one cases are listed.
+const FIRST_BOSS_KEY = {
+  ghrazi_blood_knights: 'ghrazi_blood_knights', silverquill: 'silverquill', ivar: 'ivar', fire_cape: 'tztok_jad', har_aken: 'har_aken',
+  infernal_cape: 'tzkal_zuk', gwd_graardor: 'general_graardor', gwd_kril: 'kril_tsutsaroth', gwd_zilyana: 'commander_zilyana',
+  gwd_kreearra: 'kreearra', nex: 'nex', helwyr: 'helwyr', vindicta: 'vindicta', gregorovic: 'gregorovic', twin_furies: 'twin_furies',
+  telos: 'telos', aod: 'nex_aod', kk: 'kalphite_king', dagannoth_kings: 'dagannoth_kings', vorago: 'vorago', araxxi: 'araxxi',
+  solak: 'solak', legiones: 'legiones', magister: 'magister', zammy_loe: 'zamorak_loe', rasial: 'rasial', osseous_rex: 'osseous_rex',
+};
+
 function FirstsBoard({ players, colorMap, groupId, canWrite, onToast }) {
   const [catFilter, setCatFilter] = useState('All');
   const [showAll, setShowAll] = useState(false);
   const [manualFirsts, setManualFirsts] = useState([]);
   const [editingKey, setEditingKey] = useState(null); // milestone def being edited, or null
+  // Boss kill counts (the game's own lifetime counts when the plugin reports them). The Adventurer's Log feed only keeps
+  // the 20 newest events, so older kills are missing from it: a boss that has been killed still counts as "first kill done"
+  // (date unknown) when the feed has no dated entry.
+  const [bossKills, setBossKills] = useState([]);
+  useEffect(() => { if (groupId) api.getBossKills(groupId).then(setBossKills).catch(() => {}); }, [groupId]);
+  const killsByKey = useMemo(() => {
+    const m = {};
+    for (const r of bossKills) (m[r.boss_key] ??= []).push(r);
+    return m;
+  }, [bossKills]);
 
   const loadManualFirsts = () => {
     if (!groupId) return;
@@ -507,9 +526,17 @@ function FirstsBoard({ players, colorMap, groupId, canWrite, onToast }) {
         }
       }
 
+      // Fallback for PvM: the boss has been killed (lifetime count > 0) but the feed has no dated entry
+      if (def.cat === 'PvM' && FIRST_BOSS_KEY[def.key]) {
+        const holders = (killsByKey[FIRST_BOSS_KEY[def.key]] ?? [])
+          .filter(r => r.kills > 0 && playersById[r.player_id])
+          .map(r => ({ rsn: playersById[r.player_id].rsn, playerId: r.player_id }));
+        if (holders.length > 0) return { ...def, status: 'skill_fallback', holders };
+      }
+
       return { ...def, status: 'pending' };
     });
-  }, [players, manualByKey, playersById]);
+  }, [players, manualByKey, playersById, killsByKey]);
 
   const cats = ['All', 'PvM', 'Quest', 'Skill', 'Item', 'Clue'];
   const visible = results.filter(r => catFilter === 'All' || r.cat === catFilter);

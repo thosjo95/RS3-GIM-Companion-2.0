@@ -292,6 +292,17 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_player_achievements_recent ON player_achievements(player_id, completed_at DESC);
 
+  -- Lifetime boss kills read from the game's boss records (the same numbers as Adventures > Beasts > Boss kills).
+  CREATE TABLE IF NOT EXISTS player_boss_kills (
+    player_id  INTEGER NOT NULL,
+    key        TEXT    NOT NULL,
+    name       TEXT    NOT NULL,
+    kills      INTEGER NOT NULL,
+    updated_at TEXT    NOT NULL,
+    PRIMARY KEY (player_id, key),
+    FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
+  );
+
   -- Raw values of the game's own kill tracker variables (bslay_*), as reported by the plugin.
   CREATE TABLE IF NOT EXISTS player_kill_vars (
     player_id  INTEGER NOT NULL,

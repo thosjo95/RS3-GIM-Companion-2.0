@@ -48,7 +48,7 @@ end
 --   dryRun = true              read the game and print what WOULD be sent, but make no network request at all
 local DRY_RUN = settings.dryRun == true
 local DEBUG = settings.debug ~= false
-local FEATURES = { quests = true, kills = true, drops = true, achievements = true, killtracker = true }
+local FEATURES = { quests = true, kills = true, drops = true, achievements = true, killtracker = true, bosses = true }
 if type(settings.features) == "table" then
     for name in pairs(FEATURES) do if settings.features[name] == false then FEATURES[name] = false end end
 end
@@ -79,6 +79,7 @@ local ACH_RECHECK        = 600   -- re-read achievements this often (about 6 min
 local ACH_SCAN_LIMIT     = 8000  -- achievement ids are scanned from 0 up to this, in small steps
 local ACH_MISS_LIMIT     = 400   -- stop early after this many missing ids in a row
 local ACH_IDS_PER_TICK   = 50
+local BOSS_RECHECK         = 300    -- re-read the boss kill counters this often (about 3 minutes)
 local KILLVAR_RECHECK     = 300    -- re-read the game's kill tracker variables this often (about 3 minutes)
 local JOURNEY_CATEGORY    = 5483   -- the Group Ironman "Journey" achievements: unfinished ones are reported too, so progress has a total
 local ACH_MAX_PER_SEND   = 1500  -- the server accepts at most this many per request; the rest follows next time
@@ -487,6 +488,113 @@ local function scanKillVars()
     if changed then killVarsChanged = changed; markItemsDirty() end
 end
 
+-- ── 4c2. Lifetime boss kills from the game's boss records ───────────────────────────────────────────────────────
+-- Every boss in the game's kill tracker (Adventures > Beasts) is a record (a "struct") with a name and a link to an
+-- achievement; that achievement's progress counter IS the boss's lifetime kill count. Verified against the in-game
+-- tracker: Barrows 142, K'ril Tsutsaroth 1062, Queen Black Dragon 22, Hermod 68 ... The list of records is fixed here;
+-- a boss added to the game later needs one more entry. Hard / enrage modes are not separate records and are not read.
+local BOSS_RECORDS = {
+    "BSLAY_DUNGEON_ULTHVEN1",
+    "BSLAY_DUNGEON_ULTHVEN2",
+    "BSLAY_DUNGEON_ULTHVEN3",
+    "BSLAY_ARAXXI",
+    "BSLAY_BARROWS",
+    "BSLAY_ROTS",
+    "BSLAY_CHAOS_ELEMENTAL",
+    "BSLAY_ZILYANA",
+    "BSLAY_CORP_BEAST",
+    "BSLAY_DAG_KINGS",
+    "BSLAY_GRAARDOR",
+    "BSLAY_MOLE",
+    "BSLAY_HARAKEN",
+    "BSLAY_KALPHITE_KING",
+    "BSLAY_KALPHITE_QUEEN",
+    "BSLAY_KBD",
+    "BSLAY_KREEARRA",
+    "BSLAY_KRIL",
+    "BSLAY_LEGIONES",
+    "BSLAY_NEX",
+    "BSLAY_QBD",
+    "BSLAY_JAD",
+    "BSLAY_VORAGO",
+    "BSLAY_BEASTMASTER",
+    "BSLAY_YAKAMARU",
+    "BSLAY_VINDICTA",
+    "BSLAY_HELWYR",
+    "BSLAY_TWINDEMONS",
+    "BSLAY_SLISKE",
+    "BSLAY_GWD2_SOLO_BOSS",
+    "BSLAY_NEX2",
+    "BSLAY_MENAPHOS_SLAYER_BOSS",
+    "BSLAY_SOLAK",
+    "BSLAY_DUNGEON_AMINISHI1",
+    "BSLAY_DUNGEON_AMINISHI2",
+    "BSLAY_DUNGEON_AMINISHI3",
+    "BSLAY_DUNGEON_DRAGONFORT1",
+    "BSLAY_DUNGEON_DRAGONFORT2",
+    "BSLAY_DUNGEON_DRAGONFORT3",
+    "BSLAY_DINO_BOSS",
+    "BSLAY_REXKINGS",
+    "BSLAY_EGWD_JAS_BOSS",
+    "BSLAY_EGWD_WEN_BOSS",
+    "BSLAY_EGWD_BIK_BOSS",
+    "BSLAY_EGWD_FUL_BOSS",
+    "BSLAY_EGWD_ZAMORAK_BOSS",
+    "BSLAY_HERMOD_BOSS",
+    "BSLAY_RASIAL_BOSS",
+    "BSLAY_FORT_BOSS_ZEMO_VORKATH",
+    "BSLAY_REXKINGS_OSSEOUS",
+    "BSLAY_RAID_REBIRTH1_WYRM_BOSS",
+    "BSLAY_RAID_REBIRTH1_BEAST_BOSS",
+    "BSLAY_RAID_REBIRTH1_SLAYER_MASTER_BOSS",
+    "BSLAY_ELIDINIS_BOSS",
+    "BSLAY_AMASCUT_BOSS",
+    "BSLAY_STALKER_BOSS",
+    "BSLAY_WENDLE_GIANT_BOSS",
+    "BSLAY_WENDLE_HEDGEHOG_BOSS",
+    "BSLAY_BLOOD_KNIGHT_BOSS",
+}
+local bossHeld = {}             -- record -> kills the server has accepted
+local bossChanged = nil         -- { { key, name, kills } } waiting to be sent
+local lastBossCheck = -BOSS_RECHECK
+local bossPrinted = false
+
+local function structParam(st, paramName)
+    local okP, prm = pcall(function() return config.Param[paramName] end)
+    if not okP or prm == nil then return nil end
+    local okH, has = pcall(function() return st:HasParam(prm) end)
+    if not okH or not has then return nil end
+    local okV, v = pcall(function() return st:GetParamValue(prm) end)
+    if okV then return v end
+    return nil
+end
+
+local function scanBosses()
+    lastBossCheck = ticks
+    local changed, found, nonzero = {}, 0, 0
+    for _, rec in ipairs(BOSS_RECORDS) do
+        local okS, st = pcall(function() return config.Struct[rec] end)
+        if okS and st ~= nil then
+            local name = structParam(st, "BSLAY_NAME")
+            local ach = structParam(st, "BSLAY_ACHIEVEMENT")
+            local okK, kills = pcall(function() return ach.tallyProgress end)
+            if type(name) == "string" and ach ~= nil and okK and type(kills) == "number" then
+                found = found + 1
+                kills = math.max(0, math.floor(kills))
+                if kills > 0 then nonzero = nonzero + 1 end
+                if bossHeld[rec] ~= kills and (kills > 0 or bossHeld[rec] ~= nil) then
+                    changed[#changed + 1] = { key = rec, name = name, kills = kills }
+                end
+            end
+        end
+    end
+    if not bossPrinted then
+        bossPrinted = true
+        log("[GIM] boss kills: " .. found .. " of " .. #BOSS_RECORDS .. " boss records readable, " .. nonzero .. " with kills")
+    end
+    if #changed > 0 then bossChanged = changed; markItemsDirty() end
+end
+
 -- ── 4d. Kill tracker table probe (beta debugging, off unless config.lua sets trackerProbe = true) ──────────────
 -- The game's kill tracker (Adventures > Beasts) is drawn from data tables: one row per boss / slayer creature. This
 -- one-off probe finds the tables whose names look related and prints their layout and a few rows, so the mapping from
@@ -772,7 +880,7 @@ end
 -- ── 4g. Boss record parameter dump (beta debugging; config.lua: trackerProbe = "params") ─────────────────────────
 -- The boss records are structs. This prints EVERY parameter (name and value) of a few of them, and the combined list of
 -- parameter names used by all of them, to find the parameter that points at the kill counter.
-local P4_ALL = { "BSLAY_DUNGEON_ULTHVEN1", "BSLAY_DUNGEON_ULTHVEN2", "BSLAY_DUNGEON_ULTHVEN3", "BSLAY_ARAXXI", "BSLAY_BARROWS", "BSLAY_ROTS", "BSLAY_CHAOS_ELEMENTAL", "BSLAY_ZILYANA", "BSLAY_CORP_BEAST", "BSLAY_DAG_KINGS", "BSLAY_GRAARDOR", "BSLAY_MOLE", "BSLAY_HARAKEN", "BSLAY_KALPHITE_KING", "BSLAY_KALPHITE_QUEEN", "BSLAY_KBD", "BSLAY_KREEARRA", "BSLAY_KRIL", "BSLAY_LEGIONES", "BSLAY_NEX", "BSLAY_QBD", "BSLAY_JAD", "BSLAY_VORAGO", "BSLAY_BEASTMASTER", "BSLAY_YAKAMARU", "BSLAY_VINDICTA", "BSLAY_HELWYR", "BSLAY_TWINDEMONS", "BSLAY_SLISKE", "BSLAY_GWD2_SOLO_BOSS", "BSLAY_NEX2", "BSLAY_MENAPHOS_SLAYER_BOSS", "BSLAY_SOLAK", "BSLAY_DUNGEON_AMINISHI1", "BSLAY_DUNGEON_AMINISHI2", "BSLAY_DUNGEON_AMINISHI3", "BSLAY_DUNGEON_DRAGONFORT1", "BSLAY_DUNGEON_DRAGONFORT2", "BSLAY_DUNGEON_DRAGONFORT3", "BSLAY_DINO_BOSS", "BSLAY_REXKINGS", "BSLAY_EGWD_JAS_BOSS", "BSLAY_EGWD_WEN_BOSS", "BSLAY_EGWD_BIK_BOSS", "BSLAY_EGWD_FUL_BOSS", "BSLAY_EGWD_ZAMORAK_BOSS", "BSLAY_HERMOD_BOSS", "BSLAY_RASIAL_BOSS", "BSLAY_FORT_BOSS_ZEMO_VORKATH", "BSLAY_REXKINGS_OSSEOUS", "BSLAY_RAID_REBIRTH1_WYRM_BOSS", "BSLAY_RAID_REBIRTH1_BEAST_BOSS", "BSLAY_RAID_REBIRTH1_SLAYER_MASTER_BOSS", "BSLAY_ELIDINIS_BOSS", "BSLAY_AMASCUT_BOSS", "BSLAY_STALKER_BOSS", "BSLAY_WENDLE_GIANT_BOSS", "BSLAY_WENDLE_HEDGEHOG_BOSS", "BSLAY_BLOOD_KNIGHT_BOSS" }
+local P4_ALL = BOSS_RECORDS
 local P4_SHOW = { "BSLAY_BARROWS", "BSLAY_KBD", "BSLAY_KRIL", "BSLAY_HERMOD_BOSS", "BSLAY_STALKER_BOSS" }
 local probe4 = nil
 
@@ -840,6 +948,58 @@ local function probe5Run()
         end
     end
     probeLog("finished")
+end
+
+-- ── 4i. Slayer creature record probe (beta debugging; config.lua: trackerProbe = "slayer") ────────────────────────
+-- Slayer creatures (Bloodvelds, Gargoyles ...) are records too, but not the BSLAY_ ones. Finds structs that have a
+-- parameter whose name mentions "slay" (other than BSLAY_*), prints the parameter names seen and a few full examples.
+local probe6 = nil
+local function probe6Start()
+    probe6 = { next = 0, last = 80000, misses = 0, found = 0, shown = 0, names = {}, order = {}, done = false }
+    probeLog("slayer record probe started (about 5 minutes)")
+end
+local function probe6Step()
+    local p = probe6
+    if p == nil or p.done then return end
+    local last = math.min(p.next + 150 - 1, p.last)
+    for sid = p.next, last do
+        local okS, st = pcall(function() return config.Struct.FromID(sid) end)
+        if not okS or st == nil then
+            p.misses = p.misses + 1
+            if p.misses >= 4000 and p.found > 0 then last = p.last; break end
+        else
+            p.misses = 0
+            local okP, params = pcall(function() return st.params end)
+            if okP and type(params) == "table" then
+                local hit = false
+                for _, prm in ipairs(params) do
+                    local okN, pname = pcall(function() return prm.configName end)
+                    if okN and type(pname) == "string" and pname:lower():find("slay") and not pname:find("^BSLAY") then
+                        hit = true
+                        if not p.names[pname] then p.names[pname] = 0; p.order[#p.order + 1] = pname end
+                        p.names[pname] = p.names[pname] + 1
+                    end
+                end
+                if hit then
+                    p.found = p.found + 1
+                    if p.shown < 6 then
+                        p.shown = p.shown + 1
+                        local okC, cname = pcall(function() return st.configName end)
+                        probeLog("struct " .. tostring(okC and cname or sid) .. " (id " .. sid .. "): " .. p4Describe(st))
+                    end
+                end
+            end
+        end
+    end
+    p.next = last + 1
+    if p.next > p.last then
+        p.done = true
+        table.sort(p.order)
+        local parts = {}
+        for _, n in ipairs(p.order) do parts[#parts + 1] = n .. " x" .. p.names[n] end
+        probeLog("scan finished: " .. p.found .. " structs. Parameter names: " .. table.concat(parts, ", "))
+        probeLog("finished")
+    end
 end
 
 -- ── 5. Kills ──────────────────────────────────────────────────────────────────
@@ -1106,6 +1266,10 @@ local function send()
         if not achBaselineDone then payload.achievements_full = true end
     end
 
+    -- Lifetime boss kills (from the boss records): whatever changed since the server last accepted them.
+    local sentBoss = bossChanged
+    if sentBoss then payload.boss_kills = sentBoss end
+
     -- The game's own kill tracker variables (raw): whatever changed since the server last accepted them.
     local sentKillVars = killVarsChanged
     if sentKillVars then payload.kill_vars = sentKillVars end
@@ -1168,6 +1332,10 @@ local function send()
                 for _, q in ipairs(sentQuests) do questHeld[q.id] = q.state end
                 questBaselineDone = true
                 if questChanges == sentQuests then questChanges = nil end
+            end
+            if sentBoss then
+                for _, b in ipairs(sentBoss) do bossHeld[b.key] = b.kills end
+                if bossChanged == sentBoss then bossChanged = nil end
             end
             if sentKillVars then
                 for name, value in pairs(sentKillVars) do killVarsHeld[name] = value end
@@ -1251,6 +1419,7 @@ Event.GameStateChanged.Subscribe("gim_state", function(event)
         questHeld, questBaselineDone, lastQuestCheck, questScan, questChanges = {}, false, -QUEST_RECHECK, nil, nil
         achHeld, achSeenOpen, achBaselineDone, lastAchCheck, achScan, achChanges = {}, {}, false, -ACH_RECHECK, nil, nil
         killVarsHeld, killVarsChanged, lastKillVarCheck = {}, nil, -KILLVAR_RECHECK
+        bossHeld, bossChanged, lastBossCheck = {}, nil, -BOSS_RECHECK
         engagedName, lastHp, recentKills, fromGround, packBefore = nil, nil, {}, {}, nil
         rules = nil
         dirty.skills, dirty.items = true, true
@@ -1268,9 +1437,13 @@ Event.ServerLogic.Subscribe("gim_tick", function()
 
     -- Drop rules: fetch when logged in and missing; retry about every 3 minutes if the server did not answer.
     if FEATURES.killtracker and Player.IsAvailable() and ticks - lastKillVarCheck >= KILLVAR_RECHECK then scanKillVars() end
+    if FEATURES.bosses and Player.IsAvailable() and ticks - lastBossCheck >= BOSS_RECHECK then scanBosses() end
 
     if settings.trackerProbe == true and Player.IsAvailable() then
         if probe == nil then probeStart() else probeStep() end
+    end
+    if settings.trackerProbe == "slayer" and Player.IsAvailable() then
+        if probe6 == nil then probe6Start() else probe6Step() end
     end
     if settings.trackerProbe == "tallies" and Player.IsAvailable() and probe5 == nil and ticks > 40 then probe5Run() end
     if settings.trackerProbe == "params" and Player.IsAvailable() and probe4 == nil and ticks > 40 then probe4Run() end

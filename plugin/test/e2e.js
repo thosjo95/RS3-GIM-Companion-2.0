@@ -128,6 +128,14 @@ const check = (c, m) => { console.log((c ? 'PASS' : 'FAIL') + '  ' + m); if (!c)
   const kvLater = captured.map(c => JSON.parse(c.body)).filter(b => b.kill_vars).pop();
   check(kvLater.kill_vars.bslay_boss_kills1 === 21 && Object.keys(kvLater.kill_vars).length === 1, 'only the changed kill tracker value is sent again');
 
+  // 5d. lifetime boss kills from the game's boss records
+  const bkSend = captured.map(c => JSON.parse(c.body)).find(b => b.boss_kills);
+  check(bkSend && bkSend.boss_kills.length === 2 && bkSend.boss_kills.find(b => b.key === 'BSLAY_BARROWS')?.kills === 142 && bkSend.boss_kills.find(b => b.key === 'BSLAY_KBD')?.name === 'King Black Dragon',
+    'lifetime boss kills are read from the boss records (name + the achievement counter)');
+  dostr('BOSS_ACH.BARROWS.tallyProgress = 150; TICK(320)');
+  const bkLater = captured.map(c => JSON.parse(c.body)).filter(b => b.boss_kills).pop();
+  check(bkLater.boss_kills.length === 1 && bkLater.boss_kills[0].key === 'BSLAY_BARROWS' && bkLater.boss_kills[0].kills === 150, 'only the changed boss count is sent again');
+
   // 6. kills and drops
   //    a) not our kill: a monster we are not fighting, and our target dying far away, are not counted
   dostr('TARGET_NAME = "Araxxor"; TARGET_HP = "1000"; TICK(2); TARGET_HP = "500"; TICK(2)');
@@ -229,6 +237,12 @@ const check = (c, m) => { console.log((c ? 'PASS' : 'FAIL') + '  ' + m); if (!c)
 
   const kvRows = await (await fetch(`${base}/plugin/kill-vars?group_id=${gid}`, { headers: gh })).json();
   check(kvRows.find(r => r.name === 'bslay_boss_kills1')?.value === 21 && kvRows.find(r => r.name === 'bslay_monster_kills1')?.value === 250, 'kill tracker values stored and readable');
+
+  const bossRows = await (await fetch(`${base}/plugin/boss-kills?group_id=${gid}`, { headers: gh })).json();
+  check(bossRows.find(r => r.key === 'BSLAY_BARROWS')?.kills === 150 && bossRows.find(r => r.key === 'BSLAY_KBD')?.kills === 3, 'boss kills stored and readable');
+  const bossView = await (await fetch(`${base}/boss-kills?group_id=${gid}`)).json();
+  check(bossView.find(b => b.boss_key === 'barrows')?.kills === 150 && bossView.find(b => b.boss_key === 'barrows')?.source === 'tracker'
+    && bossView.find(b => b.boss_key === 'king_black_dragon')?.kills === 3, 'the boss kill view uses the game\'s exact lifetime count');
 
   const npcKills = await (await fetch(`${base}/plugin/kills?group_id=${gid}`, { headers: gh })).json();
   check(npcKills.length === 1 && npcKills[0].npc === 'Araxxor' && npcKills[0].kills === 3, 'kills counted once per real kill (replay of retried sends does not double them)');

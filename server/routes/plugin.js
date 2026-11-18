@@ -10,6 +10,7 @@
  *   GET    /api/plugin/quests?group_id quest progress per player                (group auth)
  *   GET    /api/plugin/kills?group_id  NPC kills counted by the plugin          (group auth)
  *   GET    /api/plugin/achievements?group_id  completed achievements / area tasks (group auth)
+ *   GET    /api/plugin/boss-kills?group_id    lifetime boss kills from the game       (group auth)
  *   GET    /api/plugin/kill-vars?group_id     the game's kill tracker values, raw    (group auth)
  *
  * Design rules:
@@ -146,6 +147,17 @@ function cleanPayload(b) {
     out.achievementsFull = b.achievements_full === true;
   }
 
+  if (b.boss_kills !== undefined) {
+    if (!Array.isArray(b.boss_kills)) throw new Error('boss_kills must be an array');
+    if (b.boss_kills.length > 150) throw new Error('boss_kills has too many entries (max 150)');
+    out.bossKills = b.boss_kills.map((k, i) => {
+      if (!k || typeof k.key !== 'string' || !/^[A-Z0-9_]{3,60}$/.test(k.key)) throw new Error(`boss_kills[${i}].key must be an upper-case record name`);
+      if (typeof k.name !== 'string' || !k.name.trim() || k.name.length > 80) throw new Error(`boss_kills[${i}].name must be a string`);
+      if (!isInt(k.kills, 0, 1e9)) throw new Error(`boss_kills[${i}].kills must be a non-negative integer`);
+      return { key: k.key, name: k.name.trim(), kills: k.kills };
+    });
+  }
+
   if (b.kill_vars !== undefined) {
     const kv = b.kill_vars;
     if (!kv || typeof kv !== 'object' || Array.isArray(kv)) throw new Error('kill_vars must be an object');
@@ -268,6 +280,11 @@ router.post('/ingest', ingestLimiter, express.json({ limit: '1mb' }), (req, res)
     for (const c of freshChanges ? (data.changes ?? []).filter(x => x.store === 'group') : []) ledgerAdded += ins.run(playerId, c.store, c.id, c.name, c.delta, c.value, c.ts).changes;
 
     if (data.quests) applied.quests = sync.applyQuests(playerId, data.quests, data.questsFull, now);
+    if (data.bossKills) {
+      const up = db.prepare('INSERT INTO player_boss_kills (player_id, key, name, kills, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(player_id, key) DO UPDATE SET name = excluded.name, kills = excluded.kills, updated_at = excluded.updated_at');
+      for (const k of data.bossKills) up.run(playerId, k.key, k.name, k.kills, now);
+      applied.boss_kills = data.bossKills.length;
+    }
     if (data.killVars) {
       const up = db.prepare('INSERT INTO player_kill_vars (player_id, name, value, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(player_id, name) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at');
       for (const [name, value] of data.killVars) up.run(playerId, name, value, now);
@@ -357,6 +374,17 @@ router.get('/achievements', (req, res) => {
            a.description, a.reward, a.tally_progress, a.tally_target
     FROM player_achievements a JOIN players p ON p.id = a.player_id
     WHERE p.group_id = ? ORDER BY a.name, p.rsn
+  `).all(groupId));
+});
+
+router.get('/boss-kills', (req, res) => {
+  const groupId = parseInt(req.query.group_id, 10);
+  if (!groupId) return res.status(400).json({ error: 'group_id required' });
+  if (!checkGroupAuth(req, res, groupId)) return;
+  res.json(db.prepare(`
+    SELECT b.player_id, p.rsn, b.key, b.name, b.kills, b.updated_at
+    FROM player_boss_kills b JOIN players p ON p.id = b.player_id
+    WHERE p.group_id = ? ORDER BY b.kills DESC
   `).all(groupId));
 });
 

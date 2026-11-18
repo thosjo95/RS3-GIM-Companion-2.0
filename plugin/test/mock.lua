@@ -68,6 +68,12 @@ ACHS[22] = { name = "Journey Tier 1: Restless ghost",  category = 5483, subCateg
 id.VarPlayer = { BSLAY_BOSS_KILLS1 = 9001, BSLAY_MONSTER_KILLS1 = 9002, BSLAY_BOSS_KILLS2 = 9003 }
 VARS = { [9001] = 19, [9002] = 250, [9003] = 0 }
 var = { VarPlayer = { FromID = function(i) if VARS[i] == nil then return nil end return { value = VARS[i] } end } }
+-- Boss records (the game's tracker): a struct with BSLAY_NAME and a link to an achievement whose progress counter is the kill count
+BOSS_ACH = { BARROWS = { tallyProgress = 142, tallyTarget = 1 }, KBD = { tallyProgress = 3, tallyTarget = 1 } }
+local function bossStruct(name, ach) return { params = { BSLAY_NAME = name, BSLAY_ACHIEVEMENT = ach },
+    HasParam = function(self, prm) return self.params[prm.name] ~= nil end, GetParamValue = function(self, prm) return self.params[prm.name] end } end
+config.Struct = { BSLAY_BARROWS = bossStruct("The Barrows Brothers", BOSS_ACH.BARROWS), BSLAY_KBD = bossStruct("King Black Dragon", BOSS_ACH.KBD) }
+config.Param = setmetatable({}, { __index = function(t, k) return { name = k } end })
 config.Achievement = { FromID = function(i) return ACHS[i] end }
 config.Quest = { FromID = function(i) return QUESTS[i] end }
 

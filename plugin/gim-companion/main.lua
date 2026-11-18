@@ -33,6 +33,16 @@ if not Plugin.HasPermission(PluginPermissions.httpAccess) then
     return
 end
 
+-- Optional switches in config.lua, useful while testing (all default to on):
+--   debug = true/false         print a trace line before each risky step (the last line shows where a crash happened)
+--   features = { quests = true, kills = true, drops = true }
+local DEBUG = settings.debug ~= false
+local FEATURES = { quests = true, kills = true, drops = true }
+if type(settings.features) == "table" then
+    for name in pairs(FEATURES) do if settings.features[name] == false then FEATURES[name] = false end end
+end
+local function trace(msg) if DEBUG then log("[GIM] > " .. msg) end end
+
 local PAYLOAD_VERSION    = 1
 local HEARTBEAT_TICKS    = 50    -- ServerLogic fires about every 0.6 s, so about 30 s
 local SETTLE_TICKS       = 3     -- wait this long after an inventory event so one bank action = one message
@@ -229,21 +239,39 @@ local function readQuest(questId)
     return entry
 end
 
--- Returns the quests whose state differs from what the server holds (all of them for the first call).
-local function sweepQuests()
-    local changed, seen, misses = {}, 0, 0
-    for questId = 0, QUEST_SCAN_LIMIT - 1 do
+-- The scan runs a few ids per tick (never all ~800 at once) and leaves its result in `questChanges`:
+-- the quests whose state differs from what the server holds (everything, for the first scan after login).
+local QUEST_IDS_PER_TICK = 25
+local questScan = nil       -- { next, seen, misses, changed } while a scan is running
+local questChanges = nil    -- finished scan result waiting to be sent
+
+local function questScanStep()
+    local scan = questScan
+    if scan == nil then return end
+    local last = math.min(scan.next + QUEST_IDS_PER_TICK - 1, QUEST_SCAN_LIMIT - 1)
+    for questId = scan.next, last do
         local entry = readQuest(questId)
         if entry == nil then
-            misses = misses + 1
-            if misses >= QUEST_MISS_LIMIT and seen > 0 then break end
+            scan.misses = scan.misses + 1
+            if scan.misses >= QUEST_MISS_LIMIT and scan.seen > 0 then last = QUEST_SCAN_LIMIT; break end
         else
-            misses = 0
-            seen = seen + 1
-            if questHeld[questId] ~= entry.state then changed[#changed + 1] = entry end
+            scan.misses = 0
+            scan.seen = scan.seen + 1
+            if questHeld[questId] ~= entry.state then scan.changed[#scan.changed + 1] = entry end
         end
     end
-    return seen > 0 and changed or nil
+    scan.next = last + 1
+    if scan.next >= QUEST_SCAN_LIMIT then
+        questScan = nil
+        trace("quest scan finished: " .. scan.seen .. " quests, " .. #scan.changed .. " to send")
+        if scan.seen > 0 and #scan.changed > 0 then questChanges = scan.changed; markItemsDirty() end
+    end
+end
+
+local function questScanStart()
+    lastQuestCheck = ticks
+    questScan = { next = 0, seen = 0, misses = 0, changed = {} }
+    trace("quest scan started")
 end
 
 -- ── 5. Kills ──────────────────────────────────────────────────────────────────
@@ -396,14 +424,17 @@ local function send()
     local rsn = characterName()
     if rsn == nil or not Player.IsAvailable() then return end   -- not in a world yet
 
+    trace("send: reading skills")
     local payload = { v = PAYLOAD_VERSION, rsn = rsn }
     if dirty.skills then payload.skills = readSkills() end
 
+    trace("send: reading backpack and worn items")
     local backpack = readInv(id.Inv.INV, 100)
     if backpack then payload.inventory = backpack end
     local worn = readInv(id.Inv.WORN, 30)
     if worn then payload.equipment = worn end
 
+    trace("send: reading position")
     local pos = readPosition()
     if pos then payload.position = pos end
 
@@ -422,17 +453,11 @@ local function send()
     end
     if #changes > 0 then payload.storage_changes = changes end
 
-    -- Quests: re-read about once a minute; send only what the server does not know yet.
-    local sentQuests
-    if ticks - lastQuestCheck >= QUEST_RECHECK then
-        lastQuestCheck = ticks
-        sentQuests = sweepQuests()
-        if sentQuests and #sentQuests > 0 then
-            payload.quests = sentQuests
-            if not questBaselineDone then payload.quests_full = true end
-        else
-            sentQuests = nil
-        end
+    -- Quests: whatever the last finished scan found that the server does not know yet.
+    local sentQuests = questChanges
+    if sentQuests then
+        payload.quests = sentQuests
+        if not questBaselineDone then payload.quests_full = true end
     end
 
     -- Kills: pending kills are frozen into one batch with its own reference. The batch is re-sent unchanged
@@ -456,6 +481,7 @@ local function send()
         payload.drops = sentDrops
     end
 
+    trace("send: encoding and posting")
     local okEnc, body = pcall(json.encode, payload)
     if not okEnc then log("[GIM] could not encode payload: " .. tostring(body)); return end
 
@@ -478,6 +504,7 @@ local function send()
             if sentQuests then
                 for _, q in ipairs(sentQuests) do questHeld[q.id] = q.state end
                 questBaselineDone = true
+                if questChanges == sentQuests then questChanges = nil end
             end
             if sentKills and killBatch == sentKills then killBatch = nil end
             if sentDrops then
@@ -496,11 +523,11 @@ local function send()
             log("[GIM] the server rejected this token (HTTP " .. tostring(status) .. "). Check config.lua and that you are logged in as the right character. Sending stopped.")
         else
             log("[GIM] send failed (HTTP " .. tostring(status) .. ") " .. tostring(request.errorInfo or "") .. " - will retry")
-            if sentQuests then lastQuestCheck = -QUEST_RECHECK end   -- re-read the quests on the next send
         end
     end
 
-    request:Post(body, done)   -- the second callback of Post/Get is for download PROGRESS, so only completion is given
+    request:Post(body, done)
+    trace("send: request handed to the game")   -- the second callback of Post/Get is for download PROGRESS, so only completion is given
 end
 
 -- ── 8. Scheduling ─────────────────────────────────────────────────────────────
@@ -510,15 +537,15 @@ Event.SkillTransmit.Subscribe("gim_skill", function() dirty.skills = true end)
 Event.InventoryUpdated.Subscribe("gim_inv_updated", onInventoryEvent)
 Event.InventoryAdded.Subscribe("gim_inv_added", onInventoryEvent)
 Event.InventoryRemoved.Subscribe("gim_inv_removed", onInventoryEvent)
-Event.NPCEntityRemoved.Subscribe("gim_npc_removed", onNpcRemoved)
-Event.ObjStackEntityAdded.Subscribe("gim_ground_item", onGroundItem)
+if FEATURES.kills then Event.NPCEntityRemoved.Subscribe("gim_npc_removed", onNpcRemoved) end
+if FEATURES.drops then Event.ObjStackEntityAdded.Subscribe("gim_ground_item", onGroundItem) end
 
 -- A new login (or world hop) means the old baselines may be stale: forget them so the first bank view
 -- after logging in is a fresh baseline, quests are re-sent in full, and pending fight state is dropped.
 Event.GameStateChanged.Subscribe("gim_state", function(event)
     if event.newState ~= GameState.GAME then
         for _, store in ipairs(STORES) do store.held = nil end
-        questHeld, questBaselineDone, lastQuestCheck = {}, false, -QUEST_RECHECK
+        questHeld, questBaselineDone, lastQuestCheck, questScan, questChanges = {}, false, -QUEST_RECHECK, nil, nil
         engagedName, lastHp, recentKills, fromGround, packBefore = nil, nil, {}, {}, nil
         rules = nil
         dirty.skills, dirty.items = true, true
@@ -527,10 +554,15 @@ end)
 
 Event.ServerLogic.Subscribe("gim_tick", function()
     ticks = ticks + 1
-    if ticks % 2 == 0 then readTarget() end
+    if FEATURES.kills and ticks % 2 == 0 then readTarget() end
+
+    if FEATURES.quests and Player.IsAvailable() then
+        if questScan ~= nil then questScanStep()
+        elseif ticks - lastQuestCheck >= QUEST_RECHECK then questScanStart() end
+    end
 
     -- Drop rules: fetch when logged in and missing; retry about every 3 minutes if the server did not answer.
-    if rules == nil and ticks - rulesAskedAt >= 300 and Player.IsAvailable() then fetchRules() end
+    if FEATURES.drops and rules == nil and ticks - rulesAskedAt >= 300 and Player.IsAvailable() then trace("fetching drop rules"); fetchRules() end
 
     -- A backpack change is examined once it has settled (so several items from one kill arrive together).
     if packDirtyAt ~= nil and ticks - packDirtyAt >= 2 then packDirtyAt = nil; scanBackpack() end

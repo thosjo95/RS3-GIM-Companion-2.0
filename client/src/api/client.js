@@ -107,6 +107,7 @@ export const api = {
   updateCompetition: (id, body) => request(`/competitions/${id}`, { method: 'PUT', body }),
   deleteCompetition: (id) => request(`/competitions/${id}`, { method: 'DELETE' }),
   getGoalProgress:   (groupId) => request(`/goals/progress?group_id=${groupId}`),
+  getPresence:       (groupId) => request(`/plugin/presence?group_id=${groupId}`),
   getPluginQuests:   (groupId) => request(`/plugin/quests?group_id=${groupId}`),
   getPluginLedger:   (groupId, limit = 300) => request(`/plugin/ledger?group_id=${groupId}&limit=${limit}`),
   createPluginToken: (playerId)         => request('/plugin/tokens', { method: 'POST', body: { player_id: playerId } }),

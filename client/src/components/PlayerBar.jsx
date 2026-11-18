@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import { MEMBER_COLORS, normRsn } from '../lib/rs3';
 import MemberCard from './overview/MemberCard';
@@ -18,6 +18,16 @@ export default function PlayerBar({ group, players, groupId, canWrite, myRsn, se
   const [loadoutId, setLoadoutId] = useState(null);       // whose backpack / equipment / skills panel is open
   const loadoutPlayer = players.find(p => p.id === loadoutId) ?? null;
   const closePanels = () => setLoadoutId(null);
+  // who is playing right now: the plugin's heartbeat (needs an unlocked group)
+  const [online, setOnline] = useState({});
+  useEffect(() => {
+    if (!canWrite || !groupId) { setOnline({}); return undefined; }
+    let alive = true;
+    const load = () => api.getPresence(groupId).then(r => { if (alive) setOnline(Object.fromEntries((Array.isArray(r) ? r : []).filter(x => x.online).map(x => [x.player_id, true]))); }).catch(() => {});
+    load();
+    const t = setInterval(() => { if (!document.hidden) load(); }, 20000);
+    return () => { alive = false; clearInterval(t); };
+  }, [groupId, canWrite]);
   const isUnranked = group?.gim_type === 'regular_unranked';
 
   async function handleRemovePlayer(player) {
@@ -84,6 +94,7 @@ export default function PlayerBar({ group, players, groupId, canWrite, myRsn, se
               onRemove={canWrite ? handleRemovePlayer : undefined}
               onOpenLoadout={pl => { setLoadoutId(id => (id === pl.id ? null : pl.id)); }}
               loadoutOpen={loadoutId === p.id}
+              online={!!online[p.id]}
             />
           ))}
         </div>

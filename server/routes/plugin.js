@@ -367,6 +367,20 @@ router.get('/config', (req, res) => {
   res.json({ drop_threshold: DROP_THRESHOLD, rare_names: sync.rareItemNames() });
 });
 
+// GET /api/plugin/presence?group_id= — who is online and playing: the plugin has been heard from in the last 3 minutes.
+// Only the time is shared (no world, no position).
+router.get('/presence', (req, res) => {
+  const groupId = parseInt(req.query.group_id, 10);
+  if (!groupId) return res.status(400).json({ error: 'group_id required' });
+  if (!checkGroupAuth(req, res, groupId)) return;
+  const rows = db.prepare(`SELECT p.id AS player_id, s.updated_at FROM players p JOIN player_live_state s ON s.player_id = p.id WHERE p.group_id = ?`).all(groupId);
+  const now = Date.now();
+  res.json(rows.map(r => {
+    const t = Date.parse(r.updated_at);
+    return { player_id: r.player_id, last_seen: r.updated_at, online: Number.isFinite(t) && now - t < 3 * 60 * 1000 };
+  }));
+});
+
 router.get('/quests', (req, res) => {
   const groupId = parseInt(req.query.group_id, 10);
   if (!groupId) return res.status(400).json({ error: 'group_id required' });

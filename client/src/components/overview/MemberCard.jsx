@@ -3,7 +3,7 @@ import RsIcon from '../RsIcon';
 
 // ── Member card ───────────────────────────────────────────────────────────────
 
-export default function MemberCard({ player, active, color, onClick, isMe, onEditRsn, onSync, canWrite, onRemove, onOpenLoadout, loadoutOpen }) {
+export default function MemberCard({ player, active, color, onClick, isMe, onEditRsn, onSync, canWrite, onRemove, onOpenLoadout, loadoutOpen, online = false }) {
   const [avatarError, setAvatarError] = useState(false);
   const [syncing,     setSyncing]     = useState(false);
   const overall = player.skills?.find(s => s.skill_name === 'Overall');
@@ -41,10 +41,12 @@ export default function MemberCard({ player, active, color, onClick, isMe, onEdi
           }}>⚠</div>
       )}
 
+      <div title={online ? 'Online and playing right now' : undefined} style={{ position: 'relative', marginBottom: 8, flexShrink: 0 }}>
       <div style={{
         width: 40, height: 40, borderRadius: '50%', background: color,
-        overflow: 'hidden', marginBottom: 8, flexShrink: 0,
+        overflow: 'hidden', flexShrink: 0,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
+        boxShadow: online ? '0 0 0 2px #3ddc6a, 0 0 12px 2px rgba(61,220,106,0.45)' : undefined,
       }}>
         {!avatarError ? (
           <img
@@ -59,12 +61,14 @@ export default function MemberCard({ player, active, color, onClick, isMe, onEdi
           </span>
         )}
       </div>
+      {online && <span className="gs-online-dot" style={{ position: 'absolute', right: -1, bottom: -1, width: 12, height: 12, borderRadius: '50%', background: '#3ddc6a', border: '2px solid var(--bg-panel-alt)' }} />}
+      </div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, marginBottom: 3, maxWidth: '100%' }}>
         <span style={{ fontWeight: 700, fontSize: 13, color: active ? color : 'var(--text-bright)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>
           {player.rsn}
         </span>
-        {/* edit: next to the name, shown when the card is selected (or has a sync error); needs an unlocked group. Hiscores sync by themselves. */}
       </div>
+      {online && <div style={{ fontSize: 10, fontWeight: 700, color: '#3ddc6a', letterSpacing: '0.4px', marginBottom: 3 }}>PLAYING NOW</div>}
       {overall
         ? <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, marginTop: 1, flexWrap: 'wrap' }}>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, color: 'var(--text-dim)' }}>

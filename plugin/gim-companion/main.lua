@@ -36,6 +36,8 @@ end
 -- Optional switches in config.lua, useful while testing (all default to on):
 --   debug = true/false         print a trace line before each risky step (the last line shows where a crash happened)
 --   features = { quests = true, kills = true, drops = true }
+--   dryRun = true              read the game and print what WOULD be sent, but make no network request at all
+local DRY_RUN = settings.dryRun == true
 local DEBUG = settings.debug ~= false
 local FEATURES = { quests = true, kills = true, drops = true }
 if type(settings.features) == "table" then
@@ -481,9 +483,17 @@ local function send()
         payload.drops = sentDrops
     end
 
-    trace("send: encoding and posting")
+    trace("send: encoding payload")
     local okEnc, body = pcall(json.encode, payload)
     if not okEnc then log("[GIM] could not encode payload: " .. tostring(body)); return end
+
+    if DRY_RUN then
+        log("[GIM] dry run - would send " .. #body .. " bytes: " .. body:sub(1, 160) .. (#body > 160 and "..." or ""))
+        lastSendTick = ticks
+        dirty.items = false
+        return
+    end
+    trace("send: creating request")
 
     local okReq, request = pcall(HTTPRequest.new, Plugin.urls.gim, "/api/plugin/ingest")
     if not okReq or request == nil then log("[GIM] could not create request: " .. tostring(request)); return end
@@ -562,7 +572,7 @@ Event.ServerLogic.Subscribe("gim_tick", function()
     end
 
     -- Drop rules: fetch when logged in and missing; retry about every 3 minutes if the server did not answer.
-    if FEATURES.drops and rules == nil and ticks - rulesAskedAt >= 300 and Player.IsAvailable() then trace("fetching drop rules"); fetchRules() end
+    if FEATURES.drops and not DRY_RUN and rules == nil and ticks - rulesAskedAt >= 300 and Player.IsAvailable() then trace("fetching drop rules"); fetchRules() end
 
     -- A backpack change is examined once it has settled (so several items from one kill arrive together).
     if packDirtyAt ~= nil and ticks - packDirtyAt >= 2 then packDirtyAt = nil; scanBackpack() end

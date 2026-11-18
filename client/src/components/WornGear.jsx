@@ -68,55 +68,25 @@ function Slot({ def, item }) {
   );
 }
 
-export default function WornGear({ players, groupId, canWrite, selectedPlayerId = null }) {
-  const [state, setState] = useState(null);
-  useEffect(() => {
-    if (!canWrite || !groupId) { setState(null); return; }
-    let alive = true;
-    const load = () => api.getPluginState(groupId).then(r => { if (alive) setState(Array.isArray(r) ? r : []); }).catch(() => {});
-    load();
-    const t = setInterval(() => { if (!document.hidden) load(); }, 15000);
-    return () => { alive = false; clearInterval(t); };
-  }, [groupId, canWrite]);
-
-  const player = players.find(p => p.id === selectedPlayerId) ?? null;
-  const row = state?.find(r => r.player_id === selectedPlayerId) ?? null;
-
+// The 12 equipment slots with what is worn. The aura slot is not shown.
+export function EquipmentGrid({ equipment = [] }) {
   const { bySlot, extra } = useMemo(() => {
     const bySlot = {}, extra = [];
-    for (const it of row?.equipment ?? []) {
-      const slot = Number.isInteger(it.slot) && it.slot === 14 ? 'aura' : slotOf(it);
-      if (slot !== 'aura' && !bySlot[slot]) bySlot[slot] = it; else extra.push(it);
+    for (const it of equipment) {
+      if (Number.isInteger(it.slot) && it.slot === 14) continue;      // aura: not shown
+      const slot = slotOf(it);
+      if (!bySlot[slot]) bySlot[slot] = it; else extra.push(it);
     }
     return { bySlot, extra };
-  }, [row]);
-
-  if (!player) {
-    return <div style={{ color: 'var(--text-dim)', fontSize: 13, padding: '24px 4px' }}>To see what a player is wearing right now, pick a player card above.</div>;
-  }
-  if (!canWrite) {
-    return <div style={{ color: 'var(--text-dim)', fontSize: 13, padding: '24px 4px' }}>Unlock the group to see worn gear.</div>;
-  }
-  if (!row || !row.updated_at) {
-    return <div style={{ color: 'var(--text-dim)', fontSize: 13, padding: '24px 4px' }}>{player.rsn} has not sent any data from the plugin yet.</div>;
-  }
-
-  const fresh = Date.now() - Date.parse(row.updated_at) < 5 * 60 * 1000;
+  }, [equipment]);
+  const worn = Object.keys(bySlot).length + extra.length;
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, fontSize: 12, color: 'var(--text-dim)' }}>
-        <span style={{ width: 8, height: 8, borderRadius: '50%', background: fresh ? '#4caf50' : 'var(--text-dim)' }} />
-        <span><strong style={{ color: 'var(--text-bright)' }}>{player.rsn}</strong> · {fresh ? 'live' : `last seen ${timeAgo(row.updated_at)}`}</span>
-      </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 96px)', gridAutoRows: '82px', gap: 6, justifyContent: 'center' }}>
         {EQUIPMENT_SLOTS.map(def => <Slot key={def.slot} def={def} item={bySlot[def.slot]} />)}
       </div>
-      {extra.length > 0 && (
-        <div style={{ marginTop: 14, fontSize: 12, color: 'var(--text-dim)' }}>
-          Also worn: {extra.map(it => it.name).filter(Boolean).join(', ')}
-        </div>
-      )}
-      {(row.equipment ?? []).length === 0 && <div style={{ marginTop: 14, fontSize: 12, color: 'var(--text-dim)' }}>Nothing is worn.</div>}
+      {extra.length > 0 && <div style={{ marginTop: 10, fontSize: 11, color: 'var(--text-dim)' }}>Also worn: {extra.map(it => it.name).filter(Boolean).join(', ')}</div>}
+      <div style={{ marginTop: 10, fontSize: 12, color: 'var(--text-dim)' }}><strong style={{ color: 'var(--text-bright)' }}>{worn}</strong> / {EQUIPMENT_SLOTS.length} equipped</div>
     </div>
   );
 }

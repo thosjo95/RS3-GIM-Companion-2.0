@@ -3,6 +3,7 @@ import { api } from '../api/client';
 import { MEMBER_COLORS, normRsn } from '../lib/rs3';
 import MemberCard from './overview/MemberCard';
 import EditRsnModal from './overview/EditRsnModal';
+import PlayerLoadout from './PlayerLoadout';
 
 /**
  * The group's player cards, pinned above every page. Clicking a card selects that player; every page then
@@ -14,6 +15,8 @@ import EditRsnModal from './overview/EditRsnModal';
 export default function PlayerBar({ group, players, groupId, canWrite, myRsn, selectedId, onSelect, onRefresh, onToast, onAddPlayer }) {
   const [editRsnPlayer, setEditRsnPlayer] = useState(null);
   const [rosterLoading, setRosterLoading] = useState(false);
+  const [loadoutId, setLoadoutId] = useState(null);       // whose backpack / equipment / skills panel is open
+  const loadoutPlayer = players.find(p => p.id === loadoutId) ?? null;
   const isUnranked = group?.gim_type === 'regular_unranked';
 
   async function handleRemovePlayer(player) {
@@ -110,10 +113,14 @@ export default function PlayerBar({ group, players, groupId, canWrite, myRsn, se
               onEditRsn={setEditRsnPlayer}
               onSync={syncOnePlayer}
               onRemove={canWrite ? handleRemovePlayer : undefined}
+              onOpenLoadout={pl => setLoadoutId(id => (id === pl.id ? null : pl.id))}
+              loadoutOpen={loadoutId === p.id}
             />
           ))}
         </div>
       )}
+
+      {loadoutPlayer && <PlayerLoadout player={loadoutPlayer} groupId={groupId} canWrite={canWrite} onClose={() => setLoadoutId(null)} />}
 
       {editRsnPlayer && (
         <EditRsnModal

@@ -23,6 +23,7 @@ export const RS_ICON = {
   // goals and general markers
   skills:       'Skills.png',
   backpack:     'Backpack_icon.png',
+  equipment:    'Worn_Equipment_icon.png',
   wiki:         'Wiki.png',
   player:       'Friends_List_icon.png',
   group:        'Group_Ironman_helm.png',

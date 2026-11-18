@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { api } from '../api/client';
-import WornGear from './WornGear';
 import ItemsTab from './ItemsTab';
 import { IconLabel } from './RsIcon';
 import { ItemIcon } from './GameIcon';
@@ -621,7 +620,7 @@ export default function VaultTab({ players, groupId, goals = [], onToast, canWri
   const [groupEquipment, setGroupEquip] = useState([]);
   // 'vault' = drops + gear loadouts (as before); the rest is the plugin's live data
   const [section, setSection] = useState('vault');
-  const SECTIONS = [['vault', 'Drops & Gear', 'drops', '🏆'], ['items', 'Group Vault', 'vault', '🏦'], ['ledger', 'Bank Journal', 'journal', '📒']];
+  const SECTIONS = [['vault', 'Drops', 'drops', '🏆'], ['items', 'Group Vault', 'vault', '🏦'], ['ledger', 'Bank Journal', 'journal', '📒']];
 
   const loadEquipment = useCallback(async () => {
     try { setGroupEquip(await api.getGroupEquipment(groupId)); }
@@ -673,25 +672,6 @@ export default function VaultTab({ players, groupId, goals = [], onToast, canWri
             : (
               <div className="empty-state">
                 <p>Add players first to use the vault.</p>
-              </div>
-            )
-          }
-        </div>
-
-        {/* RIGHT — Gear Loadouts */}
-        <div data-tour="vault-gear" style={{
-          flex: '1 1 0', minWidth: 320,
-          background: 'var(--bg-panel)',
-          border: '1px solid var(--border)',
-          borderRadius: 'var(--radius-lg)',
-          padding: '20px 18px',
-        }}>
-          <div className="section-title" style={{ marginBottom: 14 }}>Worn Gear</div>
-          {players.length > 0
-            ? <WornGear players={players} groupId={groupId} canWrite={canWrite} selectedPlayerId={selectedPlayerId} />
-            : (
-              <div className="empty-state">
-                <p>Add players to see what they wear.</p>
               </div>
             )
           }

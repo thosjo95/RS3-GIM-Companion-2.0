@@ -673,7 +673,7 @@ function Recommended({ groupId, playerId, goals, canWrite, onAdded, onToast }) {
   const [busy, setBusy] = useState(null);
   useEffect(() => {
     if (!groupId) return;
-    api.getRecommendations(groupId, playerId).then(setRecs).catch(() => setRecs([]));
+    api.getRecommendations(groupId, playerId).then(r => setRecs(Array.isArray(r) ? r : [])).catch(() => setRecs([]));
   }, [groupId, playerId, goals.length]);
   if (recs.length === 0) return null;
   const KIND = { quest: 'quests', boss: 'bosses', 'area task': 'areaTasks', journey: 'journey', skill: 'skills' };

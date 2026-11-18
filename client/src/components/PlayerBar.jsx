@@ -4,7 +4,6 @@ import { MEMBER_COLORS, normRsn } from '../lib/rs3';
 import MemberCard from './overview/MemberCard';
 import EditRsnModal from './overview/EditRsnModal';
 import PlayerLoadout from './PlayerLoadout';
-import DropsPanel, { ChestButton, useRecentDrops, useUnseenDrops } from './DropsChest';
 
 /**
  * The group's player cards, pinned above every page. Clicking a card selects that player; every page then
@@ -18,10 +17,7 @@ export default function PlayerBar({ group, players, groupId, canWrite, myRsn, se
   const [rosterLoading, setRosterLoading] = useState(false);
   const [loadoutId, setLoadoutId] = useState(null);       // whose backpack / equipment / skills panel is open
   const loadoutPlayer = players.find(p => p.id === loadoutId) ?? null;
-  const [chestOpen, setChestOpen] = useState(false);   // the treasure chest of recent drops
-  const drops = useRecentDrops(groupId);
-  const { fresh: freshDrops } = useUnseenDrops(groupId, drops, chestOpen);
-  const closePanels = () => { setLoadoutId(null); setChestOpen(false); };
+  const closePanels = () => setLoadoutId(null);
   const isUnranked = group?.gim_type === 'regular_unranked';
 
   async function handleRemovePlayer(player) {
@@ -118,24 +114,21 @@ export default function PlayerBar({ group, players, groupId, canWrite, myRsn, se
               onEditRsn={setEditRsnPlayer}
               onSync={syncOnePlayer}
               onRemove={canWrite ? handleRemovePlayer : undefined}
-              onOpenLoadout={pl => { setChestOpen(false); setLoadoutId(id => (id === pl.id ? null : pl.id)); }}
+              onOpenLoadout={pl => { setLoadoutId(id => (id === pl.id ? null : pl.id)); }}
               loadoutOpen={loadoutId === p.id}
             />
           ))}
-          <ChestButton drops={drops} fresh={freshDrops} open={chestOpen} onClick={() => { setLoadoutId(null); setChestOpen(o => !o); }} />
         </div>
       )}
 
       {/* Floats over the page (does not push anything down); a click outside closes it */}
-      {(loadoutPlayer || chestOpen) && (
+      {loadoutPlayer && (
         <>
           <div onClick={closePanels} style={{ position: 'fixed', inset: 0, zIndex: 90 }} />
           <div style={{ position: 'relative', height: 0, marginTop: -8, zIndex: 91 }}>
             <div style={{ position: 'absolute', top: 4, left: 0, right: 0, display: 'flex', justifyContent: 'center', pointerEvents: 'none' }}>
               <div style={{ pointerEvents: 'auto', boxShadow: '0 12px 36px rgba(0,0,0,0.65)', borderRadius: 'var(--radius-lg)', maxWidth: '100%' }}>
-                {chestOpen
-                  ? <DropsPanel drops={drops} players={players} selectedId={selectedId} onClose={closePanels} />
-                  : <PlayerLoadout player={loadoutPlayer} groupId={groupId} canWrite={canWrite} onClose={closePanels} />}
+                <PlayerLoadout player={loadoutPlayer} groupId={groupId} canWrite={canWrite} onClose={closePanels} />
               </div>
             </div>
           </div>

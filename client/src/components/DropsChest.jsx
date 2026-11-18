@@ -32,8 +32,8 @@ export function useRecentDrops(groupId) {
 
 // Remembers (per group, in this browser) the newest drop that was looked at. Drops newer than that glow on the chest.
 // The first visit marks everything as seen, so old drops never glow.
-export function useUnseenDrops(groupId, drops, open) {
-  const key = `gim_drops_seen_${groupId}`;
+export function useUnseenDrops(groupId, drops, open, prefix = 'gim_drops_seen_') {
+  const key = `${prefix}${groupId}`;
   const newest = drops.reduce((m, d) => Math.max(m, d.id || 0), 0);
   const read = () => { try { const v = localStorage.getItem(key); return v == null ? null : Number(v); } catch { return 0; } };
   const [seen, setSeen] = useState(read);
@@ -50,16 +50,16 @@ const BEAM_CSS = `
 @keyframes gimGlow { 0%,100% { box-shadow: 0 0 10px 1px var(--beam), 0 0 0 0 var(--beam); } 50% { box-shadow: 0 0 26px 6px var(--beam), 0 0 40px 10px var(--beam); } }
 `;
 
-export function ChestButton({ drops, open, onClick, fresh = [] }) {
+export function ChestButton({ drops = [], open, onClick, fresh = [], icon = 'vault', fallback = '🧰', label = 'Drops', sub, freshWord = 'new' }) {
   const week = drops.filter(d => Date.now() - toMs(d.dropped_at) < 7 * 86400000).length;
   const glowing = fresh.length > 0;
   const big = fresh.some(d => (d.value_gp || 0) * (d.quantity || 1) >= 5_000_000);
   const beam = big ? '#ff8a2a' : '#ffd75e';
   return (
-    <div onClick={onClick} title={glowing ? `${fresh.length} new drop${fresh.length > 1 ? 's' : ''}!` : 'Recent drops'} style={{
+    <div onClick={onClick} title={glowing ? `${fresh.length} ${freshWord}!` : label} style={{
       '--beam': beam,
       animation: glowing ? 'gimGlow 1.8s ease-in-out infinite' : undefined,
-      cursor: 'pointer', width: 140, position: 'relative', padding: '14px 16px', flexShrink: 0, userSelect: 'none',
+      cursor: 'pointer', width: 150, position: 'relative', padding: '12px 14px', flexShrink: 0, userSelect: 'none',
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, textAlign: 'center',
       background: open ? 'var(--bg-panel)' : 'var(--bg-panel-alt)', border: `2px solid ${glowing ? beam : open ? 'var(--gold)' : 'var(--border)'}`, borderRadius: 'var(--radius-lg)',
     }}>
@@ -71,9 +71,9 @@ export function ChestButton({ drops, open, onClick, fresh = [] }) {
             background: `linear-gradient(to top, ${beam}ee, ${beam}88 40%, transparent)`, filter: 'blur(3px)', animation: 'gimBeam 1.8s ease-in-out infinite' }} />
         </>
       )}
-      <RsIcon name="vault" fallback="🧰" size={44} />
-      <div style={{ fontWeight: 700, fontSize: 13, color: open ? 'var(--gold)' : glowing ? beam : 'var(--text-bright)' }}>Drops</div>
-      <div style={{ fontSize: 11, color: glowing ? beam : 'var(--text-dim)' }}>{glowing ? `${fresh.length} new!` : week > 0 ? `${week} this week` : 'nothing this week'}</div>
+      <RsIcon name={icon} fallback={fallback} size={44} />
+      <div style={{ fontWeight: 700, fontSize: 13, color: open ? 'var(--gold)' : glowing ? beam : 'var(--text-bright)' }}>{label}</div>
+      <div style={{ fontSize: 11, color: glowing ? beam : 'var(--text-dim)' }}>{glowing ? `${fresh.length} ${freshWord}!` : sub ?? (week > 0 ? `${week} this week` : 'nothing this week')}</div>
     </div>
   );
 }

@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import { useConfig } from './PreviewBanner';
+import WebhookSettings from './WebhookSettings';
+import Collapsible from './common/Collapsible';
 
 // The group's own settings, in the Plugin window (claimed and unlocked groups). They decide what the plugin's data shows.
 // Saved at once, one setting at a time.
@@ -33,7 +35,7 @@ function Pick({ value, steps, onChange, unit = '' }) {
   );
 }
 
-export default function GroupSettings({ group, onChanged, onToast, onOpenWebhook }) {
+export default function GroupSettings({ group, onChanged, onToast }) {
   const config = useConfig();
   const defaultMin = config?.drop_default_min ?? 100_000;
   const [dropMin, setDropMin] = useState(group?.drop_min_value ?? defaultMin);
@@ -97,11 +99,10 @@ export default function GroupSettings({ group, onChanged, onToast, onOpenWebhook
         </label>}>
         Nobody finds the group by browsing or searching. Members still open it from their saved groups, and anyone with the link can look at its public data.
       </Row>
-      {onOpenWebhook && (
-        <Row title="Discord notifications" control={<button className="btn btn-ghost btn-sm" onClick={onOpenWebhook}>Open</button>}>
-          Send group events (drops, level-ups and more) to a Discord channel, and choose which ones.
-        </Row>
-      )}
+      <Collapsible title="Discord notifications" storageKey="settings_discord" defaultOpen={false}>
+        <div style={{ marginBottom: 8 }}>Send group events (drops, level-ups and more) to a Discord channel, and choose which ones.</div>
+        <WebhookSettings embedded groupId={group.id} onToast={onToast} />
+      </Collapsible>
     </div>
   );
 }

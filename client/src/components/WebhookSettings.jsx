@@ -11,7 +11,7 @@ const ALL_EVENTS = [
   { key: 'drops',             icon: 'drops',      label: 'Drops',            desc: 'Every valuable drop from the Adventurer\'s Log and the plugin (can be noisy)' },
 ];
 
-export default function WebhookSettings({ groupId, onClose, onToast }) {
+export default function WebhookSettings({ groupId, onClose, onToast, embedded = false }) {
   const [url, setUrl]         = useState('');
   const [events, setEvents]   = useState(['level_milestones', 'diary_completions', 'boss_first_kills', 'goal_completions']);
   const [loading, setLoading] = useState(true);
@@ -66,19 +66,7 @@ export default function WebhookSettings({ groupId, onClose, onToast }) {
     } finally { setSaving(false); }
   }
 
-  return (
-    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="modal" style={{ maxWidth: 480 }}>
-        <div className="modal-header">
-          <span className="modal-title" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><DiscordLogo size={20} color="#8b9afc" /> Discord Notifications</span>
-          <button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button>
-        </div>
-
-        {loading ? (
-          <div className="modal-body" style={{ textAlign: 'center', padding: '32px 0' }}>
-            <span className="spinner" style={{ width: 24, height: 24 }} />
-          </div>
-        ) : (
+  const formBody = (
           <>
             <div className="modal-body">
               {/* How-to */}
@@ -149,7 +137,7 @@ export default function WebhookSettings({ groupId, onClose, onToast }) {
             </div>
 
             <div className="modal-footer">
-              <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+              {!embedded && <button className="btn btn-secondary" onClick={onClose}>Cancel</button>}
               <button className="btn btn-ghost" onClick={handleTest} disabled={testing || !url.trim()}>
                 {testing ? <><span className="spinner" style={{ width: 12, height: 12 }} /> Testing…</> : 'Send test'}
               </button>
@@ -158,6 +146,31 @@ export default function WebhookSettings({ groupId, onClose, onToast }) {
               </button>
             </div>
           </>
+  );
+
+  // embedded: the same form without its own window, for the Plugin window's group settings
+  if (embedded) {
+    return (
+      <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--bg-panel-alt)' }}>
+        {loading ? <div style={{ textAlign: 'center', padding: '24px 0' }}><span className="spinner" style={{ width: 20, height: 20 }} /></div> : formBody}
+      </div>
+    );
+  }
+
+  return (
+    <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal" style={{ maxWidth: 480 }}>
+        <div className="modal-header">
+          <span className="modal-title" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><DiscordLogo size={20} color="#8b9afc" /> Discord Notifications</span>
+          <button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button>
+        </div>
+
+        {loading ? (
+          <div className="modal-body" style={{ textAlign: 'center', padding: '32px 0' }}>
+            <span className="spinner" style={{ width: 24, height: 24 }} />
+          </div>
+        ) : (
+          formBody
         )}
       </div>
     </div>

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '../api/client';
 import { useCanRead } from '../lib/access';
+import Collapsible from './common/Collapsible';
 import { MEMBER_COLORS, fmtNum } from '../lib/rs3';
 import RsIcon, { IconLabel } from './RsIcon';
 import { ItemIcon } from './GameIcon';
@@ -304,7 +305,8 @@ function SetupView({ state, groupId, canWrite, onToast, reload }) {
                 fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' };
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div style={{ fontSize: 12, lineHeight: 1.6, padding: 12, border: '1px solid var(--border)', borderRadius: 'var(--radius)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <Collapsible title="How to connect the plugin" storageKey="plugin_howto">
+      <div style={{ fontSize: 12, lineHeight: 1.6, display: 'flex', flexDirection: 'column', gap: 8 }}>
         <div style={step}><span style={num}>1</span><span>In the RuneScape client open the plugin browser, search for <strong>GIM Companion</strong>, install it and enable it. Allow network access when the game asks.</span></div>
         <div style={step}><span style={num}>2</span><span>Log in. A <strong>GIM Companion</strong> window asks for your group's secret: the same secret that unlocks this website. Type it and press <strong>Connect</strong>.</span></div>
         <div style={step}><span style={num}>3</span><span>Done. The dot next to your name below turns green within a minute. Each member does this once per computer.</span></div>
@@ -313,6 +315,7 @@ function SetupView({ state, groupId, canWrite, onToast, reload }) {
           one character, not the secret.
         </div>
       </div>
+      </Collapsible>
 
       {canWrite && secret && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>

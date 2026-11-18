@@ -234,7 +234,7 @@ export default function Header({ group, onSynced, onToast, isUnlocked, isClaimed
 
       </div>
       {pluginOpen && group?.id && (
-        <PluginSetupModal group={group} canWrite={isUnlocked} isClaimed={isClaimed} onClaim={onClaim} onClaimV2={onClaimV2} onUnlock={onLockClick} onToast={onToast} onChanged={onSynced} onOpenWebhook={onWebhookClick} onAddPlayer={onAddPlayer} onClose={() => setPluginOpen(false)} />
+        <PluginSetupModal group={group} canWrite={isUnlocked} isClaimed={isClaimed} onClaim={onClaim} onClaimV2={onClaimV2} onUnlock={onLockClick} onToast={onToast} onChanged={onSynced} onAddPlayer={onAddPlayer} onClose={() => setPluginOpen(false)} />
       )}
       {notesOpen && group?.id && (
         <GroupNotesOverlay

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import ItemsTab from './ItemsTab';
 import GroupSettings from './GroupSettings';
 import RosterManager from './RosterManager';
+import Collapsible from './common/Collapsible';
 import RsIcon from './RsIcon';
 import { usePreview, useConfig } from './PreviewBanner';
 
@@ -9,7 +10,7 @@ import { usePreview, useConfig } from './PreviewBanner';
 //   - group not claimed yet: claim it here. That creates the secret, which the claimer saves and shares with the group;
 //   - claimed but locked in this browser: unlock with the secret;
 //   - unlocked: how to connect the GIM Companion plugin with the secret, the secret itself, and who is connected.
-export default function PluginSetupModal({ group, canWrite, isClaimed, onClaim, onClaimV2, onUnlock, onClose, onToast, onChanged, onOpenWebhook, onAddPlayer }) {
+export default function PluginSetupModal({ group, canWrite, isClaimed, onClaim, onClaimV2, onUnlock, onClose, onToast, onChanged, onAddPlayer }) {
   const [rsn, setRsn] = useState('');
   const [oldSecret, setOldSecret] = useState('');     // a group that came over from groupiron.com: its old secret, once
   const [busy, setBusy] = useState(false);
@@ -36,17 +37,15 @@ export default function PluginSetupModal({ group, canWrite, isClaimed, onClaim, 
   const config = useConfig();
   // On the preview server a new secret is only a trial: the data there is replaced by a fresh copy at launch.
   const previewNote = preview && (
-    <div style={{ ...box, borderColor: 'var(--gold)', color: 'var(--text)' }}>
-      <strong style={{ color: 'var(--gold)' }}>Preview.</strong> A secret made here is only for trying this out and is not kept. Claim your group again on launch day,
-      or use groupiron.com until then.
-    </div>
+    <Collapsible title="Preview" tone="gold" storageKey="plugin_preview">
+      A secret made here is only for trying this out and is not kept. Claim your group again on launch day, or use groupiron.com until then.
+    </Collapsible>
   );
   // Before launch: claim and save the secret now, type it into the plugin once it is approved.
   const prelaunch = config && !config.plugin_live && (
-    <div style={box}>
-      <strong style={{ color: 'var(--text-bright)' }}>Waiting for approval.</strong> The GIM Companion plugin is waiting for Jagex's approval.
-      Claim your group and save the secret now; you will type it into the plugin on launch day.
-    </div>
+    <Collapsible title="Waiting for Jagex's approval" storageKey="plugin_prelaunch">
+      The GIM Companion plugin is waiting for Jagex's approval. Claim your group and save the secret now; you will type it into the plugin on launch day.
+    </Collapsible>
   );
   const notes = (!isClaimed || newSecret) ? <>{prelaunch}{previewNote}</> : prelaunch;
   let body;
@@ -139,7 +138,7 @@ export default function PluginSetupModal({ group, canWrite, isClaimed, onClaim, 
         )}
         <ItemsTab players={players} groupId={group?.id} canWrite onToast={onToast} view="setup" />
         {isClaimed && canWrite && <RosterManager group={group} onChanged={onChanged} onToast={onToast} onAddPlayer={onAddPlayer ? () => { onClose(); onAddPlayer(); } : undefined} />}
-        {isClaimed && canWrite && <GroupSettings group={group} onChanged={onChanged} onToast={onToast} onOpenWebhook={onOpenWebhook ? () => { onClose(); onOpenWebhook(); } : undefined} />}
+        {isClaimed && canWrite && <GroupSettings group={group} onChanged={onChanged} onToast={onToast} />}
       </div>
     );
   }

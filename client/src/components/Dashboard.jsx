@@ -85,7 +85,7 @@ const TAB_TOURS = {
   achievements: [
     {
       target: null,
-      title: '📜 Quests & Area Tasks',
+      title: '📜 Quests and Tasks',
       body: 'Everything your group completes, on one page: quest progress (read live from the game when the plugin is connected) and area tasks across all RS3 regions × 4 tiers.',
     },
     {
@@ -149,7 +149,7 @@ export default function Dashboard({ group, goals, pendingRequests, onRefresh, on
     { id: 'overview',      icon: 'overview',     fallback: '📊', label: 'Overview' },
     { id: 'vault',         icon: 'vault',        fallback: '🏆', label: 'Group Vault',         tour: 'tab-vault' },
     { id: 'goals',         icon: 'goals',        fallback: '🎯', label: 'Goals',               tour: 'tab-goals' },
-    { id: 'achievements',  icon: 'quests',       fallback: '📜', label: 'Quests & Area Tasks', tour: 'tab-achievements' },
+    { id: 'achievements',  icon: 'quests',       fallback: '📜', label: 'Quests and Tasks', tour: 'tab-achievements' },
     { id: 'leaderboards',  icon: 'leaderboards', fallback: '🏅', label: 'Leaderboards',        tour: 'tab-leaderboards' },
   ];
 

@@ -234,7 +234,7 @@
       <a href="#tab-overview">Overview</a>
       <a href="#tab-goals">Goals</a>
       <a href="#tab-vault">Group Vault</a>
-      <a href="#tab-quests">Quests &amp; Area Tasks</a>
+      <a href="#tab-quests">Quests and Tasks</a>
       <a href="#journey">Group Ironman Journey</a>
       <a href="#tab-leaderboards">Leaderboards</a>
 
@@ -299,7 +299,7 @@
     <div class="feature-grid">
       <div class="feature-card"><h4>🎒 Live items</h4><p>Backpack, worn items, every member's bank and the shared group storage.</p></div>
       <div class="feature-card"><h4>📒 Bank Journal</h4><p>Everything put into or taken out of the group storage, and by whom.</p></div>
-      <div class="feature-card"><h4>📜 Quests &amp; Area Tasks</h4><p>Quest state read from the game, area task grid, achievements, one clean page.</p></div>
+      <div class="feature-card"><h4>📜 Quests and Tasks</h4><p>Quest state read from the game, area task grid, achievements, one clean page.</p></div>
       <div class="feature-card"><h4>🛡️ Group Ironman Journey</h4><p>Which tier the group is on, with each step and its progress counter.</p></div>
       <div class="feature-card"><h4>⚔️ Exact boss kills</h4><p>Lifetime counts straight from the game's own kill tracker.</p></div>
       <div class="feature-card"><h4>🎁 Drops</h4><p>Valuable drops detected after your kills, logged once each.</p></div>
@@ -331,10 +331,10 @@
       The <strong>Bank Journal</strong> records only what goes in and out of the group storage. See <a href="#tab-vault">Group Vault</a>.
     </p>
 
-    <h3>Quests &amp; Area Tasks on one page</h3>
+    <h3>Quests and Tasks on one page</h3>
     <p>
       Quests, area tasks and achievements share one page with a summary, per-player progress, and the
-      <a href="#journey">Group Ironman Journey</a> always visible beside the lists. See <a href="#tab-quests">Quests &amp; Area Tasks</a>.
+      <a href="#journey">Group Ironman Journey</a> always visible beside the lists. See <a href="#tab-quests">Quests and Tasks</a>.
     </p>
 
     <h3>Exact boss kills and a better Firsts board</h3>
@@ -398,7 +398,7 @@ npm run dev            # API on :3001, dashboard on :5173</code></pre>
       <tr><td><strong>Goals</strong></td><td>Filters the active goals; the Goal Browser starts from that player.</td></tr>
       <tr><td><strong>Group Vault</strong></td><td>Filters drops, banks, backpacks and the journal. The group storage always shows the whole group's.</td></tr>
       <tr><td><strong>Worn Gear</strong></td><td>Shows what the selected player wears right now, or what was last seen before logout. With nobody selected it asks you to pick a player card.</td></tr>
-      <tr><td><strong>Quests &amp; Area Tasks</strong></td><td>Narrows every grid and the journey to that player.</td></tr>
+      <tr><td><strong>Quests and Tasks</strong></td><td>Narrows every grid and the journey to that player.</td></tr>
       <tr><td><strong>Leaderboards</strong></td><td>Narrows the per-player tables. <em>Firsts</em> always compares the whole group, because "first" means first of everyone.</td></tr>
     </table>
 
@@ -411,7 +411,7 @@ npm run dev            # API on :3001, dashboard on :5173</code></pre>
 
     <h2 id="tab-overview">Overview</h2>
     <p>Group stats, per-skill leaderboard, the group's goals and recent activity, as in 1.x. The Quests view moved to
-    <a href="#tab-quests">Quests &amp; Area Tasks</a>.</p>
+    <a href="#tab-quests">Quests and Tasks</a>.</p>
 
     <h2 id="tab-goals">Goals</h2>
     <p>The planning board with the Goal Browser and Active Goals. Quest goals now complete themselves when the plugin sees you
@@ -434,7 +434,7 @@ npm run dev            # API on :3001, dashboard on :5173</code></pre>
     <p>Every deposit and withdrawal in the <strong>group storage</strong>: time, item, amount, value and member. Filter by deposits or withdrawals and search items.
     Members' own bank movements are deliberately not recorded.</p>
 
-    <h2 id="tab-quests">Quests &amp; Area Tasks</h2>
+    <h2 id="tab-quests">Quests and Tasks</h2>
     <p>One page for everything the group completes.</p>
     <ul>
       <li><strong>Summary tiles:</strong> average quests completed, quest points, average area tasks completed, quests the whole group has done.</li>
@@ -524,7 +524,7 @@ pon gim-companion                     # enable it</code></pre></li>
       <tr><td><strong>Bank</strong></td><td>Inventory <code>BANK</code>, only while the bank window is open</td><td>Group Vault</td></tr>
       <tr><td><strong>Group storage</strong> + movements</td><td>Inventory <code>GROUP_IRONMAN_STORAGE_CLAN_TEMP</code>, only while its window is open</td><td>Group Vault, Bank Journal</td></tr>
       <tr><td><strong>Position</strong></td><td><code>Player.GetEntity().coordGrid</code></td><td>Live state</td></tr>
-      <tr><td><strong>Quests</strong></td><td>Quest definitions: name, started, finished, members, points (deprecated quests skipped)</td><td>Quests &amp; Area Tasks, goals</td></tr>
+      <tr><td><strong>Quests</strong></td><td>Quest definitions: name, started, finished, members, points (deprecated quests skipped)</td><td>Quests and Tasks, goals</td></tr>
       <tr><td><strong>Achievements, area tasks</strong></td><td>Achievement definitions; <code>progress == -2</code> means complete. Area task sets are the achievements named <code>&lt;Region&gt; Set Tasks - &lt;Tier&gt;</code></td><td>Area Tasks grid, Achievements</td></tr>
       <tr><td><strong>Group Ironman Journey</strong></td><td>Achievements in category 5483, including unfinished steps, descriptions, rewards and progress counters</td><td>Journey panel</td></tr>
       <tr><td><strong>Boss kills (lifetime)</strong></td><td>The 58 boss records of the kill tracker → their achievement's progress counter</td><td>Boss Kills, Firsts</td></tr>
@@ -752,7 +752,7 @@ npm run build --prefix client</code></pre>
     <ul>
       <li>Player cards pinned above every page as the single player filter; per-page player filters removed.</li>
       <li>Group Vault with the group storage and everyone's bank, plus the Bank Journal; Plugin setup moved to the top bar.</li>
-      <li>Quests &amp; Area Tasks on one page with an always-visible Group Ironman Journey panel.</li>
+      <li>Quests and Tasks on one page with an always-visible Group Ironman Journey panel.</li>
       <li>Group name, type, members and rank in the top bar; official RuneScape icons in the navigation.</li>
       <li>Firsts counts killed bosses when the Adventurer's Log feed has no entry, and shows official RuneScape boss and item images.</li>
       <li>Goals: official RuneScape icons everywhere, a "Recommended next" panel, live goal progress, quests finished in the game count as done, and the top player bar replaces the second player filter.</li>

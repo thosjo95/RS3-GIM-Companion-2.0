@@ -65,7 +65,7 @@ export default function AchievementsTab({ players, groupId, canWrite, onToast, e
   const [achievements, setAchievements] = useState([]);
   const [loading, setLoading]           = useState(true);
   const [toggling, setToggling]         = useState(null); // 'playerId:key'
-  const [view, setView]                 = useState('grid'); // 'grid' | 'player'
+  const view = 'grid';   // only the grid is offered
 
   const colorMap = useMemo(
     () => Object.fromEntries(players.map((p, i) => [p.id, MEMBER_COLORS[i % MEMBER_COLORS.length]])),
@@ -155,16 +155,6 @@ export default function AchievementsTab({ players, groupId, canWrite, onToast, e
           <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>
             Auto-detected from the Adventurer's Log feed · Click a cell to mark manually
           </div>
-        </div>
-        <div data-tour="achievements-view" className="flex gap-4 tab-bar-scroll" style={{ background: 'var(--bg-root)', borderRadius: 'var(--radius)', padding: 3 }}>
-          {[{ v: 'grid', l: '🗂️ Grid' }, { v: 'player', l: '👤 By Player' }].map(({ v, l }) => (
-            <button key={v} onClick={() => setView(v)} style={{
-              fontSize: 11, padding: '3px 12px', borderRadius: 'var(--radius)', border: 'none', cursor: 'pointer',
-              background: view === v ? 'var(--gold)' : 'transparent',
-              color: view === v ? '#111' : 'var(--text-dim)',
-              fontWeight: view === v ? 700 : 400,
-            }}>{l}</button>
-          ))}
         </div>
       </div>
 

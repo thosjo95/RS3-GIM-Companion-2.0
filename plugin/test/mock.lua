@@ -113,7 +113,7 @@ HTTPRequest = { new = function(base, path)
     CAPTURE(self.path, self.headers["Authorization"], self.headers["Content-Type"], body)
     self.responseCode = HTTP_STATUS
     self.successful = HTTP_STATUS == 200
-    ;(self.successful and onOk or onFail)(self)
+    onOk(self)   -- completion callback (fires on success AND failure, like the real API)
   end
   return r
 end }

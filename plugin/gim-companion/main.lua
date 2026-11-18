@@ -29,6 +29,7 @@ end
 
 if not Plugin.HasPermission(PluginPermissions.httpAccess) then
     log("[GIM] httpAccess permission not granted - the plugin cannot send data. Plugin idle.")
+    log("[GIM] Fix: run   ppe gim-companion httpAccess   then   prl gim-companion")
     return
 end
 
@@ -386,7 +387,7 @@ local function fetchRules()
             end
         end
     end
-    request:Get(done, done)
+    request:Get(done)
 end
 
 -- ── 7. Sending ────────────────────────────────────────────────────────────────
@@ -499,7 +500,7 @@ local function send()
         end
     end
 
-    request:Post(body, done, done)
+    request:Post(body, done)   -- the second callback of Post/Get is for download PROGRESS, so only completion is given
 end
 
 -- ── 8. Scheduling ─────────────────────────────────────────────────────────────

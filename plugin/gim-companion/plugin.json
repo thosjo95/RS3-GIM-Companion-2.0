@@ -4,7 +4,7 @@
     "contactEmailAddress": "CHANGE-ME@example.com",
     "requiredDependencies": {},
     "optionalDependencies": {},
-    "requiredPermissions": [ "httpAccess" ],
-    "optionalPermissions": [],
+    "requiredPermissions": [],
+    "optionalPermissions": [ "httpAccess" ],
     "urls": { "gim": "http://localhost:3001" }
 }

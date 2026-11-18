@@ -56,6 +56,10 @@ app.use('/api/plugin',            require('./routes/plugin'));
 app.use('/api/rs3',          require('./routes/rs3data'));
 app.use('/api/admin',        require('./routes/admin'));
 
+// Tells the dashboard whether this is the preview server (beta) and when its data was copied from groupiron.com.
+app.get('/api/config', (req, res) => res.json({ preview: process.env.GIM_PREVIEW === '1', copied: process.env.GIM_PREVIEW_COPIED || null,
+  // false until Jagex has approved the plugin (set GIM_PLUGIN_LIVE=1 on launch day): the Plugin window then says it is still waiting
+  plugin_live: process.env.GIM_PLUGIN_LIVE === '1' }));
 app.get('/api/health', (req, res) => res.json({ status: 'ok', time: new Date().toISOString() }));
 
 // ── 2-hour activity sync ───────────────────────────────────────────────────────

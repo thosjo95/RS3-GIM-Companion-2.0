@@ -11,114 +11,6 @@ function useToast() {
   return [msg, push];
 }
 
-// ── JSON diff component ───────────────────────────────────────────────────────
-function JsonDiff({ current, proposed }) {
-  const cur = current ? JSON.stringify(current, null, 2) : null;
-  const pro = proposed ? JSON.stringify(proposed, null, 2) : null;
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
-      <div>
-        <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 4 }}>Current</div>
-        <pre style={{
-          margin: 0, padding: '10px 12px', borderRadius: 6,
-          background: 'rgba(192,64,64,0.08)', border: '1px solid rgba(192,64,64,0.25)',
-          color: 'var(--text-bright)', fontSize: 11, lineHeight: 1.6, overflow: 'auto', maxHeight: 400,
-        }}>{cur ?? '(new record)'}</pre>
-      </div>
-      <div>
-        <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 4 }}>Proposed</div>
-        <pre style={{
-          margin: 0, padding: '10px 12px', borderRadius: 6,
-          background: 'rgba(90,154,80,0.08)', border: '1px solid rgba(90,154,80,0.25)',
-          color: 'var(--text-bright)', fontSize: 11, lineHeight: 1.6, overflow: 'auto', maxHeight: 400,
-        }}>{pro ?? '(delete)'}</pre>
-      </div>
-    </div>
-  );
-}
-
-// ── Submission review modal ───────────────────────────────────────────────────
-function ReviewModal({ sub, onApprove, onReject, onClose }) {
-  const [note, setNote] = useState('');
-  const [busy, setBusy] = useState(false);
-
-  async function handle(action) {
-    setBusy(true);
-    try {
-      await action(sub.id, note);
-      onClose(true);
-    } catch (err) {
-      alert(err.message);
-      setBusy(false);
-    }
-  }
-
-  const actionColor = { create: 'var(--green-bright)', update: 'var(--gold)', delete: 'var(--red-bright)' };
-
-  return (
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 9000,
-      background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
-    }} onClick={e => e.target === e.currentTarget && onClose(false)}>
-      <div style={{
-        background: 'var(--bg-panel)', border: '1px solid var(--border)',
-        borderRadius: 12, width: '100%', maxWidth: 900, maxHeight: '90vh',
-        overflow: 'auto', padding: 24,
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-          <span style={{ fontSize: 20 }}>📋</span>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-bright)' }}>
-              Review Submission #{sub.id}
-            </div>
-            <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 2 }}>
-              <span style={{ color: actionColor[sub.action] || 'var(--gold)', fontWeight: 600 }}>{sub.action?.toUpperCase()}</span>
-              {' '} on <code style={{ color: 'var(--gold)' }}>{sub.table_name}</code>
-              {sub.record_id && <span> · record <code>{sub.record_id}</code></span>}
-              {' '} · by <strong>{sub.submitted_by}</strong>
-              {' '} · {new Date(sub.submitted_at).toLocaleString()}
-            </div>
-          </div>
-          <button onClick={() => onClose(false)}
-            style={{ background: 'none', border: 'none', color: 'var(--text-dim)', cursor: 'pointer', fontSize: 20 }}>✕</button>
-        </div>
-
-        {sub.submission_note && (
-          <div style={{ padding: '8px 12px', borderRadius: 6, background: 'rgba(200,168,75,0.08)', border: '1px solid rgba(200,168,75,0.2)', fontSize: 12, color: 'var(--text-dim)', marginBottom: 12 }}>
-            📝 {sub.submission_note}
-          </div>
-        )}
-
-        <JsonDiff current={sub.current_data} proposed={sub.proposed_data} />
-
-        <div style={{ marginTop: 16 }}>
-          <label style={{ fontSize: 12, color: 'var(--text-dim)', display: 'block', marginBottom: 4 }}>Review note (optional)</label>
-          <textarea
-            value={note} onChange={e => setNote(e.target.value)}
-            placeholder="Add a note explaining approval or rejection…"
-            style={{ width: '100%', minHeight: 60, padding: '8px 10px', borderRadius: 6, background: 'var(--bg-input)', border: '1px solid var(--border)', color: 'var(--text-bright)', fontSize: 12, resize: 'vertical', boxSizing: 'border-box' }}
-          />
-        </div>
-
-        <div style={{ display: 'flex', gap: 10, marginTop: 14, justifyContent: 'flex-end' }}>
-          <button onClick={() => onClose(false)} disabled={busy}
-            style={{ padding: '8px 16px', borderRadius: 6, background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-dim)', cursor: 'pointer', fontSize: 13 }}>
-            Cancel
-          </button>
-          <button onClick={() => handle(onReject)} disabled={busy}
-            style={{ padding: '8px 16px', borderRadius: 6, background: 'rgba(192,64,64,0.15)', border: '1px solid rgba(192,64,64,0.4)', color: 'var(--red-bright)', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
-            ✗ Reject
-          </button>
-          <button onClick={() => handle(onApprove)} disabled={busy}
-            style={{ padding: '8px 16px', borderRadius: 6, background: 'rgba(90,154,80,0.15)', border: '1px solid rgba(90,154,80,0.4)', color: 'var(--green-bright)', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
-            {busy ? '…' : '✓ Approve & Apply'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ── Helper: pretty-print a JSON cell value as a short summary ─────────────────
 function summariseJson(val) {
   if (val == null || val === '' || val === '{}' || val === '[]') return null;
@@ -682,30 +574,13 @@ function MaintenanceTab({ pushToast }) {
       desc: 'Re-applies the full reference data seed script (quests, bosses, gear, milestones, slayer, etc.). All inserts are idempotent — safe to run at any time without losing custom edits.',
       fields: [],
     },
-    {
-      id: 'wiki_scan_quests',
-      emoji: '📜',
-      title: 'Scan Wiki for New Quests',
-      desc: 'Fetches the RS Wiki quest list and diffs it against the local database. Returns any quests present on the wiki but missing from the DB — click "Add stub" to insert a placeholder entry.',
-      fields: [],
-      wikiType: 'quests',
-    },
-    {
-      id: 'wiki_scan_bosses',
-      emoji: '⚔️',
-      title: 'Scan Wiki for New Bosses',
-      desc: 'Fetches the RS Wiki boss list and diffs it against the local database. Returns any bosses present on the wiki but missing from the DB — click "Add stub" to insert a placeholder entry.',
-      fields: [],
-      wikiType: 'bosses',
-    },
   ];
 
   const [activeTool, setActiveTool] = useState(null);
   const [values, setValues] = useState({});
   const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState(null); // { ok: bool, message: string, rows?: [], wikiItems?: [], wikiType?: string, output?: string }
+  const [result, setResult] = useState(null); // { ok: bool, message: string, rows?: [], output?: string }
   const [confirmed, setConfirmed] = useState(false);
-  const [addingItem, setAddingItem] = useState(null); // wiki item currently being added
 
   function openTool(toolId) {
     setActiveTool(toolId);
@@ -776,12 +651,6 @@ function MaintenanceTab({ pushToast }) {
         const msg = data.message || 'Seed data re-applied.';
         setResult({ ok: true, message: msg, output: data.output });
         pushToast(msg, 'success');
-      } else if (tool.id === 'wiki_scan_quests' || tool.id === 'wiki_scan_bosses') {
-        const type = tool.wikiType;
-        data = await adminApi.maintenance.wikiScan(type);
-        const msg = `Wiki: ${data.total_wiki} entries · DB: ${data.total_db} entries · ${data.new_items?.length ?? 0} new found`;
-        setResult({ ok: true, message: msg, wikiItems: data.new_items ?? [], wikiType: type });
-        pushToast(msg, data.new_items?.length > 0 ? 'success' : 'success');
       }
     } catch (err) {
       setResult({ ok: false, message: err.message });
@@ -789,20 +658,6 @@ function MaintenanceTab({ pushToast }) {
     } finally {
       setBusy(false);
       setConfirmed(false);
-    }
-  }
-
-  async function addWikiStub(item) {
-    setAddingItem(item.name);
-    try {
-      await adminApi.maintenance.wikiAdd({ type: result.wikiType, name: item.name, wiki_url: item.wiki_url });
-      pushToast(`Added stub: ${item.name}`, 'success');
-      // Remove from the displayed list
-      setResult(r => ({ ...r, wikiItems: r.wikiItems.filter(x => x.name !== item.name) }));
-    } catch (err) {
-      pushToast(err.message, 'error');
-    } finally {
-      setAddingItem(null);
     }
   }
 
@@ -951,49 +806,6 @@ function MaintenanceTab({ pushToast }) {
                 </details>
               )}
 
-              {/* Wiki scan results */}
-              {result.wikiItems != null && (
-                <div style={{ marginTop: 10 }}>
-                  {result.wikiItems.length === 0 ? (
-                    <div style={{ padding: '14px', fontSize: 12, color: 'var(--text-dim)', textAlign: 'center' }}>
-                      ✓ No new {result.wikiType} found — database is up to date.
-                    </div>
-                  ) : (
-                    <>
-                      <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 8 }}>
-                        {result.wikiItems.length} new {result.wikiType} found on the wiki — add stubs to the database:
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 400, overflowY: 'auto' }}>
-                        {result.wikiItems.map(item => (
-                          <div key={item.name} style={{
-                            display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px',
-                            borderRadius: 7, background: 'var(--bg-panel)', border: '1px solid var(--border)',
-                          }}>
-                            <span style={{ flex: 1, fontSize: 12, color: 'var(--text-bright)', fontWeight: 600 }}>{item.name}</span>
-                            <span style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'monospace' }}>{item.suggested_id}</span>
-                            {item.wiki_url && (
-                              <a href={item.wiki_url} target="_blank" rel="noopener noreferrer"
-                                style={{ fontSize: 11, color: 'var(--gold)', textDecoration: 'none' }}>Wiki →</a>
-                            )}
-                            <button
-                              onClick={() => addWikiStub(item)}
-                              disabled={addingItem != null}
-                              style={{
-                                padding: '4px 10px', borderRadius: 6, fontSize: 11, cursor: 'pointer', fontWeight: 600,
-                                background: 'rgba(90,154,80,0.15)', border: '1px solid rgba(90,154,80,0.4)',
-                                color: 'var(--green-bright)',
-                                opacity: addingItem != null ? 0.5 : 1,
-                                flexShrink: 0,
-                              }}>
-                              {addingItem === item.name ? '⏳' : '+ Add stub'}
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
             </div>
           )}
         </div>
@@ -1002,71 +814,18 @@ function MaintenanceTab({ pushToast }) {
   );
 }
 
-// ── Audit log ─────────────────────────────────────────────────────────────────
-function AuditLog({ pushToast }) {
-  const [rows, setRows] = useState([]);
-  useEffect(() => {
-    adminApi.getAudit().then(setRows).catch(err => pushToast(err.message, 'error'));
-  }, []);
-
-  const statusColor = { approved: 'var(--green-bright)', rejected: 'var(--red-bright)', superseded: 'var(--text-dim)' };
-
-  return (
-    <div>
-      <div style={{ fontSize: 13, color: 'var(--text-dim)', marginBottom: 12 }}>{rows.length} reviewed entries (last 200)</div>
-      {rows.map(r => (
-        <div key={r.id} style={{ padding: '10px 14px', marginBottom: 6, background: 'var(--bg-panel-alt)', border: '1px solid var(--border)', borderRadius: 6 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <span style={{ fontWeight: 700, fontSize: 11, color: statusColor[r.status] || 'var(--text-dim)' }}>
-              {r.status === 'approved' ? '✓' : '✗'} {r.status?.toUpperCase()}
-            </span>
-            <span style={{ fontSize: 11, color: 'var(--gold)' }}>{r.action?.toUpperCase()}</span>
-            <code style={{ fontSize: 11 }}>{r.table_name}</code>
-            {r.record_id && <code style={{ fontSize: 11, color: 'var(--text-dim)' }}>{r.record_id}</code>}
-            <span style={{ fontSize: 11, color: 'var(--text-dim)', marginLeft: 'auto' }}>
-              by {r.reviewed_by} · {r.reviewed_at ? new Date(r.reviewed_at).toLocaleString() : ''}
-            </span>
-          </div>
-          {r.review_note && <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>📝 {r.review_note}</div>}
-        </div>
-      ))}
-      {rows.length === 0 && <div style={{ textAlign: 'center', padding: 32, color: 'var(--text-dim)' }}>No reviewed submissions yet.</div>}
-    </div>
-  );
-}
-
 // ── Main dashboard ────────────────────────────────────────────────────────────
 function AdminDashboard({ username, onLogout, pushToast }) {
-  const [tab, setTab] = useState('queue');
+  const [tab, setTab] = useState('groups');
   const [jumpTable, setJumpTable] = useState(null); // set to jump to a specific table in Browse Tables
   const [stats, setStats] = useState(null);
-  const [submissions, setSubmissions] = useState([]);
-  const [reviewing, setReviewing] = useState(null);
-  const [statusFilter, setStatusFilter] = useState('pending');
-
-  async function loadData() {
-    try {
-      const [s, subs] = await Promise.all([
-        adminApi.getStats(),
-        adminApi.getSubmissions({ status: statusFilter }),
-      ]);
-      setStats(s);
-      setSubmissions(subs);
-    } catch (err) {
-      pushToast(err.message, 'error');
-    }
-  }
-
-  useEffect(() => { loadData(); }, [statusFilter]);
-
-  const actionColor = { create: 'var(--green-bright)', update: 'var(--gold)', delete: 'var(--red-bright)' };
+  // the reference-table counters in the header
+  useEffect(() => { adminApi.getStats().then(setStats).catch(err => pushToast(err.message, 'error')); }, []);
 
   const TABS = [
-    { id: 'queue',       label: `📥 Queue${stats?.pending ? ` (${stats.pending})` : ''}` },
     { id: 'groups',      label: '👥 Groups' },
     { id: 'tables',      label: '📊 Browse Tables' },
     { id: 'maintenance', label: '🔧 Maintenance' },
-    { id: 'audit',       label: '📜 Audit Log' },
   ];
 
   return (
@@ -1079,7 +838,7 @@ function AdminDashboard({ username, onLogout, pushToast }) {
         <span style={{ fontSize: 22 }}>⚙️</span>
         <div style={{ flex: 1 }}>
           <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-bright)' }}>RS3 GIM Admin Portal</div>
-          <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>RS3 reference data management · logged in as <strong style={{ color: 'var(--gold)' }}>{username}</strong></div>
+          <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>Groups, players and reference data · logged in as <strong style={{ color: 'var(--gold)' }}>{username}</strong></div>
         </div>
         {stats && (
           <div style={{ display: 'flex', gap: 10, fontSize: 11, flexWrap: 'wrap' }}>
@@ -1122,73 +881,11 @@ function AdminDashboard({ username, onLogout, pushToast }) {
       {/* Content */}
       <div style={{ padding: 24, maxWidth: 1200, margin: '0 auto' }}>
 
-        {/* Queue tab */}
-        {tab === 'queue' && (
-          <div>
-            <div style={{ display: 'flex', gap: 8, marginBottom: 16, alignItems: 'center' }}>
-              <span style={{ fontSize: 13, color: 'var(--text-dim)', marginRight: 4 }}>Status:</span>
-              {['pending','approved','rejected','superseded'].map(s => (
-                <button key={s} onClick={() => setStatusFilter(s)}
-                  style={{
-                    padding: '4px 10px', borderRadius: 6, fontSize: 12, cursor: 'pointer',
-                    background: statusFilter === s ? 'var(--gold)' : 'transparent',
-                    color: statusFilter === s ? '#111' : 'var(--text-dim)',
-                    border: `1px solid ${statusFilter === s ? 'var(--gold)' : 'var(--border)'}`,
-                    fontWeight: statusFilter === s ? 700 : 400,
-                  }}>{s}</button>
-              ))}
-              <button onClick={loadData} style={{ marginLeft: 'auto', padding: '4px 10px', borderRadius: 6, fontSize: 12, cursor: 'pointer', background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-dim)' }}>↻ Refresh</button>
-            </div>
-
-            {submissions.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--text-dim)', fontSize: 14 }}>
-                {statusFilter === 'pending' ? '✅ No pending submissions!' : `No ${statusFilter} submissions.`}
-              </div>
-            ) : submissions.map(sub => (
-              <div key={sub.id} style={{
-                padding: '12px 16px', marginBottom: 8,
-                background: 'var(--bg-panel-alt)', border: '1px solid var(--border)',
-                borderRadius: 8, display: 'flex', alignItems: 'center', gap: 12,
-              }}>
-                <span style={{ fontSize: 11, color: actionColor[sub.action], fontWeight: 700, minWidth: 48 }}>
-                  {sub.action?.toUpperCase()}
-                </span>
-                <code style={{ fontSize: 11, color: 'var(--gold)', minWidth: 160 }}>{sub.table_name}</code>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 12, color: 'var(--text-bright)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {sub.record_id || (typeof sub.proposed_data === 'object' && sub.proposed_data?.id) || `#${sub.id}`}
-                    {sub.submission_note && <span style={{ color: 'var(--text-dim)', marginLeft: 8 }}>— {sub.submission_note}</span>}
-                  </div>
-                  <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>
-                    {sub.submitted_by} · {new Date(sub.submitted_at).toLocaleString()}
-                  </div>
-                </div>
-                {statusFilter === 'pending' && (
-                  <button onClick={() => setReviewing(sub)}
-                    style={{ padding: '5px 12px', borderRadius: 6, background: 'rgba(200,168,75,0.12)', border: '1px solid rgba(200,168,75,0.3)', color: 'var(--gold)', cursor: 'pointer', fontSize: 12, fontWeight: 600, flexShrink: 0 }}>
-                    Review →
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-
         {tab === 'groups'      && <GroupsTab pushToast={pushToast} />}
         {tab === 'tables'      && <TableBrowser pushToast={pushToast} initialTable={jumpTable} />}
         {tab === 'maintenance' && <MaintenanceTab pushToast={pushToast} />}
-        {tab === 'audit'       && <AuditLog pushToast={pushToast} />}
       </div>
 
-      {/* Review modal */}
-      {reviewing && (
-        <ReviewModal
-          sub={reviewing}
-          onApprove={adminApi.approveSubmission}
-          onReject={adminApi.rejectSubmission}
-          onClose={(changed) => { setReviewing(null); if (changed) { pushToast('Submission reviewed ✓', 'success'); loadData(); } }}
-        />
-      )}
     </div>
   );
 }

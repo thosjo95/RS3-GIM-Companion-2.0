@@ -9,32 +9,6 @@ const {
 } = require('../utils/adminAuth');
 const { sanitizeRSN } = require('../services/runescape');
 
-// Column allowlist per RS3 reference table — the table name is already checked
-// against ALLOWED_TABLES before being interpolated into SQL, but the column
-// list for INSERT/UPDATE in the approve-submission flow below comes straight
-// from admin-submitted JSON keys, so it needs its own allowlist too (identifiers
-// can't be parameterised with `?`, unlike values).
-const TABLE_COLUMNS = {
-  rs3_bosses:            ['id', 'name', 'difficulty', 'min_combat_level', 'requirements', 'drops', 'wiki_url', 'last_verified_at', 'icon_url'],
-  rs3_quests:            ['id', 'name', 'series', 'members_only', 'quest_points', 'requirements', 'rewards', 'wiki_url', 'last_verified_at'],
-  rs3_gear_items:        ['id', 'name', 'tier', 'style', 'slot', 'is_power_armour', 'stats', 'acquisition_source', 'source_id', 'wiki_url', 'last_verified_at', 'icon_url', 'requirements_json', 'quest', 'untradeable'],
-  rs3_gear_paths:        ['id', 'style', 'slot', 'progression', 'last_updated_at'],
-  rs3_milestone_items:   ['id', 'name', 'category', 'tier_impact', 'why_important', 'how_to_obtain', 'gim_notes', 'wiki_url', 'last_verified_at', 'icon_url'],
-  rs3_slayer_creatures:  ['id', 'name', 'slayer_level_req', 'combat_level', 'location', 'notable_drops', 'is_boss', 'wiki_url', 'icon_url'],
-  rs3_skill_milestones:  ['id', 'skill', 'level', 'description', 'unlock_type', 'wiki_url'],
-};
-
-// Helpers for wiki scan
-function normalizeForDiff(s) {
-  return (s ?? '').toLowerCase()
-    .replace(/[',\-().!:]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-function slugify(s) {
-  return (s ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
-}
-
 // ── POST /api/admin/login ─────────────────────────────────────────────────────
 router.post('/login', (req, res) => {
   const ip = req.ip || req.connection?.remoteAddress || 'unknown';
@@ -74,122 +48,6 @@ router.post('/login', (req, res) => {
 
 // ── All routes below require a valid admin JWT ────────────────────────────────
 
-// GET /api/admin/submissions
-router.get('/submissions', requireAdmin, (req, res) => {
-  const { status, table_name } = req.query;
-  let sql = 'SELECT * FROM rs3_data_submissions';
-  const params = [];
-  const where = [];
-  if (status)     { where.push('status = ?');     params.push(status); }
-  if (table_name) { where.push('table_name = ?'); params.push(table_name); }
-  if (where.length) sql += ' WHERE ' + where.join(' AND ');
-  sql += ' ORDER BY submitted_at DESC';
-  const rows = db.prepare(sql).all(...params);
-  res.json(rows.map(r => ({
-    ...r,
-    proposed_data: safeParse(r.proposed_data),
-    current_data:  safeParse(r.current_data),
-  })));
-});
-
-// GET /api/admin/submissions/:id
-router.get('/submissions/:id', requireAdmin, (req, res) => {
-  const row = db.prepare('SELECT * FROM rs3_data_submissions WHERE id = ?').get(req.params.id);
-  if (!row) return res.status(404).json({ error: 'Submission not found' });
-  res.json({
-    ...row,
-    proposed_data: safeParse(row.proposed_data),
-    current_data:  safeParse(row.current_data),
-  });
-});
-
-// POST /api/admin/submissions — create a new submission (for table-browser "submit new entry")
-router.post('/submissions', requireAdmin, (req, res) => {
-  const { table_name, action, record_id, proposed_data, submission_note } = req.body;
-  if (!table_name || !proposed_data) return res.status(400).json({ error: 'table_name and proposed_data required' });
-  const ALLOWED_TABLES = ['rs3_bosses','rs3_quests','rs3_gear_items','rs3_gear_paths','rs3_milestone_items','rs3_slayer_creatures','rs3_skill_milestones'];
-  if (!ALLOWED_TABLES.includes(table_name)) return res.status(400).json({ error: 'Unknown table' });
-
-  // Capture current data if this is an update/delete
-  let current_data = null;
-  if (record_id && (action === 'update' || action === 'delete')) {
-    const cur = db.prepare(`SELECT * FROM ${table_name} WHERE id = ?`).get(record_id);
-    current_data = cur ? JSON.stringify(cur) : null;
-  }
-
-  const result = db.prepare(`
-    INSERT INTO rs3_data_submissions (table_name, action, record_id, proposed_data, current_data, submitted_by, submission_note)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    table_name,
-    action || 'create',
-    record_id || null,
-    JSON.stringify(proposed_data),
-    current_data,
-    req.adminUser,
-    submission_note || null,
-  );
-  res.status(201).json({ id: result.lastInsertRowid });
-});
-
-// POST /api/admin/submissions/:id/approve
-router.post('/submissions/:id/approve', requireAdmin, (req, res) => {
-  const sub = db.prepare('SELECT * FROM rs3_data_submissions WHERE id = ?').get(req.params.id);
-  if (!sub) return res.status(404).json({ error: 'Submission not found' });
-  if (sub.status !== 'pending') return res.status(409).json({ error: 'Already reviewed' });
-
-  const data = safeParse(sub.proposed_data);
-  if (!data) return res.status(422).json({ error: 'Invalid proposed_data JSON' });
-
-  const ALLOWED_TABLES = ['rs3_bosses','rs3_quests','rs3_gear_items','rs3_gear_paths','rs3_milestone_items','rs3_slayer_creatures','rs3_skill_milestones'];
-  if (!ALLOWED_TABLES.includes(sub.table_name)) return res.status(400).json({ error: 'Unknown table' });
-
-  const allowedCols = TABLE_COLUMNS[sub.table_name];
-  const requestedCols = Object.keys(data).filter(k => sub.action !== 'update' || k !== 'id');
-  const badCols = requestedCols.filter(c => !allowedCols.includes(c));
-  if (badCols.length) return res.status(400).json({ error: `Unknown column(s) for ${sub.table_name}: ${badCols.join(', ')}` });
-
-  try {
-    db.runTransaction(() => {
-      if (sub.action === 'create') {
-        const cols = Object.keys(data);
-        const vals = Object.values(data).map(v => typeof v === 'object' ? JSON.stringify(v) : v);
-        db.prepare(`INSERT OR REPLACE INTO ${sub.table_name} (${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})`).run(...vals);
-      } else if (sub.action === 'update') {
-        const cols = Object.keys(data).filter(k => k !== 'id');
-        const vals = cols.map(k => typeof data[k] === 'object' ? JSON.stringify(data[k]) : data[k]);
-        vals.push(data.id || sub.record_id);
-        db.prepare(`UPDATE ${sub.table_name} SET ${cols.map(c => `${c} = ?`).join(', ')} WHERE id = ?`).run(...vals);
-      } else if (sub.action === 'delete') {
-        db.prepare(`DELETE FROM ${sub.table_name} WHERE id = ?`).run(sub.record_id);
-      }
-
-      // Mark any other pending submissions for the same record as superseded
-      if (sub.record_id) {
-        db.prepare(`UPDATE rs3_data_submissions SET status = 'superseded' WHERE table_name = ? AND record_id = ? AND id != ? AND status = 'pending'`)
-          .run(sub.table_name, sub.record_id, sub.id);
-      }
-
-      db.prepare(`UPDATE rs3_data_submissions SET status = 'approved', reviewed_by = ?, review_note = ?, reviewed_at = CURRENT_TIMESTAMP WHERE id = ?`)
-        .run(req.adminUser, req.body.review_note || null, sub.id);
-    });
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// POST /api/admin/submissions/:id/reject
-router.post('/submissions/:id/reject', requireAdmin, (req, res) => {
-  const sub = db.prepare('SELECT * FROM rs3_data_submissions WHERE id = ?').get(req.params.id);
-  if (!sub) return res.status(404).json({ error: 'Submission not found' });
-  if (sub.status !== 'pending') return res.status(409).json({ error: 'Already reviewed' });
-
-  db.prepare(`UPDATE rs3_data_submissions SET status = 'rejected', reviewed_by = ?, review_note = ?, reviewed_at = CURRENT_TIMESTAMP WHERE id = ?`)
-    .run(req.adminUser, req.body.review_note || null, sub.id);
-  res.json({ success: true });
-});
-
 // GET /api/admin/table/:name — browse any RS3 reference table
 router.get('/table/:name', requireAdmin, (req, res) => {
   const ALLOWED = ['rs3_bosses','rs3_quests','rs3_gear_items','rs3_gear_paths','rs3_milestone_items','rs3_slayer_creatures','rs3_skill_milestones'];
@@ -203,36 +61,15 @@ router.get('/table/:name', requireAdmin, (req, res) => {
   res.json(rows);
 });
 
-// GET /api/admin/audit — approved + rejected submissions
-router.get('/audit', requireAdmin, (req, res) => {
-  const rows = db.prepare(
-    "SELECT * FROM rs3_data_submissions WHERE status IN ('approved','rejected') ORDER BY reviewed_at DESC LIMIT 200"
-  ).all();
-  res.json(rows.map(r => ({
-    ...r,
-    proposed_data: safeParse(r.proposed_data),
-    current_data:  safeParse(r.current_data),
-  })));
-});
-
 // GET /api/admin/stats — dashboard counters
 router.get('/stats', requireAdmin, (req, res) => {
-  const pending  = db.prepare("SELECT COUNT(*) as n FROM rs3_data_submissions WHERE status = 'pending'").get().n;
-  const approved = db.prepare("SELECT COUNT(*) as n FROM rs3_data_submissions WHERE status = 'approved'").get().n;
-  const rejected = db.prepare("SELECT COUNT(*) as n FROM rs3_data_submissions WHERE status = 'rejected'").get().n;
   const tables = ['rs3_bosses','rs3_quests','rs3_gear_items','rs3_gear_paths','rs3_milestone_items','rs3_slayer_creatures','rs3_skill_milestones'];
   const counts = {};
   for (const t of tables) {
     counts[t] = db.prepare(`SELECT COUNT(*) as n FROM ${t}`).get().n;
   }
-  res.json({ pending, approved, rejected, table_counts: counts });
+  res.json({ table_counts: counts });
 });
-
-function safeParse(val) {
-  if (val == null) return null;
-  if (typeof val === 'object') return val;
-  try { return JSON.parse(val); } catch { return val; }
-}
 
 // ── Maintenance operations ─────────────────────────────────────────────────────
 
@@ -354,101 +191,18 @@ router.post('/maintenance/fix-rsn', requireAdmin, (req, res) => {
   res.json({ success: true, old_rsn: player.rsn, new_rsn: clean, message: `Player #${player_id}: "${player.rsn}" → "${clean}". Sync error cleared.` });
 });
 
-// ── Database refresh / wiki scan ──────────────────────────────────────────────
+// ── Database refresh ──────────────────────────────────────────────
 
 // POST /api/admin/maintenance/reseed — re-run the seed script (all upserts are idempotent)
 router.post('/maintenance/reseed', requireAdmin, (req, res) => {
   const scriptPath = path.resolve(__dirname, '../scripts/seedRs3Data.js');
-  execFile('node', [scriptPath], { cwd: path.resolve(__dirname, '..'), timeout: 30000 },
+  execFile(process.execPath, [scriptPath], { cwd: path.resolve(__dirname, '..'), timeout: 30000 },
     (err, stdout, stderr) => {
       const output = (stdout + '\n' + stderr).trim().slice(-1200);
       if (err) return res.status(500).json({ error: err.message, output });
       res.json({ success: true, message: 'Seed data re-applied successfully.', output });
     }
   );
-});
-
-// GET /api/admin/maintenance/wiki-scan?type=quests|bosses
-// Fetches the RS Wiki category and returns items not yet in the DB.
-router.get('/maintenance/wiki-scan', requireAdmin, async (req, res) => {
-  const { type } = req.query;
-  const CATEGORIES = { quests: 'Quests', bosses: 'Bosses' };
-  const TABLES     = { quests: 'rs3_quests', bosses: 'rs3_bosses' };
-  if (!CATEGORIES[type]) return res.status(400).json({ error: 'type must be quests or bosses' });
-
-  try {
-    // Paginate through the wiki category (up to 1500 entries = 3 pages of 500)
-    const allTitles = [];
-    let cmcontinue  = '';
-    for (let page = 0; page < 3; page++) {
-      const params = new URLSearchParams({
-        action: 'query', list: 'categorymembers',
-        cmtitle: `Category:${CATEGORIES[type]}`,
-        cmlimit: '500', cmtype: 'page', format: 'json',
-      });
-      if (cmcontinue) params.set('cmcontinue', cmcontinue);
-
-      const resp = await fetch(`https://runescape.wiki/api.php?${params}`, {
-        headers: { 'User-Agent': 'RS3-GIM-Companion/1.0 (rs3-group-ironman-companion-wiki-scanner; github.com/thosjo95)' },
-        signal: AbortSignal.timeout(12000),
-      });
-      if (!resp.ok) throw new Error(`RS Wiki API returned ${resp.status}`);
-      const data = await resp.json();
-
-      (data.query?.categorymembers ?? []).forEach(m => allTitles.push(m.title));
-      if (!data.continue?.cmcontinue) break;
-      cmcontinue = data.continue.cmcontinue;
-    }
-
-    // Load current DB names for diff
-    const dbRows   = db.prepare(`SELECT id, name FROM ${TABLES[type]}`).all();
-    const dbNorms  = dbRows.map(r => normalizeForDiff(r.name));
-
-    // Items on wiki but not matched in DB (fuzzy: DB name contains wiki name or vice versa)
-    const newItems = allTitles
-      .filter(title => {
-        const wn = normalizeForDiff(title);
-        // Skip obvious non-entries (redirect pages, disambiguation, etc.)
-        if (wn.length < 2) return false;
-        return !dbNorms.some(dn => dn === wn || dn.includes(wn) || wn.includes(dn));
-      })
-      .map(name => ({
-        name,
-        wiki_url: `https://runescape.wiki/w/${encodeURIComponent(name.replace(/ /g, '_'))}`,
-        suggested_id: slugify(name),
-      }));
-
-    res.json({ total_wiki: allTitles.length, total_db: dbRows.length, new_items: newItems });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// POST /api/admin/maintenance/wiki-add — add a stub record from a wiki scan result
-router.post('/maintenance/wiki-add', requireAdmin, (req, res) => {
-  const { type, name, wiki_url } = req.body;
-  const TABLES = { quests: 'rs3_quests', bosses: 'rs3_bosses' };
-  if (!TABLES[type] || !name?.trim()) return res.status(400).json({ error: 'type and name required' });
-
-  const id = slugify(name.trim());
-  if (!id) return res.status(400).json({ error: 'Could not derive an ID from the name' });
-
-  const existing = db.prepare(`SELECT id FROM ${TABLES[type]} WHERE id = ?`).get(id);
-  if (existing) return res.status(409).json({ error: `"${id}" already exists in ${TABLES[type]}` });
-
-  if (type === 'quests') {
-    db.prepare(`
-      INSERT INTO rs3_quests (id, name, wiki_url, requirements, rewards, last_verified_at)
-      VALUES (?, ?, ?, '{}', '[]', ?)
-    `).run(id, name.trim(), wiki_url ?? null, new Date().toISOString());
-  } else {
-    db.prepare(`
-      INSERT INTO rs3_bosses (id, name, difficulty, requirements, drops, wiki_url, last_verified_at)
-      VALUES (?, ?, 'unknown', '{}', '[]', ?, ?)
-    `).run(id, name.trim(), wiki_url ?? null, new Date().toISOString());
-  }
-
-  res.json({ success: true, id, message: `Added stub "${name}" (id: ${id}). Fill in details via Table Browser → ${TABLES[type]}.` });
 });
 
 module.exports = router;

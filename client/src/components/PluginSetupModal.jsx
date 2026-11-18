@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import ItemsTab from './ItemsTab';
 import RsIcon from './RsIcon';
+import { usePreview, useConfig } from './PreviewBanner';
 
 // The Plugin window (top bar). It is the ONE place for the group secret:
 //   - group not claimed yet: claim it here. That creates the secret, which the claimer saves and shares with the group;
@@ -29,6 +30,23 @@ export default function PluginSetupModal({ group, canWrite, isClaimed, onClaim, 
   const copy = () => navigator.clipboard?.writeText(newSecret).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
 
   const box = { padding: 12, border: '1px solid var(--border)', borderRadius: 'var(--radius)', fontSize: 12, lineHeight: 1.6, color: 'var(--text-dim)' };
+  const preview = usePreview();
+  const config = useConfig();
+  // On the preview server a new secret is only a trial: the data there is replaced by a fresh copy at launch.
+  const previewNote = preview && (
+    <div style={{ ...box, borderColor: 'var(--gold)', color: 'var(--text)' }}>
+      <strong style={{ color: 'var(--gold)' }}>Preview.</strong> A secret made here is only for trying this out and is not kept. Claim your group again on launch day,
+      or use groupiron.com until then.
+    </div>
+  );
+  // Before launch: claim and save the secret now, type it into the plugin once it is approved.
+  const prelaunch = config && !config.plugin_live && (
+    <div style={box}>
+      <strong style={{ color: 'var(--text-bright)' }}>Waiting for approval.</strong> The GIM Companion plugin is waiting for Jagex's approval.
+      Claim your group and save the secret now; you will type it into the plugin on launch day.
+    </div>
+  );
+  const notes = (!isClaimed || newSecret) ? <>{prelaunch}{previewNote}</> : prelaunch;
   let body;
   if (!isClaimed && !newSecret && group?.needs_rekey) {
     body = (
@@ -131,7 +149,7 @@ export default function PluginSetupModal({ group, canWrite, isClaimed, onClaim, 
           </span>
           <button className="btn btn-ghost btn-sm" onClick={onClose} title="Close">×</button>
         </div>
-        <div className="modal-body">{body}</div>
+        <div className="modal-body">{notes && <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 12 }}>{notes}</div>}{body}</div>
       </div>
     </div>
   );

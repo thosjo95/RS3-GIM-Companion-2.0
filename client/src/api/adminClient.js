@@ -47,13 +47,7 @@ export const adminApi = {
 
   getStats:           ()           => request('/stats'),
   getGroups:          ()           => request('/groups'),
-  getSubmissions:     (params={})  => request(`/submissions${toQS(params)}`),
-  getSubmission:      (id)         => request(`/submissions/${id}`),
-  createSubmission:   (body)       => request('/submissions', { method: 'POST', body }),
-  approveSubmission:  (id, note)   => request(`/submissions/${id}/approve`, { method: 'POST', body: { review_note: note } }),
-  rejectSubmission:   (id, note)   => request(`/submissions/${id}/reject`,  { method: 'POST', body: { review_note: note } }),
   getTable:           (name, params={}) => request(`/table/${name}${toQS(params)}`),
-  getAudit:           ()           => request('/audit'),
 
   // Maintenance operations
   maintenance: {
@@ -68,8 +62,6 @@ export const adminApi = {
     syncActivities:    (groupId)    => fetch(`/api/players/sync-activities/${groupId}`, { method: 'POST' }).then(async r => { const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.error || `Status ${r.status}`); return d; }),
     syncPlayer:        (playerId)   => fetch(`/api/players/${playerId}/sync`,    { method: 'POST' }).then(async r => { const d = await r.json().catch(() => ({})); if (!r.ok) throw new Error(d.error || `Status ${r.status}`); return d; }),
     reseed:            ()           => request('/maintenance/reseed',  { method: 'POST' }),
-    wikiScan:          (type)       => request(`/maintenance/wiki-scan${toQS({ type })}`),
-    wikiAdd:           (body)       => request('/maintenance/wiki-add', { method: 'POST', body }),
   },
 };
 

@@ -119,6 +119,10 @@ notice (`docs/privacy.html`); mod.io listing text; deploy files for a fresh serv
 8. Optional: more slayer creature counters, a cross-group "RuneScape 3 GIM" hiscore page, casket rewards in the clue log
    (needs a plugin change, so a later version).
 
+**Done 2026-11-18 (after the handover):** admin portal cleaned for the new server (review queue, audit log and wiki scan removed: 0 submissions ever; reseed and table browser kept because goals/recommendations read the rs3_* tables; `server/test/admin.test.js`). Preview mode: server env `GIM_PREVIEW=1` + `GIM_PREVIEW_COPIED` show a floating "Preview" banner and a trial note in the claim window; `GIM_PLUGIN_LIVE=1` (launch day) removes the "waiting for Jagex's approval" note (step 4 of Open). Env lines are in `deploy/ecosystem.gim2.config.js` (commented out). NOT yet done: loading the 1.x copy on beta (owner step, below) and the Demo group.
+
+**Putting the 1.x copy on beta (owner runs this on the new server):** copy the 1.x database to a scratch folder, `GIM_DATA_DIR=<scratch> node server/scripts/migrate1x.js --assume-1x --drop-loadouts --apply`, stop PM2, replace `/var/lib/gim2/gim.db` (keep a backup, and keep `jwt_secret.bin` and the admin user: re-run setAdminPassword.js), set the two GIM_PREVIEW env lines, `pm2 restart gim2 --update-env`. Note beta's current database (plugin tests, Degree C) is then replaced.
+
 ## Migration (do not start before approval)
 
 All existing 1.x groups and the history that is still useful move to 2.0 at cut-over: daily `snapshots`, `player_activities`,

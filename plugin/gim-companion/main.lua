@@ -769,6 +769,59 @@ local function probe3Step()
     end
 end
 
+-- ── 4g. Boss record parameter dump (beta debugging; config.lua: trackerProbe = "params") ─────────────────────────
+-- The boss records are structs. This prints EVERY parameter (name and value) of a few of them, and the combined list of
+-- parameter names used by all of them, to find the parameter that points at the kill counter.
+local P4_ALL = { "BSLAY_DUNGEON_ULTHVEN1", "BSLAY_DUNGEON_ULTHVEN2", "BSLAY_DUNGEON_ULTHVEN3", "BSLAY_ARAXXI", "BSLAY_BARROWS", "BSLAY_ROTS", "BSLAY_CHAOS_ELEMENTAL", "BSLAY_ZILYANA", "BSLAY_CORP_BEAST", "BSLAY_DAG_KINGS", "BSLAY_GRAARDOR", "BSLAY_MOLE", "BSLAY_HARAKEN", "BSLAY_KALPHITE_KING", "BSLAY_KALPHITE_QUEEN", "BSLAY_KBD", "BSLAY_KREEARRA", "BSLAY_KRIL", "BSLAY_LEGIONES", "BSLAY_NEX", "BSLAY_QBD", "BSLAY_JAD", "BSLAY_VORAGO", "BSLAY_BEASTMASTER", "BSLAY_YAKAMARU", "BSLAY_VINDICTA", "BSLAY_HELWYR", "BSLAY_TWINDEMONS", "BSLAY_SLISKE", "BSLAY_GWD2_SOLO_BOSS", "BSLAY_NEX2", "BSLAY_MENAPHOS_SLAYER_BOSS", "BSLAY_SOLAK", "BSLAY_DUNGEON_AMINISHI1", "BSLAY_DUNGEON_AMINISHI2", "BSLAY_DUNGEON_AMINISHI3", "BSLAY_DUNGEON_DRAGONFORT1", "BSLAY_DUNGEON_DRAGONFORT2", "BSLAY_DUNGEON_DRAGONFORT3", "BSLAY_DINO_BOSS", "BSLAY_REXKINGS", "BSLAY_EGWD_JAS_BOSS", "BSLAY_EGWD_WEN_BOSS", "BSLAY_EGWD_BIK_BOSS", "BSLAY_EGWD_FUL_BOSS", "BSLAY_EGWD_ZAMORAK_BOSS", "BSLAY_HERMOD_BOSS", "BSLAY_RASIAL_BOSS", "BSLAY_FORT_BOSS_ZEMO_VORKATH", "BSLAY_REXKINGS_OSSEOUS", "BSLAY_RAID_REBIRTH1_WYRM_BOSS", "BSLAY_RAID_REBIRTH1_BEAST_BOSS", "BSLAY_RAID_REBIRTH1_SLAYER_MASTER_BOSS", "BSLAY_ELIDINIS_BOSS", "BSLAY_AMASCUT_BOSS", "BSLAY_STALKER_BOSS", "BSLAY_WENDLE_GIANT_BOSS", "BSLAY_WENDLE_HEDGEHOG_BOSS", "BSLAY_BLOOD_KNIGHT_BOSS" }
+local P4_SHOW = { "BSLAY_BARROWS", "BSLAY_KBD", "BSLAY_KRIL", "BSLAY_HERMOD_BOSS", "BSLAY_STALKER_BOSS" }
+local probe4 = nil
+
+local function p4Describe(st)
+    local okP, params = pcall(function() return st.params end)
+    if not okP or type(params) ~= "table" then return "(no params)" end
+    local bits = {}
+    for _, prm in ipairs(params) do
+        local okN, pname = pcall(function() return prm.configName end)
+        local okT, ptype = pcall(function() return prm.valueType end)
+        local okV, val = pcall(function() return st:GetParamValue(prm) end)
+        local shown = okV and (type(val) == "string" and ('"' .. val:sub(1, 30) .. '"') or tostring(val)) or "<unreadable>"
+        bits[#bits + 1] = tostring(okN and pname or "?") .. "[" .. tostring(okT and ptype or "?") .. "]=" .. shown
+    end
+    return table.concat(bits, " | ")
+end
+
+local function probe4Run()
+    probe4 = true
+    probeLog("parameter dump started")
+    for _, name in ipairs(P4_SHOW) do
+        local okS, st = pcall(function() return config.Struct[name] end)
+        if okS and st ~= nil then probeLog(name .. ": " .. p4Describe(st)) else probeLog(name .. ": not found") end
+    end
+    -- union of parameter names (with their value type) across every boss record
+    local union, order = {}, {}
+    for _, name in ipairs(P4_ALL) do
+        local okS, st = pcall(function() return config.Struct[name] end)
+        if okS and st ~= nil then
+            local okP, params = pcall(function() return st.params end)
+            if okP and type(params) == "table" then
+                for _, prm in ipairs(params) do
+                    local okN, pname = pcall(function() return prm.configName end)
+                    if okN and type(pname) == "string" and not union[pname] then
+                        local okT, ptype = pcall(function() return prm.valueType end)
+                        union[pname] = tostring(okT and ptype or "?")
+                        order[#order + 1] = pname
+                    end
+                end
+            end
+        end
+    end
+    table.sort(order)
+    local parts = {}
+    for _, n in ipairs(order) do parts[#parts + 1] = n .. "[" .. union[n] .. "]" end
+    probeLog("parameter names across all boss records: " .. table.concat(parts, ", "))
+    probeLog("finished")
+end
+
 -- ── 5. Kills ──────────────────────────────────────────────────────────────────
 -- The game announces "an NPC was removed" for deaths but also for NPCs that merely leave your view. So a
 -- removal only counts as YOUR kill when it is the monster named on your target display, its health moved
@@ -1199,6 +1252,7 @@ Event.ServerLogic.Subscribe("gim_tick", function()
     if settings.trackerProbe == true and Player.IsAvailable() then
         if probe == nil then probeStart() else probeStep() end
     end
+    if settings.trackerProbe == "params" and Player.IsAvailable() and probe4 == nil and ticks > 40 then probe4Run() end
     if settings.trackerProbe == "bosses" and Player.IsAvailable() then
         if probe3 == nil then probe3Start() else probe3Step() end
     end

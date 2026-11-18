@@ -38,19 +38,23 @@ export default function HeaderStats({ group }) {
 
   const items = [
     { node: <RsIcon name="group" fallback="👥" size={15} />, value: players.length, tip: 'Members' },
-    ...(rank?.rank ? [{ node: <RsIcon name="leaderboards" fallback="🏆" size={15} />, value: `#${rank.rank.toLocaleString()}`, tip: `Rank on the official Group Ironman hiscores (of ${rank.total.toLocaleString()} groups)` }] : []),
+    ...(rank?.rank ? [{ node: <RsIcon name="leaderboards" fallback="🏆" size={15} />, value: `#${rank.rank.toLocaleString()}`, tip: `Rank on the official Group Ironman hiscores (of ${rank.total.toLocaleString()} groups). Click to open your group on RuneScape.com`,
+      href: `https://rs.runescape.com/hiscores/group-ironman/${type}/${group.gim_size ?? 5}/${encodeURIComponent((group.group_rsn || group.name || '').trim())}` }] : []),
     { node: <XpBadge />, value: fmtXp(s.xp), tip: 'Total XP of the group' },
     { node: <RsIcon name="overview" fallback="📊" size={15} />, value: s.levels.toLocaleString(), tip: 'Total levels of the group' },
     { node: <RsIcon name="fire" fallback="🔥" size={15} />, value: s.hasWeekly ? `${s.active}/${players.length}` : '–', tip: 'Members who earned XP in the past 7 days' },
   ];
   return (
     <div className="header-stats" data-tour="header-stats" style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 12 }}>
-      {items.map(it => (
-        <div key={it.tip} title={it.tip} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 999,
+      {items.map(it => {
+        const Tag = it.href ? 'a' : 'div';
+        return (
+        <Tag key={it.tip} title={it.tip} {...(it.href ? { href: it.href, target: '_blank', rel: 'noopener noreferrer' } : {})} style={{ display: 'inline-flex', textDecoration: 'none', cursor: it.href ? 'pointer' : 'default', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 999,
           background: 'var(--bg-panel-alt)', border: '1px solid var(--border)', fontSize: 12, fontWeight: 700, color: 'var(--gold-light)', whiteSpace: 'nowrap' }}>
           {it.node}{it.value}
-        </div>
-      ))}
+        </Tag>
+        );
+      })}
     </div>
   );
 }

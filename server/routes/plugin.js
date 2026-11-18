@@ -399,6 +399,13 @@ router.get('/boss-kills', (req, res) => {
   `).all(groupId));
 });
 
+router.get('/slayer-kills', (req, res) => {
+  const groupId = parseInt(req.query.group_id, 10);
+  if (!groupId) return res.status(400).json({ error: 'group_id required' });
+  if (!checkGroupAuth(req, res, groupId)) return;
+  res.json(require('../services/slayerKills').slayerKills(db, groupId));
+});
+
 router.get('/kill-vars', (req, res) => {
   const groupId = parseInt(req.query.group_id, 10);
   if (!groupId) return res.status(400).json({ error: 'group_id required' });

@@ -676,7 +676,7 @@ function Recommended({ groupId, playerId, goals, canWrite, onAdded, onToast }) {
     api.getRecommendations(groupId, playerId).then(r => setRecs(Array.isArray(r) ? r : [])).catch(() => setRecs([]));
   }, [groupId, playerId, goals.length]);
   if (recs.length === 0) return null;
-  const KIND = { quest: 'quests', boss: 'bosses', 'area task': 'areaTasks', journey: 'journey', skill: 'skills' };
+  const KIND = { quest: 'quests', boss: 'bosses', 'area task': 'areaTasks', journey: 'journey' };
   async function add(r) {
     if (!canWrite) return onToast('Unlock group to add goals', 'error');
     setBusy(r.goal.title);
@@ -695,7 +695,9 @@ function Recommended({ groupId, playerId, goals, canWrite, onAdded, onToast }) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 8 }}>
         {recs.slice(0, 12).map(r => (
           <div key={r.kind + r.goal.title} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: 8, background: 'var(--bg-root)', borderRadius: 6 }}>
-            <RsIcon name={KIND[r.kind] || 'goals'} fallback="⭐" size={20} />
+            {r.kind === 'skill' && SKILL_ICONS[r.goal.skill]
+              ? <img src={SKILL_ICONS[r.goal.skill]} alt={r.goal.skill} style={{ width: 22, height: 22, flexShrink: 0 }} />
+              : <RsIcon name={KIND[r.kind] || 'goals'} fallback="⭐" size={22} />}
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.goal.title}</div>
               <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>{r.reason}</div>

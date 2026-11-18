@@ -1087,6 +1087,30 @@ function SetSkillDateModal({ playerId, rsn, skill, level, achievedAt, onClose, o
 
 // ── Boss Kills ────────────────────────────────────────────────────────────────
 
+// Slayer creature kills, read from the game's own tracker by the plugin (only creatures matched so far are listed).
+function SlayerKills({ players, colorMap, groupId }) {
+  const [rows, setRows] = useState(null);
+  useEffect(() => { api.getSlayerKills(groupId).then(r => setRows(Array.isArray(r) ? r : [])).catch(() => setRows([])); }, [groupId]);
+  const ids = new Set(players.map(p => p.id));
+  const shown = (rows ?? []).filter(r => ids.has(r.player_id));
+  const names = [...new Set(shown.flatMap(r => r.creatures.map(c => c.name)))].sort();
+  if (rows && shown.length === 0) return <div className="empty-state"><p>No slayer kills yet. They are read from the game by the plugin shortly after login.</p></div>;
+  return (
+    <div style={{ overflowX: 'auto' }}>
+      <table className="data-table" style={{ width: '100%', fontSize: 12 }}>
+        <thead><tr><th style={{ textAlign: 'left' }}>Creature</th>{shown.map(r => <th key={r.player_id} style={{ color: colorMap[r.player_id] }}>{r.rsn}</th>)}</tr></thead>
+        <tbody>
+          {names.map(n => (
+            <tr key={n}><td>{n}</td>{shown.map(r => <td key={r.player_id} style={{ textAlign: 'center' }}>{(r.creatures.find(c => c.name === n)?.kills ?? 0).toLocaleString()}</td>)}</tr>
+          ))}
+          <tr style={{ fontWeight: 700 }}><td>Total (listed)</td>{shown.map(r => <td key={r.player_id} style={{ textAlign: 'center' }}>{r.total.toLocaleString()}</td>)}</tr>
+        </tbody>
+      </table>
+      <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 10 }}>Counts come straight from the game. More creatures are added as their counters are identified.</div>
+    </div>
+  );
+}
+
 function BossKills({ players, colorMap, groupId }) {
   const [rawKills, setRawKills] = useState([]);
   const [loading, setLoading]   = useState(true);
@@ -1316,6 +1340,7 @@ export default function LeaderboardsTab({ players, groupId, canWrite, onToast, s
     { id: 'firsts',     label: 'Firsts',        fallback: '🥇' },
     { id: 'milestones', label: 'Milestones',    fallback: '🏆' },
     { id: 'bosses',     label: 'Boss Kills',    fallback: '⚔️' },
+    { id: 'slayer',     label: 'Slayer Kills',  fallback: '💀' },
     { id: 'clues',      label: 'Clue Scrolls',  fallback: '📜' },
     { id: 'mastery',    label: 'Skill Mastery', fallback: '⭐' },
   ];
@@ -1348,6 +1373,7 @@ export default function LeaderboardsTab({ players, groupId, canWrite, onToast, s
           {section === 'firsts'     && <FirstsBoard    players={players} colorMap={colorMap} groupId={groupId} canWrite={canWrite} onToast={onToast} />}
           {section === 'milestones' && <MilestonesFeed players={shown} colorMap={colorMap} />}
           {section === 'bosses'     && <BossKills      players={shown} colorMap={colorMap} groupId={groupId} />}
+          {section === 'slayer'     && <SlayerKills    players={shown} colorMap={colorMap} groupId={groupId} />}
           {section === 'clues'      && <ClueScrolls    players={shown} colorMap={colorMap} />}
           {section === 'mastery'    && <SkillMastery   players={shown} colorMap={colorMap} groupId={groupId} canWrite={canWrite} onToast={onToast} />}
         </div>

@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { IconLabel } from './RsIcon';
+import { BossIcon } from './GameIcon';
 import { api } from '../api/client';
 
 import { MEMBER_COLORS, parseRMDate } from '../lib/rs3';
@@ -1283,7 +1284,7 @@ function BossKills({ players, colorMap, groupId }) {
                   background: bi % 2 ? 'rgba(255,255,255,0.015)' : 'transparent',
                 }}>
                   <td style={{ padding: '7px 12px 7px 4px', whiteSpace: 'nowrap', fontWeight: 600, color: 'var(--text-bright)' }}>
-                    {boss.label}
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><BossIcon name={boss.label} size={26} fallback={<span style={{ width: 26 }} />} />{boss.label}</span>
                   </td>
                   {players.map((p, pi) => {
                     const val = values[pi];

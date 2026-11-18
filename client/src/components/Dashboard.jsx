@@ -147,8 +147,8 @@ export default function Dashboard({ group, goals, pendingRequests, onRefresh, on
 
   const TABS = [
     { id: 'overview',      icon: 'overview',     fallback: '📊', label: 'Overview' },
-    { id: 'goals',         icon: 'goals',        fallback: '🎯', label: 'Goals',               tour: 'tab-goals' },
     { id: 'vault',         icon: 'vault',        fallback: '🏆', label: 'Group Vault',         tour: 'tab-vault' },
+    { id: 'goals',         icon: 'goals',        fallback: '🎯', label: 'Goals',               tour: 'tab-goals' },
     { id: 'achievements',  icon: 'quests',       fallback: '📜', label: 'Quests & Area Tasks', tour: 'tab-achievements' },
     { id: 'leaderboards',  icon: 'leaderboards', fallback: '🏅', label: 'Leaderboards',        tour: 'tab-leaderboards' },
   ];

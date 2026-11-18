@@ -121,6 +121,12 @@ router.get('/skill-milestones', (req, res) => {
   res.json(db.prepare(sql).all(...params));
 });
 
+// POST /api/rs3/item-ids { names: [...] } -> { name: itemId } for the names the Grand Exchange data knows (public data only)
+router.post('/item-ids', async (req, res) => {
+  const names = Array.isArray(req.body?.names) ? req.body.names.filter(n => typeof n === 'string' && n.length < 100).slice(0, 400) : [];
+  res.json(await require('../services/itemIndex').idsFor(names));
+});
+
 // GET /api/rs3/items — gear items with icon URLs (replaces static gearSuggestions.js as source)
 // Returns items shaped like { id, name, tier, style, slot, reqs, quest, icon_url, wiki_url, ... }
 router.get('/items', (req, res) => {

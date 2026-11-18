@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { api } from '../api/client';
 import { MEMBER_COLORS, fmtNum } from '../lib/rs3';
 import { IconLabel } from './RsIcon';
+import { ItemIcon } from './GameIcon';
 
 // GIM 2.0 — live group items, the Bank Journal (group storage in/out) and plugin setup.
 // All data is pushed by the in-game RS3 plugin (see /plugin) and is private to the group.
@@ -9,7 +10,7 @@ import { IconLabel } from './RsIcon';
 // The vault shows two places: the shared group storage and everyone's bank.
 const SOURCES = [
   { id: 'group', label: 'Group Storage',   icon: 'vault',    fallback: '🏦' },
-  { id: 'bank',  label: 'Banks (Storage)', icon: 'backpack', fallback: '🎒' },
+  { id: 'bank',  label: 'Players banks', icon: 'backpack', fallback: '🎒' },
 ];
 
 // Server timestamps are ISO strings with a trailing Z; SQLite CURRENT_TIMESTAMP values have none.
@@ -43,22 +44,6 @@ function pillStyle(active) {
 }
 
 // ── Items ─────────────────────────────────────────────────────────────────────
-
-// Item image: Jagex's own item sprite by the game's item id first (works for most items, tradeable or not), then the
-// RuneScape Wiki's image by name, then a lettered tile.
-export function ItemIcon({ id, name, size = 36 }) {
-  const [stage, setStage] = useState(0);
-  useEffect(() => setStage(0), [id, name]);
-  const letter = (name || '?').trim().charAt(0).toUpperCase();
-  const src = stage === 0 && id != null ? `https://secure.runescape.com/m=itemdb_rs/obj_sprite.gif?id=${id}`
-    : stage <= 1 && name ? `https://runescape.wiki/images/${encodeURIComponent(name.trim().replace(/ /g, '_'))}.png` : null;
-  if (!src) {
-    return <div style={{ width: size, height: size, borderRadius: 6, background: 'var(--bg-root)', border: '1px solid var(--border)', color: 'var(--text-dim)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: size * 0.45, flexShrink: 0 }}>{letter}</div>;
-  }
-  return <img src={src} alt={name} loading="lazy" onError={() => setStage(st => (id != null && st === 0 ? 1 : 2))}
-    style={{ width: size, height: size, objectFit: 'contain', flexShrink: 0, imageRendering: stage === 0 ? 'pixelated' : 'auto' }} />;
-}
 
 // RuneScape-style stack text: small stacks in yellow, 100K and above abbreviated in white, 10M and above in green.
 function qtyLabel(n) {

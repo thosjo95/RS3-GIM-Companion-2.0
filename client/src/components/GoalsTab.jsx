@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { api } from '../api/client';
 import GoalModal from './GoalModal';
 import RsIcon, { IconLabel } from './RsIcon';
+import { BossIcon, ItemIcon } from './GameIcon';
 import {
   GOAL_SUGGESTIONS, CATEGORIES, STAGES,
   detectStage, checkPlayerReadiness,
@@ -697,7 +698,9 @@ function Recommended({ groupId, playerId, goals, canWrite, onAdded, onToast }) {
           <div key={r.kind + r.goal.title} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: 8, background: 'var(--bg-root)', borderRadius: 6 }}>
             {r.kind === 'skill' && SKILL_ICONS[r.goal.skill]
               ? <img src={SKILL_ICONS[r.goal.skill]} alt={r.goal.skill} style={{ width: 22, height: 22, flexShrink: 0 }} />
-              : <RsIcon name={KIND[r.kind] || 'goals'} fallback="⭐" size={22} />}
+              : r.kind === 'boss'
+                ? <BossIcon name={r.goal.title} size={26} fallback={<RsIcon name="bosses" fallback="⚔️" size={22} />} />
+                : <RsIcon name={KIND[r.kind] || 'goals'} fallback="⭐" size={22} />}
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.goal.title}</div>
               <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>{r.reason}</div>

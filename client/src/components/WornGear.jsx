@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { api } from '../api/client';
 import { EQUIPMENT_SLOTS } from '../data/gearSuggestions';
-import { ItemIcon } from './ItemsTab';
+import { ItemIcon } from './GameIcon';
 
 // What a player is wearing: read from the game by the plugin, live while they are logged in and as last seen after
 // logout. One player at a time: it follows the player picked in the pinned player bar.

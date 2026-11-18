@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { api } from '../api/client';
 import { EQUIPMENT_SLOTS } from '../data/gearSuggestions';
+import { ItemIcon } from './ItemsTab';
 
 // What a player is wearing: read from the game by the plugin, live while they are logged in and as last seen after
 // logout. One player at a time: it follows the player picked in the pinned player bar.
@@ -57,7 +58,7 @@ function Slot({ def, item }) {
       border: `1px solid ${item ? 'rgba(200,168,75,0.45)' : 'var(--border)'}`, borderRadius: 'var(--radius)',
     }}>
       {item
-        ? <Img src={wikiImg(item.name)} alt={item.name} size={34} fallback={slotIcon} />
+        ? <ItemIcon id={item.id} name={item.name} size={34} />
         : <div style={{ opacity: 0.45 }}>{slotIcon}</div>}
       <div style={{ fontSize: 10, lineHeight: 1.15, textAlign: 'center', color: item ? 'var(--text-bright)' : 'var(--text-dim)', maxWidth: 88,
         overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>

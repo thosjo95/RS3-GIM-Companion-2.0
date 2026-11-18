@@ -44,17 +44,20 @@ function pillStyle(active) {
 
 // ── Items ─────────────────────────────────────────────────────────────────────
 
-// Official item image from the RuneScape Wiki (by item name), with a lettered tile when there is none.
-function ItemIcon({ name, size = 36 }) {
-  const [bad, setBad] = useState(false);
-  useEffect(() => setBad(false), [name]);
+// Item image: Jagex's own item sprite by the game's item id first (works for most items, tradeable or not), then the
+// RuneScape Wiki's image by name, then a lettered tile.
+export function ItemIcon({ id, name, size = 36 }) {
+  const [stage, setStage] = useState(0);
+  useEffect(() => setStage(0), [id, name]);
   const letter = (name || '?').trim().charAt(0).toUpperCase();
-  if (bad || !name) {
+  const src = stage === 0 && id != null ? `https://secure.runescape.com/m=itemdb_rs/obj_sprite.gif?id=${id}`
+    : stage <= 1 && name ? `https://runescape.wiki/images/${encodeURIComponent(name.trim().replace(/ /g, '_'))}.png` : null;
+  if (!src) {
     return <div style={{ width: size, height: size, borderRadius: 6, background: 'var(--bg-root)', border: '1px solid var(--border)', color: 'var(--text-dim)',
       display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: size * 0.45, flexShrink: 0 }}>{letter}</div>;
   }
-  return <img src={`https://runescape.wiki/images/${encodeURIComponent(name.trim().replace(/ /g, '_'))}.png`} alt={name} loading="lazy"
-    onError={() => setBad(true)} style={{ width: size, height: size, objectFit: 'contain', flexShrink: 0 }} />;
+  return <img src={src} alt={name} loading="lazy" onError={() => setStage(st => (id != null && st === 0 ? 1 : 2))}
+    style={{ width: size, height: size, objectFit: 'contain', flexShrink: 0, imageRendering: stage === 0 ? 'pixelated' : 'auto' }} />;
 }
 
 // RuneScape-style stack text: small stacks in yellow, 100K and above abbreviated in white, 10M and above in green.
@@ -64,11 +67,11 @@ function qtyLabel(n) {
   return { t: n.toLocaleString(), c: '#ffff00' };
 }
 
-function StackIcon({ name, count, size = 40 }) {
+function StackIcon({ id, name, count, size = 40 }) {
   const q = count > 1 ? qtyLabel(count) : null;
   return (
     <div style={{ position: 'relative', width: size + 6, height: size + 6, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-      <ItemIcon name={name} size={size} />
+      <ItemIcon id={id} name={name} size={size} />
       {q && <span style={{ position: 'absolute', top: 0, left: 1, fontSize: 10, fontWeight: 700, color: q.c, textShadow: '1px 1px 0 #000, -1px 1px 0 #000, 1px -1px 0 #000, -1px -1px 0 #000' }}>{q.t}</span>}
     </div>
   );
@@ -158,7 +161,7 @@ function ItemsView({ state, colorOf, selectedPlayerId }) {
           {items.slice(0, limit).map(r => (
             <div key={r.id} title={[`${r.name} ×${r.total.toLocaleString()}`, ...(source === 'bank' ? r.holders.map(h => `${h.rsn}: ${h.count.toLocaleString()}`) : [])].join('\n')}
               style={{ position: 'relative', padding: 4, background: 'var(--bg-panel-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}>
-              <StackIcon name={r.name} count={r.total} size={36} />
+              <StackIcon id={r.id} name={r.name} count={r.total} size={36} />
               {source === 'bank' && r.holders.length > 1 && (
                 <div style={{ display: 'flex', height: 3, borderRadius: 2, overflow: 'hidden', marginTop: 2 }}>
                   {r.holders.map((h, i) => <div key={i} style={{ width: `${(h.count / r.total) * 100}%`, background: colorOf(h.playerId) }} />)}
@@ -181,7 +184,7 @@ function ItemsView({ state, colorOf, selectedPlayerId }) {
               {items.slice(0, limit).map(r => (
                 <tr key={r.id} style={{ borderTop: '1px solid var(--border)' }}>
                   <td style={{ padding: '4px 8px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><ItemIcon name={r.name} size={26} /><span style={{ color: 'var(--text-bright)', fontWeight: 600 }}>{r.name}</span></div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><ItemIcon id={r.id} name={r.name} size={26} /><span style={{ color: 'var(--text-bright)', fontWeight: 600 }}>{r.name}</span></div>
                   </td>
                   <td style={{ textAlign: 'right', fontWeight: 700, color: 'var(--gold)', fontVariantNumeric: 'tabular-nums' }}>{r.total.toLocaleString()}</td>
                   {source === 'bank' && (
@@ -208,7 +211,7 @@ function ItemsView({ state, colorOf, selectedPlayerId }) {
           {items.slice(0, limit).map(r => (
             <div key={r.id} style={{ padding: '10px 12px', background: 'var(--bg-panel-alt)', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <StackIcon name={r.name} count={r.total} size={40} />
+                <StackIcon id={r.id} name={r.name} count={r.total} size={40} />
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-bright)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.name}>{r.name}</div>
                   <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>

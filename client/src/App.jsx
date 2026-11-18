@@ -9,7 +9,6 @@ import useToasts from './hooks/useToasts';
 import { loadStoredPasswords, loadMyGroupIds, saveMyGroupIds, loadFavoriteIds, saveFavoriteIds } from './lib/localPrefs';
 import GimTypeLabel from './components/common/GimTypeLabel';
 import ToastArea from './components/common/ToastArea';
-import AnnouncementModal, { shouldShowAnnouncement } from './components/common/AnnouncementModal';
 import SetRsnModal from './components/modals/SetRsnModal';
 import UnlockModal from './components/modals/UnlockModal';
 import ClaimModal from './components/modals/ClaimModal';
@@ -42,7 +41,6 @@ export default function App() {
   const [showTour, setShowTour]             = useState(false);
   const tourShownRef                        = useRef(false); // prevent re-triggering on subsequent refreshes
   const [tabTourReplayKey, setTabTourReplayKey] = useState(0); // increment to replay current tab's tour
-  const [showAnnouncement, setShowAnnouncement] = useState(shouldShowAnnouncement);
 
   const TAB_TOUR_IDS = ['goals', 'vault', 'achievements', 'leaderboards'];
   function handleTourClick() {
@@ -270,7 +268,6 @@ export default function App() {
           onSwitchToGroup={id => { setCreatingGroup(false); setPendingImport(null); selectGroup(id); }}
           onStar={saveGroup}
         />
-        {showAnnouncement && <AnnouncementModal onClose={() => setShowAnnouncement(false)} />}
         <ToastArea toasts={toasts} />
       </div>
     );
@@ -405,8 +402,7 @@ export default function App() {
           onStar={saveGroup}
         />
       )}
-      {/* Tour waits until the announcement has been closed */}
-      {showTour && !showAnnouncement && (
+      {showTour && (
         <TourOverlay
           onComplete={() => {
             localStorage.setItem('tourCompleted', '1');
@@ -414,7 +410,6 @@ export default function App() {
           }}
         />
       )}
-      {showAnnouncement && <AnnouncementModal onClose={() => setShowAnnouncement(false)} />}
       <ToastArea toasts={toasts} />
     </div>
   );

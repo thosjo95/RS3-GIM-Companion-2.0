@@ -46,10 +46,12 @@ function isValidDiscordWebhookUrl(url) {
   return typeof url === 'string' && DISCORD_WEBHOOK_RE.test(url);
 }
 
+// Returns { ok, error }: callers that do not care ignore it (the notify functions are fire-and-forget), the test
+// endpoint reports it.
 async function sendEmbed(webhookUrl, embed) {
   if (!isValidDiscordWebhookUrl(webhookUrl)) {
     console.error(`[webhook] Refused to send — not a valid Discord webhook URL`);
-    return;
+    return { ok: false, error: 'Not a valid Discord webhook URL' };
   }
   try {
     const res = await fetch(webhookUrl, {
@@ -61,9 +63,12 @@ async function sendEmbed(webhookUrl, embed) {
     if (!res.ok) {
       const body = await res.text().catch(() => '');
       console.error(`[webhook] Discord ${res.status}: ${body.slice(0, 200)}`);
+      return { ok: false, error: res.status === 404 ? 'Discord says this webhook does not exist (it may have been deleted)' : `Discord answered ${res.status}` };
     }
+    return { ok: true };
   } catch (err) {
     console.error(`[webhook] Send failed: ${err.message}`);
+    return { ok: false, error: `Could not reach Discord (${err.message})` };
   }
 }
 
@@ -147,16 +152,17 @@ async function sendTestWebhook(webhookUrl, groupName) {
   if (!isValidDiscordWebhookUrl(webhookUrl)) {
     throw new Error('That doesn\'t look like a Discord webhook URL. It should look like https://discord.com/api/webhooks/…');
   }
-  await sendEmbed(webhookUrl, {
+  const result = await sendEmbed(webhookUrl, {
     title: '✅ Webhook Connected!',
     description: `**${groupName}** is now linked to RS3 GIM Companion.\nNotifications will appear here for the events you've enabled.`,
     color: COLORS.green,
     fields: [
       { name: 'Supported events', value: '🎉 Level 99/120 · 📋 Area tasks · ⚔️ Boss first kills · 🎯 Goals completed · 🎁 Drops', inline: false },
     ],
-    footer: { text: 'RS3 GIM Companion · groupiron.com' },
+    footer: { text: 'GIM Companion' },
     timestamp: new Date().toISOString(),
   });
+  if (!result.ok) throw new Error(result.error);
 }
 
 module.exports = {

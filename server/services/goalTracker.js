@@ -114,7 +114,7 @@ function evaluateGoal(goal, ctx) {
 }
 
 /** Completes every open goal of the group that is already satisfied. Returns the titles completed. */
-function reconcileGoals(groupId) {
+function reconcileGoals(groupId, { announce = false } = {}) {
   const open = db.prepare("SELECT * FROM goals WHERE group_id = ? AND status NOT IN ('complete', 'vaulted')").all(groupId);
   if (open.length === 0) return [];
   const ctx = loadContext(groupId);
@@ -122,7 +122,10 @@ function reconcileGoals(groupId) {
   const mark = db.prepare("UPDATE goals SET status = 'complete', completed_at = CURRENT_TIMESTAMP WHERE id = ?");
   for (const g of open) {
     const r = evaluateGoal(g, ctx);
-    if (r?.satisfied) { mark.run(g.id); done.push(g.title); }
+    if (r?.satisfied) {
+      mark.run(g.id); done.push(g.title);
+      if (announce) { try { require('./discord').notifyGoalCompleted(groupId, g.title, goalPlayers(g).map(id => db.prepare('SELECT rsn FROM players WHERE id = ?').get(id)?.rsn).filter(Boolean)); } catch { /* webhook problem */ } }
+    }
   }
   if (done.length) console.log(`[goals] auto-completed ${done.length} goal(s) for group ${groupId}: ${done.join(', ')}`);
   return done;

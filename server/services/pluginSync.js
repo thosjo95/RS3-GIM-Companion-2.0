@@ -159,7 +159,9 @@ function applyDrops(playerId, drops) {
     if (dup) continue;
     const existing = feedRow.get(playerId, d.name, when);
     if (existing) { if (d.npc) learnBoss.run(d.npc, existing.id); continue; }
-    added += insert.run(playerId, d.name, d.npc, d.quantity, d.value, when, d.ref).changes;
+    const n = insert.run(playerId, d.name, d.npc, d.quantity, d.value, when, d.ref).changes;
+    added += n;
+    if (n) { try { require('./discord').notifyDrop(playerId, d.name); } catch { /* a webhook problem must not break ingest */ } }
   }
   return added;
 }

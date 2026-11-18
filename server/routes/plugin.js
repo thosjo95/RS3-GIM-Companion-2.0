@@ -305,7 +305,7 @@ router.post('/ingest', ingestLimiter, express.json({ limit: '1mb' }), (req, res)
   if (data.quests || data.achievements || data.bossKills || data.skills || data.kills) {
     try {
       const gid = db.prepare('SELECT group_id FROM players WHERE id = ?').get(playerId)?.group_id;
-      if (gid) require('../services/goalTracker').reconcileGoals(gid);
+      if (gid) require('../services/goalTracker').reconcileGoals(gid, { announce: true });
       require('../services/metrics').snapshotPlayer(playerId);
     } catch (e) { console.error('[goals] reconcile failed:', e.message); }
   }

@@ -23,6 +23,7 @@ export const RS_ICON = {
   // goals and general markers
   skills:       'Skills.png',
   backpack:     'Backpack_icon.png',
+  maxCape:      'Max_cape.png',
   equipment:    'Worn_Equipment_icon.png',
   wiki:         'Wiki.png',
   player:       'Friends_List_icon.png',

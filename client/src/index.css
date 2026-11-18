@@ -695,3 +695,6 @@ a:hover { color: var(--gold-light); }
 
 /* group stats grid */
 .gs-row:hover { background: rgba(255,255,255,0.03); }
+
+/* top bar: documentation / community links are plain until hovered */
+.header-quiet:hover { background: rgba(255,255,255,0.06); color: var(--text-bright) !important; }

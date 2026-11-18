@@ -4,6 +4,7 @@ import { MEMBER_COLORS, normRsn } from '../lib/rs3';
 import MemberCard from './overview/MemberCard';
 import EditRsnModal from './overview/EditRsnModal';
 import PlayerLoadout from './PlayerLoadout';
+import { useXpDrops } from '../lib/xpDrops';
 
 /**
  * The group's player cards, pinned above every page. Clicking a card selects that player; every page then
@@ -20,6 +21,21 @@ export default function PlayerBar({ group, players, groupId, canWrite, myRsn, se
   const closePanels = () => setLoadoutId(null);
   // who is playing right now: the plugin's heartbeat (needs an unlocked group)
   const [online, setOnline] = useState({});
+  // Live XP drops float up from a card for a few seconds, like the game's XP drops (one after another per player)
+  const [bubbles, setBubbles] = useState({});      // player_id -> [{ key, skill, xp }]
+  useXpDrops(groupId, canWrite, fresh => {
+    const perPlayer = {};
+    for (const d of [...fresh].reverse()) (perPlayer[d.player_id] ??= []).push(d);
+    for (const [pid, list] of Object.entries(perPlayer)) {
+      list.slice(0, 6).forEach((d, i) => {
+        const b = { key: d.id, skill: d.skill, xp: d.xp };
+        setTimeout(() => {
+          setBubbles(m => ({ ...m, [pid]: [...(m[pid] ?? []), b] }));
+          setTimeout(() => setBubbles(m => ({ ...m, [pid]: (m[pid] ?? []).filter(x => x.key !== b.key) })), 3200);
+        }, i * 700);
+      });
+    }
+  });
   useEffect(() => {
     if (!canWrite || !groupId) { setOnline({}); return undefined; }
     let alive = true;
@@ -95,6 +111,7 @@ export default function PlayerBar({ group, players, groupId, canWrite, myRsn, se
               onOpenLoadout={pl => { setLoadoutId(id => (id === pl.id ? null : pl.id)); }}
               loadoutOpen={loadoutId === p.id}
               online={!!online[p.id]}
+              xpBubbles={bubbles[p.id] ?? []}
             />
           ))}
         </div>

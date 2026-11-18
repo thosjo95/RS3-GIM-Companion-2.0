@@ -237,3 +237,20 @@ test('joining from a second computer keeps the first one connected; Disconnect s
   assert.equal((await call('DELETE', `/plugin/tokens/${pB}`, { headers: asGroup(groupB) })).status, 200);
   for (const t of [one, two]) assert.equal((await call('POST', '/plugin/ingest', { headers: bearer(t), body: { v: 1, rsn: 'PlayerB' } })).status, 401);
 });
+
+// ── live XP drops ────────────────────────────────────────────────────────────
+test('XP gained between two updates is logged per skill and listed for the group only', async () => {
+  const token = await mint(pB, groupB);
+  const send = skills => call('POST', '/plugin/ingest', { headers: bearer(token), body: { v: 1, rsn: 'PlayerB', skills } });
+  const first = { Attack: { xp: 1000, level: 10 }, Magic: { xp: 5000, level: 20 } };
+  assert.equal((await send(first)).status, 200);                                     // first update: baseline only
+  assert.equal((await send({ Attack: { xp: 1250, level: 10 }, Magic: { xp: 5000, level: 20 } })).status, 200);
+  const drops = await (await call('GET', `/plugin/xp-drops?group_id=${groupB}`, { headers: asGroup(groupB) })).json();
+  const mine = drops.filter(d => d.player_id === pB);
+  assert.equal(mine.length, 1);
+  assert.equal(mine[0].skill, 'Attack');
+  assert.equal(mine[0].xp, 250);
+  assert.equal((await call('GET', `/plugin/xp-drops?group_id=${groupB}`)).status, 401);   // needs the group secret
+  const other = await (await call('GET', `/plugin/xp-drops?group_id=${groupA}`, { headers: asGroup(groupA) })).json();
+  assert.ok(other.every(d => d.player_id !== pB));                                    // another group never sees them
+});

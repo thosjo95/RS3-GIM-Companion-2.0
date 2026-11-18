@@ -13,6 +13,7 @@
  *   GET    /api/plugin/achievements?group_id  completed achievements / area tasks (group auth)
  *   GET    /api/plugin/boss-kills?group_id    lifetime boss kills from the game       (group auth)
  *   GET    /api/plugin/kill-vars?group_id     the game's kill tracker values, raw    (group auth)
+ *   GET    /api/plugin/xp-drops?group_id&since  XP gained per skill between updates (group auth)
  *
  * Design rules:
  *  - Players only ever use the group secret. The plugin trades it once for a key (token) that belongs to exactly one
@@ -212,6 +213,8 @@ function cleanPayload(b) {
   return out;
 }
 
+const parse = s => { try { return s ? JSON.parse(s) : null; } catch { return null; } };
+
 // ── Tokens ────────────────────────────────────────────────────────────────────
 
 router.post('/tokens', (req, res) => {
@@ -314,7 +317,19 @@ router.post('/ingest', ingestLimiter, express.json({ limit: '1mb' }), (req, res)
     const set = { updated_at: now };
     if (data.world !== undefined) set.world = data.world;
     if (data.position !== undefined) set.position_json = JSON.stringify(data.position);
-    if (data.skills !== undefined) set.skills_json = JSON.stringify(data.skills);
+    if (data.skills !== undefined) {
+      set.skills_json = JSON.stringify(data.skills);
+      // Live XP drops: compare with the skills of the previous update. The first update only sets the baseline.
+      // A gain above 50M in one step is not a drop (for example a baseline from another source) and is skipped.
+      const before = parse(prev.skills_json);
+      if (before) {
+        const add = db.prepare('INSERT INTO xp_drops (player_id, skill, xp, at) VALUES (?, ?, ?, ?)');
+        for (const [skill, s] of Object.entries(data.skills)) {
+          const gain = s.xp - (before[skill]?.xp ?? s.xp);
+          if (gain > 0 && gain < 50_000_000) add.run(playerId, skill, gain, now);
+        }
+      }
+    }
     if (data.inventory !== undefined) set.inventory_json = JSON.stringify(data.inventory);
     if (data.moneyPouch !== undefined) set.money_pouch = data.moneyPouch;
     if (data.equipment !== undefined) set.equipment_json = JSON.stringify(data.equipment);
@@ -369,7 +384,6 @@ router.post('/ingest', ingestLimiter, express.json({ limit: '1mb' }), (req, res)
 
 // ── Reads (group-authenticated) ───────────────────────────────────────────────
 
-const parse = s => { try { return s ? JSON.parse(s) : null; } catch { return null; } };
 
 router.get('/state', (req, res) => {
   const groupId = parseInt(req.query.group_id, 10);
@@ -452,6 +466,19 @@ router.get('/presence', (req, res) => {
     const t = Date.parse(r.updated_at);
     return { player_id: r.player_id, last_seen: r.updated_at, online: Number.isFinite(t) && now - t < 3 * 60 * 1000 };
   }));
+});
+
+// Live XP drops for the group, newest first. ?since=ISO time (default: the last 24 hours), ?limit (max 500).
+router.get('/xp-drops', (req, res) => {
+  const groupId = parseInt(req.query.group_id, 10);
+  if (!groupId) return res.status(400).json({ error: 'group_id required' });
+  if (!checkGroupAuth(req, res, groupId)) return;
+  const sinceMs = Date.parse(String(req.query.since ?? ''));
+  const since = Number.isFinite(sinceMs) ? new Date(Math.max(sinceMs, Date.now() - 7 * 86400000)).toISOString()
+    : new Date(Date.now() - 86400000).toISOString();
+  const limit = Math.min(500, Math.max(1, parseInt(req.query.limit, 10) || 200));
+  res.json(db.prepare(`SELECT d.id, d.player_id, d.skill, d.xp, d.at FROM xp_drops d JOIN players p ON p.id = d.player_id
+    WHERE p.group_id = ? AND d.at > ? ORDER BY d.id DESC LIMIT ?`).all(groupId, since, limit));
 });
 
 router.get('/quests', (req, res) => {

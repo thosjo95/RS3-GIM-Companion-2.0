@@ -388,6 +388,19 @@ try { db.exec('ALTER TABLE player_live_state ADD COLUMN group_storage_json TEXT'
 try { db.exec('ALTER TABLE player_live_state ADD COLUMN group_storage_at TEXT'); } catch {}
 try { db.exec('ALTER TABLE player_live_state ADD COLUMN money_pouch INTEGER'); } catch {}   // coins in the money pouch
 
+// Live XP drops: the XP a player gained in one skill between two plugin updates (about 30 seconds apart). Kept 7 days.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS xp_drops (
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    player_id INTEGER NOT NULL,
+    skill     TEXT NOT NULL,
+    xp        INTEGER NOT NULL,
+    at        TEXT NOT NULL,
+    FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE
+  );
+  CREATE INDEX IF NOT EXISTS idx_xp_drops_player_at ON xp_drops(player_id, at);
+`);
+
 // Drops reported by the plugin carry a dedupe signature so a retried request never logs a drop twice.
 try { db.exec('ALTER TABLE drops ADD COLUMN source TEXT'); } catch {}
 try { db.exec('ALTER TABLE drops ADD COLUMN sig TEXT'); } catch {}

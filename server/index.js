@@ -124,9 +124,10 @@ cron.schedule('5 * * * *', () => { require('./services/hiscoresSync').runHiscore
 cron.schedule('0 0 * * *', () => { require('./services/hiscoresSync').runHiscoresSync({ label: 'daily sync', events: true, activeDays: 30 }).catch(e => console.error('[daily sync] failed:', e.message)); });
 
 // ── Cleanup cron ───────────────────────────────────────────────────────────────
-// Runs at 2am every day — removes groups inactive for 30+ days.
+// Runs at 2am every day — removes groups inactive for 30+ days, and live XP drops older than 7 days.
 cron.schedule('0 2 * * *', () => {
   try {
+    db.prepare('DELETE FROM xp_drops WHERE at < ?').run(new Date(Date.now() - 7 * 86400000).toISOString());
     const stale = db.prepare(
       "SELECT id FROM groups WHERE last_activity IS NOT NULL AND last_activity < datetime('now', '-30 days')"
     ).all();

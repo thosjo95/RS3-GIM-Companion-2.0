@@ -1,9 +1,14 @@
 import React, { useState } from 'react';
 import RsIcon from '../RsIcon';
+import SkillIcon from '../common/SkillIcon';
+import { fmtGain } from '../../lib/xpDrops';
+
+const XP_DROP_CSS = `@keyframes gimXpDrop { 0% { opacity: 0; transform: translate(-50%, 6px); } 12% { opacity: 1; }
+  80% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -34px); } }`;
 
 // ── Member card ───────────────────────────────────────────────────────────────
 
-export default function MemberCard({ player, active, color, onClick, isMe, onEditRsn, onSync, canWrite, onRemove, onOpenLoadout, loadoutOpen, online = false }) {
+export default function MemberCard({ player, active, color, onClick, isMe, onEditRsn, onSync, canWrite, onRemove, onOpenLoadout, loadoutOpen, online = false, xpBubbles = [] }) {
   const [avatarError, setAvatarError] = useState(false);
   const [syncing,     setSyncing]     = useState(false);
   const overall = player.skills?.find(s => s.skill_name === 'Overall');
@@ -30,6 +35,16 @@ export default function MemberCard({ player, active, color, onClick, isMe, onEdi
       flexShrink: 0,
       display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center',
     }}>
+      {/* live XP drops: rise from the middle of the card and fade, one after another */}
+      {xpBubbles.length > 0 && <style>{XP_DROP_CSS}</style>}
+      {xpBubbles.map(b => (
+        <div key={b.key} style={{ position: 'absolute', left: '50%', top: 54, zIndex: 5, pointerEvents: 'none', whiteSpace: 'nowrap',
+          display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 13, fontWeight: 700, color: '#ffffff',
+          textShadow: '1px 1px 0 #000, -1px 1px 0 #000, 1px -1px 0 #000, -1px -1px 0 #000',
+          animation: 'gimXpDrop 3.2s ease-out forwards' }}>
+          <SkillIcon name={b.skill} size={18} />+{fmtGain(b.xp)}
+        </div>
+      ))}
       {/* Sync error badge */}
       {hasSyncError && (
         <div

@@ -110,6 +110,7 @@ export const api = {
   deleteCompetition: (id) => request(`/competitions/${id}`, { method: 'DELETE' }),
   getGoalProgress:   (groupId) => request(`/goals/progress?group_id=${groupId}`),
   getPresence:       (groupId) => request(`/plugin/presence?group_id=${groupId}`),
+  getXpDrops:        (groupId, since) => request(`/plugin/xp-drops?group_id=${groupId}${since ? `&since=${encodeURIComponent(since)}` : ''}`),
   getPluginQuests:   (groupId) => request(`/plugin/quests?group_id=${groupId}`),
   getPluginLedger:   (groupId, limit = 300) => request(`/plugin/ledger?group_id=${groupId}&limit=${limit}`),
   revokePluginToken: (playerId)         => request(`/plugin/tokens/${playerId}`, { method: 'DELETE' }),

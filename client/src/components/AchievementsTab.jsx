@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { api } from '../api/client';
-
+import RsIcon from './RsIcon';
 import { MEMBER_COLORS } from '../lib/rs3';
 
 // ── RS3 area task definitions ─────────────────────────────────────────────────
@@ -13,7 +13,7 @@ const TIERS = [
 ];
 
 // Lumbridge is the only set that uses Beginner/Easy/Medium/Hard instead of
-// Easy/Medium/Hard/Elite, so its four columns hold different keys.
+// Easy/Medium/Hard/Elite, so its four rows hold different keys.
 const LUMBRIDGE_TIERS = [
   { ...TIERS[0], key: 'beginner', label: 'Beginner' },
   { ...TIERS[1], key: 'easy',     label: 'Easy'     },
@@ -21,33 +21,42 @@ const LUMBRIDGE_TIERS = [
   { ...TIERS[3], key: 'hard',     label: 'Hard'     },
 ];
 
-// Base key must match the server-side diaryRegionKey() in activitySync.js
+// Base key must match the server-side diaryRegionKey() in activitySync.js.
+// `icon` is the region's lodestone icon (the picture the game's lodestone network shows), hosted by the RuneScape Wiki.
+// Daemonheim and the Underworld have no lodestone, so they show the world map icon.
 const DIARY_REGIONS = [
-  { base: 'diary_lumbridge_draynor',   label: 'Lumbridge & Draynor', tiers: LUMBRIDGE_TIERS },
-  { base: 'diary_varrock',             label: 'Varrock'              },
-  { base: 'diary_falador',             label: 'Falador'              },
-  { base: 'diary_karamja',             label: 'Karamja'              },
-  { base: 'diary_ardougne',            label: 'Ardougne'             },
-  { base: 'diary_seers_village',       label: "Seers' Village"       },
-  { base: 'diary_fremennik',           label: 'Fremennik'            },
-  { base: 'diary_morytania',           label: 'Morytania'            },
-  { base: 'diary_desert',              label: 'Desert'               },
-  { base: 'diary_daemonheim',          label: 'Daemonheim'           },
-  { base: 'diary_tirannwn',            label: 'Tirannwn'             },
-  { base: 'diary_wilderness',          label: 'Wilderness'           },
-  { base: 'diary_underworld',          label: 'Underworld'           },
+  { base: 'diary_lumbridge_draynor',   label: 'Lumbridge & Draynor', tiers: LUMBRIDGE_TIERS, icon: 'Lumbridge_lodestone_icon.png' },
+  { base: 'diary_varrock',             label: 'Varrock',        icon: 'Varrock_lodestone_icon.png' },
+  { base: 'diary_falador',             label: 'Falador',        icon: 'Falador_lodestone_icon.png' },
+  { base: 'diary_karamja',             label: 'Karamja',        icon: 'Karamja_lodestone_icon.png' },
+  { base: 'diary_ardougne',            label: 'Ardougne',       icon: 'Ardougne_lodestone_icon.png' },
+  { base: 'diary_seers_village',       label: "Seers' Village", icon: "Seers%27_Village_lodestone_icon.png" },
+  { base: 'diary_fremennik',           label: 'Fremennik',      icon: 'Fremennik_Province_lodestone_icon.png' },
+  { base: 'diary_morytania',           label: 'Morytania',      icon: 'Canifis_lodestone_icon.png' },
+  { base: 'diary_desert',              label: 'Desert',         icon: 'Al_Kharid_lodestone_icon.png' },
+  { base: 'diary_daemonheim',          label: 'Daemonheim'      },
+  { base: 'diary_tirannwn',            label: 'Tirannwn',       icon: 'Tirannwn_lodestone_icon.png' },
+  { base: 'diary_wilderness',          label: 'Wilderness',     icon: 'Wilderness_Crater_lodestone_icon.png' },
+  { base: 'diary_underworld',          label: 'Underworld'      },
 ];
 
 const regionTiers = region => region.tiers ?? TIERS;
+const WIKI = 'https://runescape.wiki/images/';
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Helpers ─────────────────────────────────────────────────────────────────
 
 function fmtDate(iso) {
   if (!iso) return null;
   return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' });
 }
 
-// ── Main component ────────────────────────────────────────────────────────────
+function RegionIcon({ region, size = 34 }) {
+  const [failed, setFailed] = useState(false);
+  if (!region.icon || failed) return <RsIcon name="areaTasks" fallback="" size={size - 6} />;
+  return <img src={WIKI + region.icon} alt="" width={size} height={size} onError={() => setFailed(true)} style={{ objectFit: 'contain', flexShrink: 0 }} />;
+}
+
+// ── Main component ───────────────────────────────────────────────────────
 
 // Completed / total area tasks for each player, from the achievement rows the API returns.
 export function areaTaskTotals(players, achievements) {
@@ -61,11 +70,10 @@ export function areaTaskTotals(players, achievements) {
 }
 
 // `embedded`: shown inside the Quests & Area Tasks page, which supplies the progress summary and the frame itself.
-export default function AchievementsTab({ players, groupId, canWrite, onToast, embedded = false, onLoaded }) {
+// Area tasks are read-only: they come from the game (the plugin) and the Adventurer's Log, nobody ticks them by hand.
+export default function AchievementsTab({ players, groupId, onToast, embedded = false, onLoaded }) {
   const [achievements, setAchievements] = useState([]);
   const [loading, setLoading]           = useState(true);
-  const [toggling, setToggling]         = useState(null); // 'playerId:key'
-  const view = 'grid';   // only the grid is offered
 
   const colorMap = useMemo(
     () => Object.fromEntries(players.map((p, i) => [p.id, MEMBER_COLORS[i % MEMBER_COLORS.length]])),
@@ -87,7 +95,7 @@ export default function AchievementsTab({ players, groupId, canWrite, onToast, e
 
   useEffect(() => { load(); }, [groupId]);
 
-  // Build lookup: achievementsByPlayer[playerId][key] = achievement row
+  // achievementsByPlayer[playerId][key] = achievement row
   const achievementsByPlayer = useMemo(() => {
     const map = {};
     for (const a of achievements) {
@@ -97,31 +105,8 @@ export default function AchievementsTab({ players, groupId, canWrite, onToast, e
     return map;
   }, [achievements]);
 
-  function getAchievement(playerId, regionBase, tierKey) {
-    const key = `${regionBase}_${tierKey}`;
-    return achievementsByPlayer[playerId]?.[key] ?? null;
-  }
+  const getAchievement = (playerId, regionBase, tierKey) => achievementsByPlayer[playerId]?.[`${regionBase}_${tierKey}`] ?? null;
 
-  async function toggleManual(player, regionBase, tierKey) {
-    const key = `${regionBase}_${tierKey}`;
-    const toggleId = `${player.id}:${key}`;
-    if (toggling === toggleId) return;
-
-    const current = achievementsByPlayer[player.id]?.[key];
-    const nowAchieved = !(current?.achieved);
-
-    setToggling(toggleId);
-    try {
-      await api.setAchievement(player.id, key, nowAchieved ? 1 : 0);
-      await load();
-    } catch (err) {
-      onToast?.(err.message, 'error');
-    } finally {
-      setToggling(null);
-    }
-  }
-
-  // Summary stats
   const summary = useMemo(() => {
     const total = DIARY_REGIONS.length * TIERS.length;
     return players.map(p => {
@@ -134,7 +119,6 @@ export default function AchievementsTab({ players, groupId, canWrite, onToast, e
   if (players.length === 0) {
     return (
       <div className="empty-state">
-        <div className="icon">📋</div>
         <p>Add and sync players to track area tasks.</p>
       </div>
     );
@@ -148,13 +132,10 @@ export default function AchievementsTab({ players, groupId, canWrite, onToast, e
       borderRadius: 'var(--radius-lg)',
       padding: '16px 18px',
     }}>
-      {/* Header */}
-      <div className="flex align-center justify-between" style={{ flexWrap: 'wrap', gap: 8 }}>
-        <div>
-          {!embedded && <div className="section-title" style={{ marginBottom: 4 }}>📋 Area Tasks</div>}
-          <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>
-            Auto-detected from the Adventurer's Log feed · Click a cell to mark manually
-          </div>
+      <div>
+        {!embedded && <div className="section-title" style={{ marginBottom: 4 }}>Area Tasks</div>}
+        <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>
+          Read from the game by the plugin and from the Adventurer's Log. A filled circle is a completed tier; hover it for the date.
         </div>
       </div>
 
@@ -175,189 +156,67 @@ export default function AchievementsTab({ players, groupId, canWrite, onToast, e
         ))}
       </div>}
 
-      {loading ? (
-        <div style={{ textAlign: 'center', padding: 40 }}><span className="spinner" /></div>
-      ) : view === 'grid' ? (
-        <GridView
-          players={players} colorMap={colorMap}
-          getAchievement={getAchievement} toggleManual={toggleManual}
-          toggling={toggling} canWrite={canWrite}
-        />
-      ) : (
-        <PlayerView
-          players={players} colorMap={colorMap}
-          getAchievement={getAchievement} toggleManual={toggleManual}
-          toggling={toggling} canWrite={canWrite}
-        />
-      )}
+      {loading
+        ? <div style={{ textAlign: 'center', padding: 40 }}><span className="spinner" /></div>
+        : <RegionCards players={players} colorMap={colorMap} getAchievement={getAchievement} />}
 
-      <div style={{ marginTop: 16, fontSize: 11, color: 'var(--text-dim)', textAlign: 'center' }}>
-        ✅ Auto-detected from the Adventurer's Log &nbsp;·&nbsp; ✏️ Manually marked &nbsp;·&nbsp;
-        Click any cell (if claimed) to toggle · Completions are stored permanently once detected
-        <div style={{ marginTop: 4 }}>* Lumbridge uses Beginner / Easy / Medium / Hard instead of Easy / Medium / Hard / Elite</div>
+      <div style={{ fontSize: 11, color: 'var(--text-dim)', textAlign: 'center' }}>
+        Lumbridge &amp; Draynor uses Beginner / Easy / Medium / Hard instead of Easy / Medium / Hard / Elite.
       </div>
     </div>
   );
 }
 
-// ── Grid view: Regions × Tiers table, player dots per cell ───────────────────
+// ── One card per region: icon, name, group progress, and a row per tier with one circle per member ───────────────
 
-function GridView({ players, colorMap, getAchievement, toggleManual, toggling, canWrite }) {
+function RegionCards({ players, colorMap, getAchievement }) {
   return (
-    <div style={{ overflowX: 'auto' }}>
-      <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 12 }}>
-        <thead>
-          <tr>
-            <th align="left" style={{ padding: '6px 10px 10px 4px', color: 'var(--text-dim)', fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px' }}>
-              Region
-            </th>
-            {TIERS.map(t => (
-              <th key={t.key} align="center" style={{
-                padding: '6px 12px 10px',
-                color: t.color, fontSize: 10, fontWeight: 700,
-                textTransform: 'uppercase', letterSpacing: '0.4px',
-              }}>{t.label}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {DIARY_REGIONS.map((region, ri) => (
-            <tr key={region.base} style={{ borderTop: '1px solid var(--border)', background: ri % 2 ? 'rgba(255,255,255,0.015)' : 'transparent' }}>
-              <td style={{ padding: '8px 10px 8px 4px', whiteSpace: 'nowrap', fontWeight: 600, color: 'var(--text-bright)' }}>
-                {region.label}
-                {region.tiers && (
-                  <span
-                    title={`Lumbridge uses ${region.tiers.map(t => t.label).join(' / ')} instead of Easy / Medium / Hard / Elite`}
-                    style={{ marginLeft: 5, fontSize: 10, color: 'var(--text-dim)', cursor: 'help' }}>*</span>
-                )}
-              </td>
-              {regionTiers(region).map(tier => {
-                // Check if ALL players have completed this
-                const statuses = players.map(p => getAchievement(p.id, region.base, tier.key));
-                const allDone  = statuses.every(a => a?.achieved);
-                const noneDone = statuses.every(a => !a?.achieved);
-
-                return (
-                  <td key={tier.key} align="center" style={{
-                    padding: '6px 8px',
-                    background: allDone  ? tier.bg : noneDone ? 'transparent' : 'rgba(255,255,255,0.02)',
-                    borderLeft: '1px solid var(--border)',
-                  }}>
-                    <div style={{ display: 'flex', justifyContent: 'center', gap: 6, flexWrap: 'wrap' }}>
-                      {players.map(p => {
-                        const ach      = getAchievement(p.id, region.base, tier.key);
-                        const done     = !!ach?.achieved;
-                        const key      = `${region.base}_${tier.key}`;
-                        const toggleId = `${p.id}:${key}`;
-                        const busy     = toggling === toggleId;
-
-                        return (
-                          <button
-                            key={p.id}
-                            disabled={!canWrite || busy}
-                            onClick={() => toggleManual(p, region.base, tier.key)}
-                            title={done
-                              ? `${p.rsn} — ${ach.manual ? '✏️ manually marked' : '✅ auto-detected'}${ach.achieved_at ? ' · ' + fmtDate(ach.achieved_at) : ''}\nClick to unmark`
-                              : `${p.rsn} — not completed\n${canWrite ? 'Click to mark manually' : 'Claim group to mark'}`}
-                            style={{
-                              width: 22, height: 22, borderRadius: '50%',
-                              border: `2px solid ${done ? colorMap[p.id] : 'var(--border)'}`,
-                              background: done ? colorMap[p.id] : 'transparent',
-                              cursor: canWrite ? 'pointer' : 'default',
-                              display: 'flex', alignItems: 'center', justifyContent: 'center',
-                              fontSize: 9, fontWeight: 700, color: done ? '#111' : 'var(--text-dim)',
-                              transition: 'all 0.15s', opacity: busy ? 0.5 : 1,
-                              flexShrink: 0,
-                            }}>
-                            {busy ? '…' : done ? p.rsn.charAt(0).toUpperCase() : ''}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </td>
-                );
-              })}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-// ── Player view: one section per player ───────────────────────────────────────
-
-function PlayerView({ players, colorMap, getAchievement, toggleManual, toggling, canWrite }) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {players.map(p => {
-        const done = DIARY_REGIONS.reduce((n, r) =>
-          n + regionTiers(r).filter(t => getAchievement(p.id, r.base, t.key)?.achieved).length, 0);
-
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 270px), 1fr))', gap: 12 }}>
+      {DIARY_REGIONS.map(region => {
+        const tiers = regionTiers(region);
+        const total = tiers.length * players.length;
+        const done = tiers.reduce((n, t) => n + players.filter(p => getAchievement(p.id, region.base, t.key)?.achieved).length, 0);
+        const complete = total > 0 && done === total;
         return (
-          <div key={p.id} className="panel">
-            <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontWeight: 700, fontSize: 14, color: colorMap[p.id] }}>{p.rsn}</span>
-              <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>
-                {done} / {DIARY_REGIONS.length * TIERS.length} area task tiers completed
-              </span>
+          <div key={region.base} style={{
+            padding: 12, borderRadius: 'var(--radius-lg)', background: 'var(--bg-panel-alt)',
+            border: `1px solid ${complete ? 'var(--gold)' : 'var(--border)'}`, display: 'flex', flexDirection: 'column', gap: 10,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <RegionIcon region={region} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text-bright)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{region.label}</div>
+                <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>{done} / {total} tiers done by the group</div>
+              </div>
             </div>
-            <div style={{ padding: '12px 16px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 8 }}>
-              {DIARY_REGIONS.map(region => {
-                const tiers = regionTiers(region);
-                const tierStatuses = tiers.map(t => ({
-                  ...t,
-                  ach: getAchievement(p.id, region.base, t.key),
-                }));
-                const doneCount = tierStatuses.filter(t => t.ach?.achieved).length;
-
+            <div style={{ height: 3, background: 'var(--bg-root)', borderRadius: 2, overflow: 'hidden', marginTop: -4 }}>
+              <div style={{ width: `${total ? (done / total) * 100 : 0}%`, height: '100%', background: complete ? 'var(--gold)' : 'var(--green-bright)', transition: 'width 0.3s' }} />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {tiers.map(tier => {
+                const rows = players.map(p => ({ p, ach: getAchievement(p.id, region.base, tier.key) }));
+                const count = rows.filter(r => r.ach?.achieved).length;
                 return (
-                  <div key={region.base} style={{
-                    padding: '8px 10px', borderRadius: 'var(--radius)',
-                    background: 'var(--bg-panel-alt)',
-                    border: `1px solid ${doneCount === tiers.length ? colorMap[p.id] + '80' : 'var(--border)'}`,
-                  }}>
-                    <div style={{ fontWeight: 600, fontSize: 12, color: 'var(--text-bright)', marginBottom: 6 }}>
-                      {region.label}
-                    </div>
-                    <div style={{ display: 'flex', gap: 4 }}>
-                      {tierStatuses.map(ts => {
-                        const done     = !!ts.ach?.achieved;
-                        const toggleId = `${p.id}:${region.base}_${ts.key}`;
-                        const busy     = toggling === toggleId;
-
+                  <div key={tier.key} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 8px', borderRadius: 'var(--radius)', background: count === players.length ? tier.bg : 'transparent' }}>
+                    <span style={{ width: 62, fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: tier.color }}>{tier.label}</span>
+                    <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', flex: 1 }}>
+                      {rows.map(({ p, ach }) => {
+                        const ok = !!ach?.achieved;
                         return (
-                          <button
-                            key={ts.key}
-                            disabled={!canWrite || busy}
-                            onClick={() => toggleManual(p, region.base, ts.key)}
-                            title={done
-                              ? `${ts.label} — ${ts.ach?.manual ? '✏️ manually marked' : '✅ auto-detected'}${ts.ach?.achieved_at ? ' · ' + fmtDate(ts.ach.achieved_at) : ''}\nClick to unmark`
-                              : `${ts.label} — not completed${canWrite ? '\nClick to mark' : ''}`}
+                          <span key={p.id}
+                            title={ok ? `${p.rsn}: completed${ach.achieved_at ? ' · ' + fmtDate(ach.achieved_at) : ''}` : `${p.rsn}: not completed`}
                             style={{
-                              flex: 1, padding: '4px 0', fontSize: 10, fontWeight: 700,
-                              borderRadius: 'var(--radius)',
-                              border: `1px solid ${done ? ts.border : 'var(--border)'}`,
-                              background: done ? ts.bg : 'transparent',
-                              color: done ? ts.color : 'var(--text-dim)',
-                              cursor: canWrite ? 'pointer' : 'default',
-                              opacity: busy ? 0.5 : 1,
-                              transition: 'all 0.15s',
+                              width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
+                              border: `2px solid ${ok ? colorMap[p.id] : 'var(--border)'}`, background: ok ? colorMap[p.id] : 'transparent',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              fontSize: 9, fontWeight: 700, color: ok ? '#111' : 'transparent',
                             }}>
-                            {busy ? '…' : done ? '✓ ' : ''}{ts.label}
-                          </button>
+                            {p.rsn.charAt(0).toUpperCase()}
+                          </span>
                         );
                       })}
                     </div>
-                    {tierStatuses.some(ts => ts.ach?.achieved_at) && (
-                      <div style={{ marginTop: 4, fontSize: 10, color: 'var(--text-dim)' }}>
-                        {tierStatuses.filter(ts => ts.ach?.achieved_at).map(ts => (
-                          <span key={ts.key} style={{ marginRight: 6 }}>
-                            {ts.label}: {fmtDate(ts.ach.achieved_at)}
-                          </span>
-                        ))}
-                      </div>
-                    )}
+                    <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>{count}/{players.length}</span>
                   </div>
                 );
               })}

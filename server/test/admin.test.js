@@ -62,3 +62,8 @@ test('the dashboard can ask whether this is the preview server', async () => {
 test('the old 1.x review queue, audit log and wiki scan are gone', async () => {
   for (const p of ['/submissions', '/audit', '/maintenance/wiki-scan?type=quests']) assert.equal((await call('GET', p)).status, 404, p);
 });
+
+test('area tasks can no longer be marked by hand', async () => {
+  const res = await fetch(`http://localhost:${PORT}/api/achievements/1/diary_varrock_easy`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ achieved: true }) });
+  assert.equal(res.status, 410);
+});

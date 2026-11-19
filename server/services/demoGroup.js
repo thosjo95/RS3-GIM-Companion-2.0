@@ -14,7 +14,9 @@ const NAME = 'Misthalin Five (Demo)';
 // logs are not stackable unless noted.
 const STACKABLE = [995, 560, 561, 563, 565, 566, 9075, 314];
 // Bump this when the demo content changes: the server then rebuilds the group on its next start.
-const DEMO_VERSION = 2;
+const DEMO_VERSION = 3;
+// A stackable item (runes, coins, feathers ...) takes ONE backpack slot with an amount; it can never appear in two slots.
+const isStack = x => STACKABLE.includes(x.id) || x.count > 1;
 const MEMBERS = ['Varrock Vee', 'Lumby Lou', 'Draynor Dee', 'Fally Finn', 'Ardy Tilly'];
 const MIN = 60_000, HOUR = 3_600_000, DAY = 86_400_000;
 const iso = msAgo => new Date(Date.now() - msAgo).toISOString();
@@ -84,8 +86,10 @@ players.forEach((p, i) => {
   const pool = [...tplInv.filter(x => !x.note_of), ...BANK_POOL.slice(1, 20)];
   for (let s = 0; s < 28; s++) {
     if (rnd() < 0.18) continue;                                          // a few empty slots
-    const x = pick(pool);
-    inv.push({ ...x, count: x.count > 1 || STACKABLE.includes(x.id) ? Math.floor(50 + rnd() * 3000) : 1, slot: s });
+    let x = pick(pool);
+    for (let tries = 0; tries < 8 && isStack(x) && inv.some(o => o.id === x.id); tries++) x = pick(pool);   // not a second stack of the same item
+    if (isStack(x) && inv.some(o => o.id === x.id)) continue;
+    inv.push({ ...x, count: isStack(x) ? Math.floor(50 + rnd() * 3000) : 1, slot: s });
   }
   const bank = BANK_POOL.map(x => ({ ...x, count: x.id === 995 ? Math.floor(2e6 + rnd() * 6e7 * p.factor) : Math.floor(1 + rnd() * 2500 * p.factor) })).filter(() => rnd() > 0.15);
   const storage = i === 0 ? [it(385, 'Shark', 420, 800), it(6685, 'Saradomin brew (4)', 64, 1500), it(2434, 'Prayer potion (4)', 120, 190), it(560, 'Death rune', 8000, 200),
@@ -256,9 +260,13 @@ function feedOnce(now = new Date()) {
     }
     // backpack: now and then a slot changes
     if (Math.random() < 0.15 && inv.length) {
-      const k = Math.floor(Math.random() * inv.length);
-      const donor = pickOne(inv);
-      inv[k] = { ...donor, slot: inv[k].slot, count: donor.count > 1 ? rndInt(20, 3000) : 1 };
+      const stacks = inv.filter(isStack), plain = inv.filter(x => !isStack(x));
+      if (Math.random() < 0.5 && stacks.length) {
+        pickOne(stacks).count = rndInt(20, 3000);                     // an amount changes, the stack stays in its slot
+      } else if (plain.length > 1) {
+        const target = pickOne(plain), donor = pickOne(plain);        // an ordinary item is replaced by another ordinary one
+        Object.assign(target, { ...donor, slot: target.slot, count: 1 });
+      }
     }
     db.prepare('UPDATE player_live_state SET updated_at = ?, skills_json = ?, inventory_json = ?, world = ? WHERE player_id = ?').run(at, JSON.stringify(skills), JSON.stringify(inv), 70 + i, p.id);
 

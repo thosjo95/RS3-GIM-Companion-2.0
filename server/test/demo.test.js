@@ -88,3 +88,23 @@ test('backpacks hold only stackable items in amounts above 1, also after the fee
     if (x.count > 1 && !x.note_of) assert.ok(STACK_OK.has(x.id), `${x.name} (${x.id}) cannot stack ${x.count} in a backpack`);
   }
 });
+
+test('a stackable item is never in two backpack slots', () => {
+  const stackIds = new Set([995, 560, 561, 563, 565, 566, 9075, 314]);
+  for (const x of require('../services/demoTemplate.json').inventory) if (x.count > 1) stackIds.add(x.id);
+  demo.createDemoGroup(require('../services/demoTemplate.json'));
+  const check = () => {
+    const rows = db.prepare('SELECT inventory_json FROM player_live_state WHERE player_id IN (SELECT id FROM players WHERE group_id IN (SELECT id FROM groups WHERE is_demo = 1))').all();
+    for (const r of rows) {
+      const seen = new Set();
+      for (const x of JSON.parse(r.inventory_json)) {
+        if (!stackIds.has(x.id)) continue;
+        assert.ok(!seen.has(x.id), x.name + ' (' + x.id + ') is in two slots');
+        seen.add(x.id);
+      }
+    }
+  };
+  check();
+  for (let i = 0; i < 200; i++) demo.feedOnce(new Date());
+  check();
+});

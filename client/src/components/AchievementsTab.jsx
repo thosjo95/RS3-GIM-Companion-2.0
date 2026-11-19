@@ -23,7 +23,7 @@ const LUMBRIDGE_TIERS = [
 
 // Base key must match the server-side diaryRegionKey() in activitySync.js.
 // `icon` is the region's lodestone icon (the picture the game's lodestone network shows), hosted by the RuneScape Wiki.
-// Daemonheim and the Underworld have no lodestone, so they show the world map icon.
+// Daemonheim shows the ring of kinship (its teleport) and the Underworld the City of Um lodestone.
 const DIARY_REGIONS = [
   { base: 'diary_lumbridge_draynor',   label: 'Lumbridge & Draynor', tiers: LUMBRIDGE_TIERS, icon: 'Lumbridge_lodestone_icon.png' },
   { base: 'diary_varrock',             label: 'Varrock',        icon: 'Varrock_lodestone_icon.png' },
@@ -34,10 +34,10 @@ const DIARY_REGIONS = [
   { base: 'diary_fremennik',           label: 'Fremennik',      icon: 'Fremennik_Province_lodestone_icon.png' },
   { base: 'diary_morytania',           label: 'Morytania',      icon: 'Canifis_lodestone_icon.png' },
   { base: 'diary_desert',              label: 'Desert',         icon: 'Al_Kharid_lodestone_icon.png' },
-  { base: 'diary_daemonheim',          label: 'Daemonheim'      },
+  { base: 'diary_daemonheim',          label: 'Daemonheim',     icon: 'Ring_of_kinship.png' },
   { base: 'diary_tirannwn',            label: 'Tirannwn',       icon: 'Tirannwn_lodestone_icon.png' },
   { base: 'diary_wilderness',          label: 'Wilderness',     icon: 'Wilderness_Crater_lodestone_icon.png' },
-  { base: 'diary_underworld',          label: 'Underworld'      },
+  { base: 'diary_underworld',          label: 'Underworld',     icon: 'City_of_Um_lodestone_icon.png' },
 ];
 
 const regionTiers = region => region.tiers ?? TIERS;

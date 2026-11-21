@@ -12,12 +12,12 @@ const demo = require('../services/demoGroup');
 const PORT = 3990 + Math.floor(Math.random() * 9);
 const base = `http://localhost:${PORT}/api`;
 let server, gid, players;
-const call = (method, p, body) => fetch(base + p, { method, headers: { 'Content-Type': 'application/json' }, body: body && JSON.stringify(body) });
+const call = (method, p, body) => fetch(base + p, { method, headers: { 'Content-Type': 'application/json', Connection: 'close' }, body: body && JSON.stringify(body) });   // a fresh connection each time: a slow test must not reuse one the server has closed
 
 test.before(async () => {
   const r = demo.createDemoGroup(require('../services/demoTemplate.json'));
   gid = r.gid; players = r.players;
-  server = spawn(process.execPath, ['index.js'], { cwd: path.join(__dirname, '..'), env: { ...process.env, PORT }, stdio: 'ignore' });
+  server = spawn(process.execPath, ['index.js'], { cwd: path.join(__dirname, '..'), env: { ...process.env, PORT }, stdio: process.env.GIM_TEST_LOGS ? 'inherit' : 'ignore' });
   for (let i = 0; i < 40; i++) { try { if ((await fetch(base + '/health')).ok) return; } catch { /* not up yet */ } await new Promise(r => setTimeout(r, 150)); }
   throw new Error('server did not start');
 });

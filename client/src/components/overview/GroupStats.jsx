@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { api } from '../../api/client';
 import { MEMBER_COLORS, fmtXp } from '../../lib/rs3';
 import SkillIcon from '../common/SkillIcon';
+import SkillTip, { useSkillTip } from './SkillTip';
 import { SKILL_ORDER } from './constants';
 
 // ── Group stats (tabbed) ──────────────────────────────────────────────────────
@@ -46,6 +47,7 @@ export default function GroupStats({ players, goals, groupId }) {
     { label: 'Year',  days: 365 },
   ];
   const [gainPeriod, setGainPeriod] = useState(1);
+  const { tip, bind } = useSkillTip();                  // the in-game style hover box for a skill
   const [metric, setMetric] = useState('level');         // 'level' | 'xp'
   const [closed, setClosed] = useState({});               // skill groups the user collapsed
   const [skillGains, setSkillGains] = useState([]);
@@ -71,6 +73,7 @@ export default function GroupStats({ players, goals, groupId }) {
 
   return (
     <div>
+      <SkillTip tip={tip} />
       {/* Skills tab — levels matrix + gains overlay */}
       {tab === 'skills' && (
         <div>
@@ -148,7 +151,7 @@ export default function GroupStats({ players, goals, groupId }) {
               const tone = level >= 120 ? 'var(--gold)' : level >= 99 ? '#e8d48a' : 'var(--text-bright)';
               const bar = level >= 99 ? 'var(--gold)' : colorMap[p.id];
               return (
-                <div title={`${p.rsn} · ${skill}${s?.xp != null ? ` · ${s.xp.toLocaleString()} XP` : ''}${xpGain > 0 ? ` · +${xpGain.toLocaleString()} XP this period` : ''}`}
+                <div {...bind({ skill, level, xp: s?.xp, rank: s?.rank, rsn: p.rsn, color: colorMap[p.id], gain: xpGain, period: GAIN_PERIODS.find(g => g.days === gainPeriod)?.label.toLowerCase() })}
                   style={{ margin: '3px 4px', padding: '5px 8px 6px', borderRadius: 8, background: isLead ? 'rgba(200,168,75,0.12)' : 'rgba(255,255,255,0.025)',
                     border: `1px solid ${isLead ? 'rgba(200,168,75,0.5)' : 'transparent'}` }}>
                   <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 4 }}>

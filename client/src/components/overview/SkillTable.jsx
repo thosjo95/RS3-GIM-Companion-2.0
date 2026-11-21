@@ -1,6 +1,7 @@
 import React from 'react';
 import { fmtXp, xpForLevel } from '../../lib/rs3';
 import SkillIcon from '../common/SkillIcon';
+import SkillTip, { useSkillTip } from './SkillTip';
 
 // ── One player's skills ───────────────────────────────────────────────────────
 // Same grouping and look as the group comparison grid (Group Stats), but with what matters when you look at one
@@ -20,7 +21,7 @@ const Tile = ({ label, value, accent }) => (
   </div>
 );
 
-function SkillCard({ name, s }) {
+function SkillCard({ name, s, bind, player }) {
   const level = s.level ?? 1, xp = s.xp ?? 0;
   const elite = name === 'Invention';                                   // elite skills use another XP curve: no progress figures
   const cap = level >= 100 || ['Herblore', 'Slayer', 'Farming', 'Dungeoneering', 'Archaeology', 'Necromancy'].includes(name) ? 120 : 99;
@@ -30,7 +31,7 @@ function SkillCard({ name, s }) {
   const remainder = !elite && !atCap && xp < 200_000_000 ? Math.max(0, to - xp) : null;
   const tone = level >= 120 ? 'var(--gold)' : level >= 99 ? '#e8d48a' : 'var(--text-bright)';
   return (
-    <div title={`${name}: ${xp.toLocaleString()} XP${remainder != null ? ` · ${remainder.toLocaleString()} XP to level ${level + 1}` : ''}`}
+    <div {...bind({ skill: name, level, xp, rank: s.rank, rsn: player?.rsn })}
       style={{ padding: '8px 10px 9px', borderRadius: 8, background: level >= 99 ? 'rgba(200,168,75,0.08)' : 'rgba(255,255,255,0.025)', border: `1px solid ${level >= 99 ? 'rgba(200,168,75,0.35)' : 'transparent'}` }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
         <SkillIcon name={name} size={20} />
@@ -49,6 +50,7 @@ function SkillCard({ name, s }) {
 }
 
 export default function SkillTable({ player }) {
+  const { tip, bind } = useSkillTip();
   const skillsMap = Object.fromEntries((player.skills || []).map(s => [s.skill_name, s]));
   const overall = skillsMap.Overall;
   const real = Object.entries(skillsMap).filter(([k]) => k !== 'Overall').map(([, v]) => v);
@@ -56,6 +58,7 @@ export default function SkillTable({ player }) {
   const avatar = `https://secure.runescape.com/m=avatar-rs/${encodeURIComponent(player.rsn)}/chat.png`;
   return (
     <div>
+      <SkillTip tip={tip} />
       {overall && (
         <div style={{ display: 'flex', alignItems: 'stretch', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 12px 6px 6px', background: 'rgba(255,255,255,0.03)', borderRadius: 8 }}>
@@ -79,7 +82,7 @@ export default function SkillTable({ player }) {
               {label}<span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 6 }}>
-              {shown.map(n => <SkillCard key={n} name={n} s={skillsMap[n]} />)}
+              {shown.map(n => <SkillCard key={n} name={n} s={skillsMap[n]} bind={bind} player={player} />)}
             </div>
           </div>
         );

@@ -633,6 +633,10 @@ a:hover { color: var(--gold-light); }
   .last-sync { display: none; }
   .sync-btn { padding: 5px 9px; font-size: 11px; }
   .header-right { gap: 6px; }
+  /* the buttons on the right scroll within the top bar instead of widening the whole page */
+  .header-right { min-width: 0; overflow-x: auto; scrollbar-width: none; flex: 0 1 auto; }
+  .header-right::-webkit-scrollbar { display: none; }
+  .header-right > * { flex-shrink: 0; }
   .header-left-actions { gap: 6px !important; margin-left: 6px !important; }
 
   /* ── Content ── */

@@ -29,7 +29,9 @@ async function idsFor(names) {
   await ensure();
   const out = {};
   if (!index) return out;
-  for (const n of names) { const id = index.get(norm(n)); if (id != null) out[n] = id; }
+  // the drop log writes "pair of Torva boots" for the item "Torva boots"
+  const strip = x => norm(x).replace(/^(pair of|set of|piece of|a|an|the)s+/, '').replace(/^book:s*/, '');
+  for (const n of names) { const id = index.get(norm(n)) ?? index.get(strip(n)); if (id != null) out[n] = id; }
   return out;
 }
 module.exports = { idsFor };

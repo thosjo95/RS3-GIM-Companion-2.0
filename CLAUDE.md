@@ -122,7 +122,10 @@ first-visit screen. `GET /api/global/stats` (`services/globalStats.js`, cached 1
 snapshots), group and player rankings, most trained skills, boss kills / drops / 99s and 120s from the Adventurer's Log, newest groups,
 mode and size split. Names come ONLY from public data. 2.0 adds a "Live from the plugin" strip with anonymous totals only (online now,
 boss kills, clues, drops and their value, achievements); never per group or player, because plugin data is private (privacy.html says so).
-The demo group is left out; unlisted groups count in totals but are never named. Tests: `server/test/global.test.js`.
+The demo group is left out; unlisted groups count in totals but are never named. A Mode/Size filter at the top applies to every
+board (the server sends numbers per group, and XP per skill / boss kills per mode+size "bucket"); the plugin strip is never filtered.
+`services/globalStats.js` and `GlobalLeaderboard.jsx` are the SAME file in both repos (2.0 parts switch on by table/column checks): copy, do not fork.
+Tests: `server/test/global.test.js`.
 
 ## Migration (do not start before approval)
 

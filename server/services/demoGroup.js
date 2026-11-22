@@ -289,7 +289,7 @@ function feedOnce(now = new Date()) {
     if (Math.random() < 0.025) {
       const tier = pickOne(['medium', 'hard', 'elite']);
       db.prepare("INSERT INTO progress_log (player_id, kind, key, name, gain, total, at) VALUES (?, 'clue', ?, ?, 1, ?, ?)").run(p.id, tier, tier, rndInt(5, 80), at);
-      addActivity(p, `I completed a ${tier} clue scroll.`, `I completed a ${tier} clue scroll.`);
+      addActivity(p, `I completed ${tier === "elite" ? "an" : "a"} ${tier} clue scroll.`, `I completed ${tier === "elite" ? "an" : "a"} ${tier} clue scroll.`);
     }
   });
   // live XP drops are only shown for a day; keep the demo's table small

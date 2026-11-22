@@ -14,6 +14,7 @@ import UnlockModal from './components/modals/UnlockModal';
 import SetupScreen from './components/setup/SetupScreen';
 import SearchGroupModal from './components/groups/SearchGroupModal';
 import Sidebar from './components/groups/Sidebar';
+import GlobalLeaderboard from './components/global/GlobalLeaderboard';
 import { AccessContext } from './lib/access';
 
 export default function App() {
@@ -25,6 +26,8 @@ export default function App() {
   const [pendingRequests, setPendingRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
+  // the Global Leaderboard page (every tracked group); /#global opens it directly
+  const [showGlobal, setShowGlobal] = useState(() => window.location.hash === '#global');
   const [showAddPlayer, setShowAddPlayer] = useState(false);
   const [creatingGroup, setCreatingGroup] = useState(false);
   const [toasts, pushToast] = useToasts();
@@ -212,8 +215,22 @@ export default function App() {
     loadGroups().then(() => setActiveGroupId(id));
   }
 
+  // keep the address in step with the Global Leaderboard page, so it can be shared and survives a reload
+  useEffect(() => {
+    const want = showGlobal ? '#global' : '';
+    if (window.location.hash !== want) window.history.replaceState(null, '', window.location.pathname + window.location.search + want);
+  }, [showGlobal]);
+
+  function openGlobal() {
+    setShowGlobal(true);
+    setCreatingGroup(false);
+    setShowMobileSidebar(false);
+    window.scrollTo(0, 0);
+  }
+
   // Browse a group without auto-pinning — just view it
   function selectGroup(id) {
+    setShowGlobal(false);
     setActiveGroupId(id);
     setActiveTab('overview');
     setShowMobileSidebar(false);
@@ -278,7 +295,7 @@ export default function App() {
 
   // No group yet, or creating a new one
   // — allow browsing a non-pinned group (activeGroupId set) to fall through to the main layout
-  if (creatingGroup || (pinnedGroups.length === 0 && !activeGroupId)) {
+  if (creatingGroup || (pinnedGroups.length === 0 && !activeGroupId && !showGlobal)) {
     return (
       <div className="app">
         <Header group={null} onSynced={() => {}} onToast={pushToast} />
@@ -290,6 +307,7 @@ export default function App() {
           groups={allGroups}
           onSwitchToGroup={id => { setCreatingGroup(false); setPendingImport(null); selectGroup(id); }}
           onStar={saveGroup}
+          onGlobal={openGlobal}
         />
         <ToastArea toasts={toasts} />
       </div>
@@ -330,9 +348,12 @@ export default function App() {
           onSearch={() => { setShowSearchModal(true); setShowMobileSidebar(false); }}
           favoriteGroupIds={favoriteGroupIds}
           isOpen={showMobileSidebar}
+          onGlobal={openGlobal}
+          globalActive={showGlobal}
         />
         <main className="content">
           {/* ── Guest banner: viewing a group that isn't saved to your sidebar ── */}
+          {showGlobal ? <GlobalLeaderboard onOpenGroup={selectGroup} /> : <>
           {!!group?.is_demo && (
             <div style={{ padding:'10px 16px', marginBottom:16, background:'rgba(200,168,75,0.08)', border:'1px solid var(--gold-dark)', borderRadius:'var(--radius)', fontSize:13, color:'var(--text-dim)' }}>
               <strong style={{color:'var(--gold)'}}>Demo.</strong> {group.name.replace(/ (Demo)$/, '')} is a made-up group, so you can see what a group looks like
@@ -388,6 +409,7 @@ export default function App() {
               <p>Loading group…</p>
             </div>
           )}
+          </>}
         </main>
       </div>
       {showWebhookModal && activeGroupId && (

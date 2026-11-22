@@ -117,6 +117,13 @@ notice (`docs/privacy.html`); mod.io listing text; deploy files for a fresh serv
 
 **Later on 2026-11-21 (after the notes above):** Area Tasks are region cards with lodestone icons and are read-only in 2.0 (the server answers 410 to manual marks; old marks still show). Skill hover box: `client/src/components/overview/SkillTip.jsx`. Exact per-skill maximum levels: `SKILL_CAPS` in `client/src/lib/rs3.js` (from the RuneScape Wiki: 120 / 110 / 99, shown as /110 or /120). `GameIcon.jsx` tries several spellings of item and boss names. Phone-width fixes: the top-bar buttons scroll inside the bar. **1.x (old repo RS3-GIM-Companion, branch `main`, worktree ../GIM-1x-announce) got the same UI:** official RuneScape icons, region cards (manual marking kept), modern skill grid, activity feed, hover box, group info and real rank in the top bar, item and boss pictures; plus two read-only server routes (item ids, group rank). Data and functions unchanged. Deploy 1.x on the old server with `bash /root/deploy.sh` (git pull, vite build, pm2 restart). Not yet done: server milestones and Discord only fire at 99 and 120 (110-cap skills never get one); the retention decision; the main.lua walkthrough resumes at part 4 (quests, achievements, kill tracker); delete the loose copies of the 1.x database (`/root/gim-beta.db` and `/root/gim-1x-copy.db` on the new server, `C:\gim-beta` on the PC).
 
+**Global Leaderboard (2026-11-22, both versions):** sidebar "Everyone > Global Leaderboard", also `/#global` and a button on the
+first-visit screen. `GET /api/global/stats` (`services/globalStats.js`, cached 10 min): groups tracked/active, XP gained (week/month from
+snapshots), group and player rankings, most trained skills, boss kills / drops / 99s and 120s from the Adventurer's Log, newest groups,
+mode and size split. Names come ONLY from public data. 2.0 adds a "Live from the plugin" strip with anonymous totals only (online now,
+boss kills, clues, drops and their value, achievements); never per group or player, because plugin data is private (privacy.html says so).
+The demo group is left out; unlisted groups count in totals but are never named. Tests: `server/test/global.test.js`.
+
 ## Migration (do not start before approval)
 
 All existing 1.x groups and the history that is still useful move to 2.0 at cut-over: daily `snapshots`, `player_activities`,

@@ -49,6 +49,7 @@ export const api = {
     return request(`/groups${ids.length ? `?ids=${ids.join(',')}` : ''}`);
   },
   getGroupRank: (id) => request(`/groups/${id}/rank`),
+  getGlobalStats: () => request('/global/stats'),
   getGroup: (id) => request(`/groups/${id}`),
   searchGroups:  (name)          => request(`/groups/search?name=${encodeURIComponent(name)}`),
   browseGroups:  (limit = 25)    => request(`/groups/search?limit=${limit}`),

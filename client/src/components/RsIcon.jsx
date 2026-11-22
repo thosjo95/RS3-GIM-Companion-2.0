@@ -33,6 +33,8 @@ export const RS_ICON = {
   crafted:      'Hammer.png',
   combat:       'Multicombat.png',
   search:       'Magnifying_glass.png',
+  skull:        'Skull.png',
+  coins:        'Coins_250.png',
   lamp:         'Lamp.png',
   slayer:       'Slayer_helmet.png',
   // goals page

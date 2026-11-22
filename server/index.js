@@ -55,6 +55,7 @@ app.use('/api/skill-milestones',  require('./routes/skillMilestones'));
 app.use('/api/plugin',            require('./routes/plugin'));
 app.use('/api/rs3',          require('./routes/rs3data'));
 app.use('/api/admin',        require('./routes/admin'));
+app.use('/api/global',       require('./routes/global'));
 
 // Tells the dashboard whether this is the preview server (beta) and when its data was copied from groupiron.com.
 app.get('/api/config', (req, res) => res.json({ preview: process.env.GIM_PREVIEW === '1', copied: process.env.GIM_PREVIEW_COPIED || null,

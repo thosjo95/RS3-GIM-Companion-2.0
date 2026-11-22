@@ -1,7 +1,8 @@
+import RsIcon from '../RsIcon';
 import React, { useState } from 'react';
 import { api } from '../../api/client';
 import GimTypeLabel from '../common/GimTypeLabel';
-import BrowseTrackedGroups from './BrowseTrackedGroups';
+import TrackedGroupsPanel from './TrackedGroupsPanel';
 import GroupBrowseRow from './GroupBrowseRow';
 
 // Group search modal
@@ -39,7 +40,7 @@ export default function SearchGroupModal({ groups, allDbGroups, onSelect, onAddN
 
   return (
     <div className="modal-backdrop">
-      <div className="modal" style={{maxWidth:500}}>
+      <div className="modal" style={{maxWidth:640}}>
         <div className="modal-header">
           <span className="modal-title">Find or Manage Groups</span>
           <button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button>
@@ -50,7 +51,7 @@ export default function SearchGroupModal({ groups, allDbGroups, onSelect, onAddN
           <div className="form-group" style={{marginBottom:12,marginTop:0}}>
             <input className="form-input" value={query}
               onChange={e => { setQuery(e.target.value); setRs3Result(null); }}
-              placeholder="Enter group name…" autoFocus />
+              placeholder="Search groups by name, or type a name to look up on the hiscores…" autoFocus />
           </div>
 
           {/* ── Your (pinned) groups ── */}
@@ -74,13 +75,8 @@ export default function SearchGroupModal({ groups, allDbGroups, onSelect, onAddN
             </div>
           )}
 
-          {/* ── Browse all tracked groups (collapsible) ── */}
-          <BrowseTrackedGroups
-            pinnedIds={pinnedIds}
-            onSelect={id => { onSelect(id); }}
-            onClose={onClose}
-            onStar={onStar}
-          />
+          {/* ── Every other group already tracked: search, filter, sort, open ── */}
+          <TrackedGroupsPanel excludeIds={pinnedIds} search={query} onSelect={id => { onSelect(id); onClose(); }} onStar={onStar} />
 
           {/* Separator */}
           <div style={{display:'flex',alignItems:'center',gap:8,margin:'14px 0 12px'}}>
@@ -133,7 +129,7 @@ export default function SearchGroupModal({ groups, allDbGroups, onSelect, onAddN
                     style={{minWidth:180}}
                     disabled={!query.trim()}
                     onClick={() => { onClose(); onAddNew({ name: query.trim(), type: 'regular_unranked', size: gimSize }); }}>
-                    👥 Create Unranked Group →
+                    <RsIcon name="group" size={14} style={{ marginRight: 5 }} />Create Unranked Group →
                   </button>
                 </>
               ) : gimType === 'custom' ? (
@@ -174,7 +170,7 @@ export default function SearchGroupModal({ groups, allDbGroups, onSelect, onAddN
                     <div>
                       <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
                         <span style={{fontSize:12,color:'var(--green-bright)',flex:1}}>
-                          ✓ Already tracked {alreadyInDb.is_claimed ? '🔒' : '🔓'}
+                          ✓ Already tracked {alreadyInDb.is_claimed ? <RsIcon name="key" size={13} style={{ marginLeft: 4 }} /> : null}
                         </span>
                         <button className="btn btn-primary btn-sm" onClick={() => { onSelect(alreadyInDb.id); onClose(); }}>
                           Switch to it →
@@ -193,7 +189,7 @@ export default function SearchGroupModal({ groups, allDbGroups, onSelect, onAddN
                         onClose();
                         onAddNew({ name: rs3Result.groupName, type: gimType, size: gimSize, members: rs3Result.members });
                       }}>
-                        ➕ Add this group
+                        + Add this group
                       </button>
                     </div>
                   )}

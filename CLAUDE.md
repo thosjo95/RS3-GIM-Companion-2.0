@@ -175,8 +175,10 @@ manifest). 2.0 has never been run against a real 1.x database.
 **Search engines (2026-11-23, both versions):** `client/index.html` has the title, description, JSON-LD, a 1200x630 link-preview
 image (`public/og-image.png`) and a short static text inside `#root` that the app replaces (read by crawlers and previewers).
 `client/src/lib/seo.js` (same file in both repos) sets title, description and canonical per view: home `/`, leaderboard
-`/leaderboard`, one group `/group/<id>/<name-slug>` (only the number counts; Back/Forward work; an unknown id falls back to a
-saved group). The canonical always names groupiron.com; other hosts (beta, self-hosted), unlisted groups and the demo get `noindex`.
+`/leaderboard`, one group `/<name-slug>` (`server/utils/groupSlugs.js`, same file in both repos: a name shared by several
+groups stays with the one with members, claimed, most recently active; the others get `-<id>`, and `<slug>-<id>` works for every
+group; `GET /api/groups/by-slug/:slug` resolves it, group and global-stats answers carry `slug`). The first form `/group/<id>/...`
+still opens the group. Back/Forward work; an unknown address falls back to a saved group. The canonical always names groupiron.com; other hosts (beta, self-hosted), unlisted groups and the demo get `noindex`.
 Leaderboard rows are real links. `public/sitemap.xml` lists home and leaderboard; `GET /api/sitemap.xml` (`routes/sitemap.js`, same
 file in both repos, cached 1 h, test `sitemap.test.js`) lists every listed group too; robots.txt names both. The first tour step
 points at the ? button (`data-tour="help"`). Owner steps: Google Search Console for groupiron.com (submit the sitemap),

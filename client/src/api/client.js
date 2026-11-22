@@ -50,6 +50,7 @@ export const api = {
   },
   getGroupRank: (id) => request(`/groups/${id}/rank`),
   getGlobalStats: () => request('/global/stats'),
+  groupBySlug: slug => request(`/groups/by-slug/${encodeURIComponent(slug)}`),   // { id } for groupiron.com/<slug>
   getGroup: (id) => request(`/groups/${id}`),
   searchGroups:  (name)          => request(`/groups/search?name=${encodeURIComponent(name)}`),
   browseGroups:  (limit = 25)    => request(`/groups/search?limit=${limit}`),

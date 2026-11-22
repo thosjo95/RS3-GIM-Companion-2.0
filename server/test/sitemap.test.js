@@ -6,6 +6,7 @@ const fs = require('fs'), os = require('os'), path = require('path');
 process.env.GIM_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'gim-sitemap-'));
 const db = require('../database');
 const { _build, _slugify } = require('../routes/sitemap');
+const { slugFor, idForSlug, _reset } = require('../utils/groupSlugs');
 
 function group(name, extra = {}) {
   const id = Number(db.prepare('INSERT INTO groups (name, gim_type, gim_size) VALUES (?, ?, ?)').run(name, 'regular', 2).lastInsertRowid);
@@ -29,6 +30,21 @@ test('lists home, the leaderboard and listed groups only', () => {
   const xml = _build();
   assert.ok(xml.includes('<loc>https://groupiron.com/</loc>'));
   assert.ok(xml.includes('<loc>https://groupiron.com/leaderboard</loc>'));
-  assert.ok(xml.includes(`<loc>https://groupiron.com/group/${pals}/public-pals</loc>`));
+  assert.ok(xml.includes(`<loc>https://groupiron.com/public-pals</loc>`));
   for (const hidden of ['hidden-heroes', 'misthalin', 'nobody-home']) assert.ok(!xml.includes(hidden), hidden);
+});
+
+test('a name used by two groups: the one with members keeps it, the other gets its number', () => {
+  const empty = group('Twin Towers', { empty: true });
+  const real = group('Twin Towers');
+  const reserved = group('Leaderboard');
+  _reset();
+  assert.equal(slugFor(real), 'twin-towers');
+  assert.equal(slugFor(empty), `twin-towers-${empty}`);
+  assert.equal(slugFor(reserved), `leaderboard-${reserved}`);
+  assert.equal(idForSlug('twin-towers'), real);
+  assert.equal(idForSlug(`twin-towers-${empty}`), empty);
+  assert.equal(idForSlug(`twin-towers-${real}`), real);       // the long form works for every group
+  assert.equal(idForSlug('no-such-group'), null);
+  assert.equal(idForSlug(`public-pals-${empty}`), null);       // a number of another group does not count
 });

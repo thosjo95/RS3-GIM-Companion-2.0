@@ -42,6 +42,9 @@ test.before(() => {
   db.prepare("INSERT INTO drops (player_id, item_name, value_gp, quantity, notes, dropped_at, source) VALUES (?, 'Very Private Visor', 5000000, 1, 'Detected by the plugin', ?, 'plugin')").run(pa, iso(1));
   db.prepare("INSERT INTO progress_log (player_id, kind, key, name, gain, total, at) VALUES (?, 'boss', 'nex', 'Nex', 7, 50, ?)").run(pa, iso(1));
   db.prepare("INSERT INTO player_live_state (player_id, updated_at) VALUES (?, ?)").run(pa, new Date().toISOString());
+  // clue scrolls on the hiscores: 50 now, 40 in a metric snapshot from 8 days ago
+  db.prepare('UPDATE players SET stats_json = ? WHERE id = ?').run(JSON.stringify({ activities: { 'Clue Scrolls Easy': 30, 'Clue Scrolls Master': 20 } }), pa);
+  db.prepare('INSERT INTO metric_snapshots (player_id, taken_at, data_json) VALUES (?, ?, ?)').run(pa, iso(8), JSON.stringify({ clues: { _total: 40 } }));
   s = _build();
 });
 
@@ -69,6 +72,13 @@ test('numbers are per group, with mode and size, so the page can filter them', (
   assert.equal(comp.type, 'competitive');
   assert.equal(comp.size, 5);
   assert.deepEqual(s.players.find(p => p.rsn === 'Comp Carl'), { type: 'competitive', size: 5, rsn: 'Comp Carl', groupId: comp.id, groupName: 'Comp Crew', week: 50_000_000, month: 50_000_000, year: 50_000_000 });
+});
+
+test('clue scrolls: the all-time count, and in 2.0 the clues gained in a period', () => {
+  const pals = s.groups.find(g => g.name === 'Public Pals');
+  assert.equal(pals.clues, 50);
+  assert.equal(s.clueGains, true);
+  assert.deepEqual(pals.clueGain, { week: 10, month: 10, year: 10 });
 });
 
 test('plugin data appears only as anonymous totals', () => {

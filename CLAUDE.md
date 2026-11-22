@@ -125,7 +125,10 @@ boss kills, clues, drops and their value, achievements); never per group or play
 The demo group is left out; unlisted groups count in totals but are never named. A Mode/Size filter at the top applies to every
 board (the server sends numbers per group, and XP per skill / boss kills per mode+size "bucket"); the plugin strip is never filtered.
 `services/globalStats.js` and `GlobalLeaderboard.jsx` are the SAME file in both repos (2.0 parts switch on by table/column checks): copy, do not fork.
-Tests: `server/test/global.test.js`.
+Tests: `server/test/global.test.js`. Clue scrolls (public hiscores): all-time count in both; 2.0 also clues gained per period from
+`metric_snapshots` (kept 120 days, so "this year" there = since then). First-visit page (SetupScreen, same file in both repos): a
+Global Leaderboard card (`GlobalTeaser.jsx`) above "Find your group" next to "Groups already tracked" (`TrackedGroupsPanel.jsx`: search,
+mode/size, sort, pages; reads the same stats through `global/globalData.js`, one shared request).
 
 ## Migration (do not start before approval)
 

@@ -35,6 +35,7 @@ export const RS_ICON = {
   search:       'Magnifying_glass.png',
   skull:        'Skull.png',
   coins:        'Coins_250.png',
+  key:          'Crystal_key.png',
   lamp:         'Lamp.png',
   slayer:       'Slayer_helmet.png',
   // goals page

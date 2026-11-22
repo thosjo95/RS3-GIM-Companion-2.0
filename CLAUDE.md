@@ -117,7 +117,7 @@ notice (`docs/privacy.html`); mod.io listing text; deploy files for a fresh serv
 
 **Later on 2026-11-21 (after the notes above):** Area Tasks are region cards with lodestone icons and are read-only in 2.0 (the server answers 410 to manual marks; old marks still show). Skill hover box: `client/src/components/overview/SkillTip.jsx`. Exact per-skill maximum levels: `SKILL_CAPS` in `client/src/lib/rs3.js` (from the RuneScape Wiki: 120 / 110 / 99, shown as /110 or /120). `GameIcon.jsx` tries several spellings of item and boss names. Phone-width fixes: the top-bar buttons scroll inside the bar. **1.x (old repo RS3-GIM-Companion, branch `main`, worktree ../GIM-1x-announce) got the same UI:** official RuneScape icons, region cards (manual marking kept), modern skill grid, activity feed, hover box, group info and real rank in the top bar, item and boss pictures; plus two read-only server routes (item ids, group rank). Data and functions unchanged. Deploy 1.x on the old server with `bash /root/deploy.sh` (git pull, vite build, pm2 restart). Not yet done: server milestones and Discord only fire at 99 and 120 (110-cap skills never get one); the retention decision; the main.lua walkthrough resumes at part 4 (quests, achievements, kill tracker); delete the loose copies of the 1.x database (`/root/gim-beta.db` and `/root/gim-1x-copy.db` on the new server, `C:\gim-beta` on the PC).
 
-**Global Leaderboard (2026-11-22, both versions):** sidebar "Everyone > Global Leaderboard", also `/#global` and a button on the
+**Global Leaderboard (2026-11-22, both versions):** sidebar "Everyone > Global Leaderboard", also `/leaderboard` (old `/#global` still works) and a button on the
 first-visit screen. `GET /api/global/stats` (`services/globalStats.js`, cached 10 min): groups tracked/active, XP gained (week/month/year from
 snapshots), group and player rankings, most trained skills, boss kills / drops / 99s and 120s from the Adventurer's Log, newest groups,
 mode and size split. Names come ONLY from public data. 2.0 adds a "Live from the plugin" strip with anonymous totals only (online now,
@@ -171,3 +171,10 @@ manifest). 2.0 has never been run against a real 1.x database.
 - Built: `groups.claimed_v2_at` + `needs_rekey`, `POST /api/groups/:id/claim-v2` (old secret once, new secret back, old one dead), Plugin-window claim UI, admin "On 2.0" column and counters. Old secrets unlock nothing until claimed. 40 server tests.
 - NOT verified: real legacy SHA-256 secrets (only simulated ones); the claim UI in a browser on a migrated copy.
 - Open owner decision: the 30-day cleanup cron fails on a foreign key (players.group_id has no cascade), so stale groups (276 in the copy) are never deleted although the privacy notice and listing say 30 days. Decide: fix the cron or change the wording.
+
+**Search engines (2026-11-23, both versions):** `client/index.html` has the title, description, JSON-LD, a 1200x630 link-preview
+image (`public/og-image.png`) and a short static text inside `#root` that the app replaces (read by crawlers and previewers).
+`client/src/lib/seo.js` (same file in both repos) sets title, description and canonical per view: home `/`, leaderboard
+`/leaderboard`; the canonical always names groupiron.com, and any other host (beta, self-hosted) gets `noindex`.
+`public/sitemap.xml` lists both addresses. Owner steps: Google Search Console for groupiron.com (submit the sitemap),
+redirect www.groupiron.com to groupiron.com in Cloudflare.

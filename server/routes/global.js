@@ -7,7 +7,9 @@ const router = express.Router();
 
 router.get('/stats', (req, res) => {
   try {
-    res.set('Cache-Control', 'public, max-age=120');
+    // browsers ask again every time (the server keeps its own copy for 10 minutes): a copy kept by the browser could
+    // be from before a deploy and miss what the new page expects
+    res.set('Cache-Control', 'no-cache');
     res.json(globalStats());
   } catch (err) {
     console.error('[global] stats failed:', err.message);

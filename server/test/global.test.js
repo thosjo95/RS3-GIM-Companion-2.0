@@ -68,7 +68,7 @@ test('numbers are per group, with mode and size, so the page can filter them', (
   const comp = s.groups.find(g => g.name === 'Comp Crew');
   assert.equal(comp.type, 'competitive');
   assert.equal(comp.size, 5);
-  assert.deepEqual(s.players.find(p => p.rsn === 'Comp Carl'), { type: 'competitive', size: 5, rsn: 'Comp Carl', groupId: comp.id, groupName: 'Comp Crew', week: 50_000_000, month: 50_000_000 });
+  assert.deepEqual(s.players.find(p => p.rsn === 'Comp Carl'), { type: 'competitive', size: 5, rsn: 'Comp Carl', groupId: comp.id, groupName: 'Comp Crew', week: 50_000_000, month: 50_000_000, year: 50_000_000 });
 });
 
 test('plugin data appears only as anonymous totals', () => {
@@ -77,5 +77,5 @@ test('plugin data appears only as anonymous totals', () => {
   assert.equal(s.plugin.week.dropValue, 5_000_000);
   assert.equal(s.plugin.week.bossKills, 7);
   assert.ok(!JSON.stringify(s).includes('Very Private Visor'));
-  assert.deepEqual(Object.keys(s.plugin).sort(), ['connectedPlayers', 'groupsUsing', 'month', 'onlineNow', 'week']);
+  assert.deepEqual(Object.keys(s.plugin).sort(), ['connectedPlayers', 'groupsUsing', 'month', 'onlineNow', 'week', 'year']);
 });

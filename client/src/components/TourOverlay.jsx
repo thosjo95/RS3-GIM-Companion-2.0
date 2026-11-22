@@ -7,9 +7,9 @@ import { createPortal } from 'react-dom';
 // the tour then waits as a small floating pill until the player continues it.
 
 const WELCOME_STEP = {
-  target: null,
+  target: '[data-tour="help"]',              // points at the ? button in the top bar
   title: 'Welcome to GIM Companion 2.0',
-  body: 'First a quick setup for your group and the game plugin (about five minutes), then a walk through everything the dashboard can do. Is your group new here, or did you already use GIM Companion?',
+  body: 'Need a guide? Press this ? button at any time for a walk through every function on the page you are on. Want it now? Pick your group below for a quick setup (group and game plugin, about five minutes) and then the tour. If not, press Skip tour: the ? button is always here.',
   choices: [
     { path: 'new',      label: 'New group',      hint: 'First time here' },
     { path: 'existing', label: 'Existing group', hint: 'We used GIM Companion before' },
@@ -178,8 +178,9 @@ export default function TourOverlay({ steps: stepsProp, onComplete }) {
 
     function measure() {
       const el = document.querySelector(step.target);
-      if (el) {
-        const r = el.getBoundingClientRect();
+      const r = el && el.getBoundingClientRect();
+      // a target outside the screen (phone width: the top-bar buttons scroll sideways) gets the centred box instead
+      if (r && r.width > 0 && r.left >= 0 && r.right <= window.innerWidth) {
         setRect({ top: r.top, left: r.left, width: r.width, height: r.height, bottom: r.bottom, right: r.right });
       } else {
         setRect(null);
@@ -218,7 +219,9 @@ export default function TourOverlay({ steps: stepsProp, onComplete }) {
   function arrowEl() {
     if (!rect) return null;
     const below = rect.bottom + 14 + TT_H < window.innerHeight;
-    const base  = { position: 'absolute', left: '50%', transform: 'translateX(-50%)', width: 0, height: 0, border: '7px solid transparent' };
+    // the arrow points at the middle of the highlighted element, also when the box is pushed against the screen edge
+    const x = Math.max(16, Math.min(TT_W - 16, rect.left + rect.width / 2 - pos.left));
+    const base  = { position: 'absolute', left: x - 7, width: 0, height: 0, border: '7px solid transparent' };
     return below
       ? <div style={{ ...base, top: -14,   borderBottomColor: '#7a5c1e', borderTop:    'none' }} />
       : <div style={{ ...base, bottom: -14, borderTopColor:   '#7a5c1e', borderBottom: 'none' }} />;

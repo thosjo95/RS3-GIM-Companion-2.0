@@ -175,6 +175,9 @@ manifest). 2.0 has never been run against a real 1.x database.
 **Search engines (2026-11-23, both versions):** `client/index.html` has the title, description, JSON-LD, a 1200x630 link-preview
 image (`public/og-image.png`) and a short static text inside `#root` that the app replaces (read by crawlers and previewers).
 `client/src/lib/seo.js` (same file in both repos) sets title, description and canonical per view: home `/`, leaderboard
-`/leaderboard`; the canonical always names groupiron.com, and any other host (beta, self-hosted) gets `noindex`.
-`public/sitemap.xml` lists both addresses. Owner steps: Google Search Console for groupiron.com (submit the sitemap),
+`/leaderboard`, one group `/group/<id>/<name-slug>` (only the number counts; Back/Forward work; an unknown id falls back to a
+saved group). The canonical always names groupiron.com; other hosts (beta, self-hosted), unlisted groups and the demo get `noindex`.
+Leaderboard rows are real links. `public/sitemap.xml` lists home and leaderboard; `GET /api/sitemap.xml` (`routes/sitemap.js`, same
+file in both repos, cached 1 h, test `sitemap.test.js`) lists every listed group too; robots.txt names both. The first tour step
+points at the ? button (`data-tour="help"`). Owner steps: Google Search Console for groupiron.com (submit the sitemap),
 redirect www.groupiron.com to groupiron.com in Cloudflare.

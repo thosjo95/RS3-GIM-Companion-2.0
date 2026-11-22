@@ -44,7 +44,7 @@ test.before(() => {
   db.prepare("INSERT INTO player_live_state (player_id, updated_at) VALUES (?, ?)").run(pa, new Date().toISOString());
   // clue scrolls on the hiscores: 50 now, 40 in a metric snapshot from 8 days ago
   db.prepare('UPDATE players SET stats_json = ? WHERE id = ?').run(JSON.stringify({ activities: { 'Clue Scrolls Easy': 30, 'Clue Scrolls Master': 20 } }), pa);
-  db.prepare('INSERT INTO metric_snapshots (player_id, taken_at, data_json) VALUES (?, ?, ?)').run(pa, iso(8), JSON.stringify({ clues: { _total: 40 } }));
+  db.prepare('INSERT INTO metric_snapshots (player_id, taken_at, data_json) VALUES (?, ?, ?)').run(pa, iso(8), JSON.stringify({ clues: { easy: 25, medium: 0, hard: 0, elite: 0, master: 15, _total: 40 } }));
   s = _build();
 });
 
@@ -79,6 +79,9 @@ test('clue scrolls: the all-time count, and in 2.0 the clues gained in a period'
   assert.equal(pals.clues, 50);
   assert.equal(s.clueGains, true);
   assert.deepEqual(pals.clueGain, { week: 10, month: 10, year: 10 });
+  // per player and tier, for the clue board: 30 easy and 20 master now, 5 of each gained
+  const row = s.clues.find(c => c.r === 'Pal One');
+  assert.deepEqual(row, { g: pals.id, r: 'Pal One', t: [30, 0, 0, 0, 20], w: [5, 0, 0, 0, 5], m: [5, 0, 0, 0, 5], y: [5, 0, 0, 0, 5] });
 });
 
 test('plugin data appears only as anonymous totals', () => {

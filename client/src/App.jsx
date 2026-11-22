@@ -301,6 +301,7 @@ export default function App() {
         <Header group={null} onSynced={() => {}} onToast={pushToast} />
         <SetupScreen
           onCreated={handleGroupCreated}
+          onClaimed={(id, secret) => saveGroupPassword(id, secret)}
           onToast={pushToast}
           prefill={pendingImport}
           onCancel={pinnedGroups.length > 0 || activeGroupId ? () => { setCreatingGroup(false); setPendingImport(null); } : null}

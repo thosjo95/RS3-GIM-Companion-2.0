@@ -34,7 +34,7 @@ and turns on automatic security updates.
 ## 4. Deploy the app
 
 ```bash
-git clone --branch main https://github.com/thosjo95/RS3-GIM-Companion-2.0.git /opt/gim2
+git clone --branch v1.0.x https://github.com/thosjo95/RS3-GIM-Companion-2.0.git /opt/gim2
 chown -R gim:gim /opt/gim2
 sudo -u gim bash /opt/gim2/deploy/deploy-gim2.sh
 ```
@@ -63,7 +63,7 @@ Copy the backups off the server now and then (for example `scp`), so a lost serv
 
 ## Updating
 
-`sudo -u gim bash /opt/gim2/deploy/deploy-gim2.sh` (pulls `main`, backs up the database, rebuilds the dashboard, reloads the process).
+`sudo -u gim bash /opt/gim2/deploy/deploy-gim2.sh` (pulls the branch `v1.0.x`; set `GIM_BRANCH` to use another, backs up the database, rebuilds the dashboard, reloads the process).
 
 ## Server switches (beta and launch)
 

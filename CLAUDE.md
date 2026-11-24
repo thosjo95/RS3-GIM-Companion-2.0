@@ -11,7 +11,7 @@ Journey, exact boss kills, drops, who is online). 2.0 is not released: **1.x sta
 plugin**, then groups are migrated (see "Migration" below). Never touch or deploy to production; the owner does deploys.
 
 Repo: https://github.com/thosjo95/RS3-GIM-Companion-2.0 (public, MIT). Local branch `gim-2.0`; push with
-`git push gim2 gim-2.0:main`. The remote `origin` is the old 1.x repo and is left alone. Commit messages end with the
+`git push gim2 gim-2.0:v1.0.x` (new work goes into the branch `v1.0.x`, the default branch; `main` is the stable line and only receives merges from `v1.0.x` when a release is ready; the beta server deploys `v1.0.x`). The remote `origin` is the old 1.x repo and is left alone. Commit messages end with the
 Co-Authored-By line the harness asks for.
 
 ## Layout and commands

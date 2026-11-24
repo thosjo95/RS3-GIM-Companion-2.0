@@ -6,15 +6,18 @@ set -euo pipefail
 APP=/opt/gim2
 DATA=/var/lib/gim2
 REPO=https://github.com/thosjo95/RS3-GIM-Companion-2.0.git
+# The branch this server runs. New work goes into v1.0.x; `main` is the stable line (merged from v1.0.x when a release is ready).
+# Override for one run with:  GIM_BRANCH=main sudo -u gim -E bash /opt/gim2/deploy/deploy-gim2.sh
+BRANCH="${GIM_BRANCH:-v1.0.x}"
 
 node -e 'if (parseInt(process.versions.node) < 22) { console.error("Node 22 or newer is required, found " + process.version); process.exit(1) }'
 
 mkdir -p "$DATA"
 if [ -d "$APP/.git" ]; then
-  git -C "$APP" fetch --quiet origin main
-  git -C "$APP" reset --hard origin/main
+  git -C "$APP" fetch --quiet origin "$BRANCH"
+  git -C "$APP" reset --hard FETCH_HEAD
 else
-  git clone --quiet --branch main "$REPO" "$APP"
+  git clone --quiet --branch "$BRANCH" "$REPO" "$APP"
 fi
 
 # back up the 2.0 database before the new code runs against it (skipped on the very first install)
